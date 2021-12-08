@@ -2,15 +2,15 @@
 	<Meta name="ExplicitAutoJoints">true</Meta>
 	<External>null</External>
 	<External>nil</External>
-	<Item class="ScreenGui" referent="RBX29e1d8f62e9b444e817c78bd0fa16eb0">
+	<Item class="ScreenGui" referent="RBX238f5c2badc349a6928ad370ec1d4352">
 		<Properties>
 			<BinaryString name="AttributesSerialize"></BinaryString>
 			<bool name="AutoLocalize">true</bool>
-			<int name="DisplayOrder">1</int>
+			<int name="DisplayOrder">2147483647</int>
 			<bool name="Enabled">false</bool>
 			<bool name="IgnoreGuiInset">true</bool>
 			<string name="Name">CursorsGui</string>
-			<bool name="ResetOnSpawn">true</bool>
+			<bool name="ResetOnSpawn">false</bool>
 			<Ref name="RootLocalizationTable">null</Ref>
 			<int64 name="SourceAssetId">-1</int64>
 			<BinaryString name="Tags"></BinaryString>
