@@ -14,10 +14,10 @@ Open your place file Roblox Studio and drag `metaboard.rbxmx` into
 `ServerScriptService`. Then drag `WhiteboardModel.rbxmx` into the `Workspace`.
 You can rename and clone this whiteboard model as you wish.
 
-### Via Rojo
+### Sync via Rojo
 
-Download the latest release of [foreman](https://github.com/Roblox/foreman),
-and add it to your path.
+Download the latest release of [foreman](https://github.com/Roblox/foreman).
+Move it somewhere within your `$PATH` (e.g. `/usr/local/bin`), and make it executable (`chmod +x /path/to/foreman`).
 
 Then in the directory of this repository,
 run
@@ -27,7 +27,7 @@ rojo plugin install
 rojo serve
 ```
 
-Then go to the Rojo plugin in Roblox Studio and click `Connect`.
+Go to the Rojo plugin in Roblox Studio and click `Connect`.
 This will add all of the backend code. Finally, copy the `WhiteboardModel.rbxmx`
 file into your Workspace (make copies and edit this board as you please).
 
