@@ -10,6 +10,7 @@ local CursorsGui
 local Canvas
 local Curves
 local Buttons
+local Drawing
 
 local GuiPositioning = require(Common.GuiPositioning)
 local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
@@ -33,6 +34,7 @@ function CanvasState.Init(boardGui, cursorsGui)
   Curves = Canvas.Curves
 
   Buttons = require(script.Parent.Buttons)
+  Drawing = require(script.Parent.Drawing)
 
   BoardGui.Enabled = false
   CursorsGui.Enabled = false
@@ -72,7 +74,10 @@ function CanvasState.OpenBoard(board)
 
   game.StarterGui:SetCore("TopbarEnabled", false)
 
+  print(Drawing.CurveIndex[board])
   Buttons.OnBoardOpen(board)
+  Drawing.OnBoardOpen(board)
+  print(Drawing.CurveIndex[board])
 
   Canvas.UIAspectRatioConstraint.AspectRatio = board.Size.X / board.Size.Y
 
@@ -132,8 +137,6 @@ function CanvasState.CloseBoard(board)
   game.StarterGui:SetCore("TopbarEnabled", true)
 
   CanvasState.EquippedBoard = nil
-
-  Buttons.OnBoardClose(board)
 
   Curves:ClearAllChildren()
 end

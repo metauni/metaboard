@@ -50,10 +50,6 @@ function Buttons.OnBoardOpen(board)
   
 end
 
-function Buttons.OnBoardClose(board)
-  Buttons.UndoButtonConnection:Disconnect()
-end
-
 function Buttons.ConnectSlider(rail, knob)
   
   local function updateAt(xScale)
@@ -242,16 +238,17 @@ function Buttons.ConnectEraserButton(eraserButton, eraserThicknessYScale)
 end
 
 function Buttons.ConnectUndoButton(undoButton)
-  Buttons.UndoButtonConnection = undoButton.Activated:Connect(function()
-
+  undoButton.Activated:Connect(function()
+    local board = CanvasState.EquippedBoard
+    
     -- nothing to undo
-    if Drawing.CurveIndex == 0 then return end
+    if Drawing.CurveIndex[board] == 0 then return end
 
-    local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
-    Drawing.CurveIndex -= 1
+    local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[board])
+    Drawing.CurveIndex[board] -= 1
 
     CanvasState.DeleteCurve(curveName)
-    UndoCurveRemoteEvent:FireServer(CanvasState.EquippedBoard, curveName)
+    UndoCurveRemoteEvent:FireServer(board, curveName)
   end)
 end
 

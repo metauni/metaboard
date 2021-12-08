@@ -6,7 +6,7 @@ local GuiPositioning = require(Common.GuiPositioning)
 local LineProperties = require(Common.LineProperties)
 local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
 local PositionFromPixel = GuiPositioning.PositionFromPixel
-local CanvasState = require(script.Parent.CanvasState)
+local CanvasState
 local DrawingTool = require(Common.DrawingTool)
 local Pen = DrawingTool.Pen
 local Eraser = DrawingTool.Eraser
@@ -38,11 +38,12 @@ Drawing = {
   
   ReservedTool = nil,
 
-  -- Every line drawn by this player will be sequentially numbered by
-  -- a curve index for undo-functionality. This keeps track of the index of the
-  -- current curve being drawn (or the previous one if the tool is 'up')
+  -- Every line drawn by this player on a given board will be sequentially
+  -- numbered by a curve index for undo-functionality. 
+  -- CurveIndex[board] will be the current curve being drawn on the board
+  -- by this player (or the last drawn curve if mouseHeld is false)
   -- (See Config.CurveNamer)
-  CurveIndex = 0,
+  CurveIndex = {},
 }
 Drawing.__index = Drawing
 
@@ -51,6 +52,8 @@ function Drawing.Init(boardGui)
 
   Canvas = BoardGui.CanvasZone.Canvas
   Curves = Canvas.Curves
+
+  CanvasState = require(script.Parent.CanvasState)
 
   Drawing.PenA = Pen.new(Config.Defaults.PenAColor, Config.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
   Drawing.PenB = Pen.new(Config.Defaults.PenBColor, Config.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
@@ -76,6 +79,12 @@ function Drawing.Init(boardGui)
 
 end
 
+function Drawing.OnBoardOpen(board)
+  if Drawing.CurveIndex[board] == nil then
+    Drawing.CurveIndex[board] = 0
+  end
+end
+
 function Drawing.WithinBounds(x,y, thicknessYScale)
   local leftBuffer = (x - Canvas.AbsolutePosition.X)/Curves.AbsoluteSize.Y
   local rightBuffer = (Canvas.AbsolutePosition.X + Canvas.AbsoluteSize.X - x)/Curves.AbsoluteSize.Y
@@ -92,7 +101,7 @@ end
 function Drawing.ToolDown(x,y)
 
   Drawing.MouseHeld = true
-  Drawing.CurveIndex += 1
+  Drawing.CurveIndex[CanvasState.EquippedBoard] += 1
 
   local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x,y))
 
@@ -117,7 +126,7 @@ function Drawing.ToolDown(x,y)
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
         Drawing.EquippedTool.Color,
-        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
+        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
       )
     )
     
@@ -128,7 +137,7 @@ function Drawing.ToolDown(x,y)
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
         Drawing.EquippedTool.Color,
-        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
+        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
       )
     )
   end
@@ -167,7 +176,7 @@ function Drawing.ToolMoved(x,y)
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,
           Drawing.EquippedTool.Color,
-          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
+          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
         )
       )
 
@@ -178,7 +187,7 @@ function Drawing.ToolMoved(x,y)
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,
           Drawing.EquippedTool.Color,
-          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
+          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
         )
       )
     end
