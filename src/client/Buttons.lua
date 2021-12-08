@@ -6,7 +6,7 @@ local CanvasState
 local Toolbar
 
 local UserInputService = game:GetService("UserInputService")
-local UndoCurveRemoteEvent = Common.UndoCurveRemoteEvent
+local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 Buttons = {}
 Buttons.__index = Buttons
