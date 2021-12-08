@@ -116,7 +116,9 @@ function CanvasState.OpenBoard(board)
     local curve = Instance.new("Folder")
     curve.Name = worldCurve.Name
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
-      local lineFrame = CanvasState.CreateLineFrame(LineProperties.ReadFromAttributes(worldLine), worldLine:GetAttribute("ZIndex"))
+      local lineProperties = LineProperties.ReadFromAttributes(worldLine)
+      local lineFrame = CanvasState.CreateLineFrame(lineProperties, worldLine:GetAttribute("ZIndex"))
+      lineProperties:StoreAttributes(lineFrame)
       lineFrame.Parent = curve
     end
     curve.Parent = Curves
@@ -259,6 +261,10 @@ function CanvasState.DestroyToolCursor(player)
 end
 
 function CanvasState.intersects(pos, radius, start, stop, thicknessYScale)
+  assert(pos~=nil)
+  assert(radius~=nil)
+  assert(start~=nil)
+  assert(stop~=nil)
   local u = pos - start
   local v = stop - start
 
