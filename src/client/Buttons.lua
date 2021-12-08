@@ -94,7 +94,7 @@ function Buttons.ConnectSlider(rail, knob)
   
   UserInputService.InputEnded:Connect(function (input, gameProcessedEvent)
   
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
       Buttons.SliderActive = false
     end
   end)
@@ -245,7 +245,7 @@ function Buttons.ConnectUndoButton(undoButton)
   Buttons.UndoButtonConnection = undoButton.Activated:Connect(function()
 
     -- nothing to undo
-    if CanvasState.CurveIndex == 0 then return end
+    if Drawing.CurveIndex == 0 then return end
 
     local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex)
     Drawing.CurveIndex -= 1
