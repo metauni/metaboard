@@ -2,7 +2,7 @@
 	<Meta name="ExplicitAutoJoints">true</Meta>
 	<External>null</External>
 	<External>nil</External>
-	<Item class="Model" referent="RBX4eaf410c14f446e6921c3894e5b5f9fe">
+	<Item class="Model" referent="9">
 		<Properties>
 			<BinaryString name="AttributesSerialize"></BinaryString>
 			<token name="LevelOfDetail">0</token>
@@ -28,11 +28,27 @@
 			</Vector3>
 			<string name="Name">PersonalBoardModel</string>
 			<bool name="NeedsPivotMigration">false</bool>
-			<Ref name="PrimaryPart">RBXf37dd7b3ec8d4462b7a384d826a0fcac</Ref>
+			<Ref name="PrimaryPart">10</Ref>
 			<int64 name="SourceAssetId">-1</int64>
 			<BinaryString name="Tags"></BinaryString>
+			<OptionalCoordinateFrame name="WorldPivotData">
+				<CFrame>
+					<X>1.38937423e-06</X>
+					<Y>4.84999847</Y>
+					<Z>0.149974763</Z>
+					<R00>1</R00>
+					<R01>0</R01>
+					<R02>0</R02>
+					<R10>0</R10>
+					<R11>1</R11>
+					<R12>0</R12>
+					<R20>0</R20>
+					<R21>0</R21>
+					<R22>1</R22>
+				</CFrame>
+			</OptionalCoordinateFrame>
 		</Properties>
-		<Item class="Part" referent="RBXf37dd7b3ec8d4462b7a384d826a0fcac">
+		<Item class="Part" referent="10">
 			<Properties>
 				<bool name="Anchored">true</bool>
 				<BinaryString name="AttributesSerialize"></BinaryString>
@@ -63,7 +79,7 @@
 				<bool name="CanTouch">true</bool>
 				<bool name="CastShadow">true</bool>
 				<int name="CollisionGroupId">0</int>
-				<Color3uint8 name="Color3uint8">4294440959</Color3uint8>
+				<Color3uint8 name="Color3uint8">4294506744</Color3uint8>
 				<PhysicalProperties name="CustomPhysicalProperties">
 					<CustomPhysics>false</CustomPhysics>
 				</PhysicalProperties>
@@ -124,7 +140,7 @@
 					<Z>0.100000001</Z>
 				</Vector3>
 			</Properties>
-			<Item class="SurfaceLight" referent="RBXc4ae9867a6a14a57889953717738233e">
+			<Item class="SurfaceLight" referent="11">
 				<Properties>
 					<float name="Angle">90</float>
 					<BinaryString name="AttributesSerialize"></BinaryString>
@@ -143,19 +159,19 @@
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
 			</Item>
-			<Item class="ObjectValue" referent="RBXdcd84faa1fd140ec924599f132b25f32">
+			<Item class="ObjectValue" referent="12">
 				<Properties>
 					<BinaryString name="AttributesSerialize"></BinaryString>
 					<string name="Name">EntireModel</string>
 					<int64 name="SourceAssetId">-1</int64>
 					<BinaryString name="Tags"></BinaryString>
-					<Ref name="Value">RBX4eaf410c14f446e6921c3894e5b5f9fe</Ref>
+					<Ref name="Value">9</Ref>
 				</Properties>
 			</Item>
-			<Item class="SurfaceGui" referent="RBXb3997da9bf774983a06cb8d8c3b9ca10">
+			<Item class="SurfaceGui" referent="13">
 				<Properties>
 					<bool name="Active">true</bool>
-					<Ref name="Adornee">RBXf37dd7b3ec8d4462b7a384d826a0fcac</Ref>
+					<Ref name="Adornee">10</Ref>
 					<bool name="AlwaysOnTop">true</bool>
 					<BinaryString name="AttributesSerialize"></BinaryString>
 					<bool name="AutoLocalize">true</bool>
@@ -179,7 +195,7 @@
 					<token name="ZIndexBehavior">1</token>
 					<float name="ZOffset">0</float>
 				</Properties>
-				<Item class="TextButton" referent="RBX148ddb1611154919938f99543cae5009">
+				<Item class="TextButton" referent="14">
 					<Properties>
 						<bool name="Active">true</bool>
 						<Vector2 name="AnchorPoint">
@@ -262,7 +278,7 @@
 				</Item>
 			</Item>
 		</Item>
-		<Item class="Part" referent="RBX7076906314c74ef2bc955afc5cbb2483">
+		<Item class="Part" referent="15">
 			<Properties>
 				<bool name="Anchored">true</bool>
 				<BinaryString name="AttributesSerialize"></BinaryString>
@@ -355,7 +371,7 @@
 				</Vector3>
 			</Properties>
 		</Item>
-		<Item class="Part" referent="RBX83beb7e6677249cab729b0cf0d91d80d">
+		<Item class="Part" referent="16">
 			<Properties>
 				<bool name="Anchored">true</bool>
 				<BinaryString name="AttributesSerialize"></BinaryString>
