@@ -141,7 +141,8 @@ function MetaBoard.EraseWorldLine(board, lineProperties)
 
   for _, lineHandle in ipairs(curve:GetChildren()) do
     if
-      lineProperties:Equals(LineProperties.ReadFromAttributes(lineHandle))
+      -- TODO figure out why lineProperties:Equals(...) doesn't work
+      LineProperties.Equals(lineProperties, LineProperties.ReadFromAttributes(lineHandle))
     then
       lineHandle:Destroy()
 
