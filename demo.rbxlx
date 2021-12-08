@@ -324,7 +324,7 @@ return Config</string>
             <bool name="CanTouch">true</bool>
             <bool name="CastShadow">true</bool>
             <int name="CollisionGroupId">0</int>
-            <Color3uint8 name="Color3uint8">16250879</Color3uint8>
+            <Color3uint8 name="Color3uint8">16316664</Color3uint8>
             <PhysicalProperties name="CustomPhysicalProperties">
               <CustomPhysics>false</CustomPhysics>
             </PhysicalProperties>
@@ -984,7 +984,31 @@ return PersonalBoardManager</string>
       <Item class="Script" referent="23">
         <Properties>
           <string name="Name">Startup</string>
-          <string name="Source">local MetaBoard = require(script.Parent.MetaBoard)
+          <string name="Source">do
+  -- Move folder/guis around if they have been packaged inside MetaBoardServer
+  
+  local metaBoardCommon = script.Parent:FindFirstChild("MetaBoardCommon")
+  if metaBoardCommon then
+    metaBoardCommon.Parent = game:GetService("ReplicatedStorage")
+  end
+
+  local metaBoardPlayer = script.Parent:FindFirstChild("MetaBoardPlayer")
+  if metaBoardPlayer then
+    metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
+  end
+
+  local boardGui = script.Parent:FindFirstChild("BoardGui")
+  if boardGui then
+    boardGui.Parent = game:GetService("StarterGui")
+  end
+
+  local cursorsGui = script.Parent:FindFirstChild("CursorsGui")
+  if cursorsGui then
+    cursorsGui.Parent = game:GetService("StarterGui")
+  end
+end
+
+local MetaBoard = require(script.Parent.MetaBoard)
 local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
 
 MetaBoard.Init()
@@ -4807,10 +4831,10 @@ PersonalBoardManager.Init()</string>
         <BinaryString name="AttributesSerialize">
         </BinaryString>
         <bool name="AutoLocalize">true</bool>
-        <int name="DisplayOrder">1</int>
+        <int name="DisplayOrder">2147483647</int>
         <bool name="Enabled">false</bool>
         <bool name="IgnoreGuiInset">true</bool>
-        <bool name="ResetOnSpawn">true</bool>
+        <bool name="ResetOnSpawn">false</bool>
         <Ref name="RootLocalizationTable">null</Ref>
         <int64 name="SourceAssetId">-1</int64>
         <BinaryString name="Tags">
@@ -5197,7 +5221,7 @@ function CanvasState.OpenBoard(board)
     board.Curves.DescendantRemoving:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") then
-        local curveName = descendant.Parent
+        local curveName = descendant.Parent.Name
 
         local curve = Curves:FindFirstChild(curveName)
 
@@ -5210,16 +5234,22 @@ function CanvasState.OpenBoard(board)
               return
             end
           end
+        else
         end
       end
     end)
 
   for _, worldCurve in ipairs(board.Curves:GetChildren()) do
-    local curve = Instance.new("Folder")
+    local curve = Instance.new("ScreenGui")
+    curve.IgnoreGuiInset = true
     curve.Name = worldCurve.Name
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
-      local lineFrame = CanvasState.CreateLineFrame(LineProperties.ReadFromAttributes(worldLine), worldLine:GetAttribute("ZIndex"))
-      lineFrame.Parent = curve
+      curve.DisplayOrder = worldLine:GetAttribute("ZIndex")
+      local lineProperties = LineProperties.ReadFromAttributes(worldLine)
+      local lineFrame = CanvasState.CreateLineFrame(lineProperties, worldLine:GetAttribute("ZIndex"))
+      local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
+      lineProperties:StoreAttributes(wrappedLine)
+      wrappedLine.Parent = curve
     end
     curve.Parent = Curves
   end
@@ -5264,10 +5294,9 @@ function CanvasState.CreateLineFrame(lineProperties, zIndex)
 
   lineFrame.Position = UDim2.new(lineProperties.Centre.X, 0, lineProperties.Centre.Y, 0)
   lineFrame.Rotation = lineProperties.RotationDegrees
-  lineFrame.AnchorPoint = Vector2.new(0.5,0.5) --this bases the position and rotation at the same point (object centre)
+  lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
   lineFrame.BackgroundColor3 = lineProperties.Color
   lineFrame.BorderSizePixel = 0
-  lineFrame.ZIndex = zIndex
   
   -- Round the corners
   local UICorner = Instance.new("UICorner")
@@ -5284,18 +5313,24 @@ function CanvasState.DrawLine(board, lineProperties)
   local curve = Curves:FindFirstChild(lineProperties.CurveName)
 
   if curve == nil then
-    curve = Instance.new("Folder")
+    curve = Instance.new("ScreenGui")
     curve.Name = lineProperties.CurveName
+    curve.IgnoreGuiInset = true
     curve.Parent = Curves
 
     zIndex += 1
+
+    curve.DisplayOrder = zIndex
   end
+
 
   local lineFrame = CanvasState.CreateLineFrame(lineProperties, zIndex)
 
-  lineFrame.Parent = curve
+  local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
 
-  lineProperties:StoreAttributes(lineFrame)
+  lineProperties:StoreAttributes(wrappedLine)
+
+  wrappedLine.Parent = curve
 end
 
 -- Draw/update the cursor for a player's tool on the Gui
@@ -5361,6 +5396,10 @@ function CanvasState.DestroyToolCursor(player)
 end
 
 function CanvasState.intersects(pos, radius, start, stop, thicknessYScale)
+  assert(pos~=nil)
+  assert(radius~=nil)
+  assert(start~=nil)
+  assert(stop~=nil)
   local u = pos - start
   local v = stop - start
 
@@ -5411,8 +5450,31 @@ function CanvasState.DeleteCurve(curveName)
   if curve then
     curve:Destroy()
   else
-    error("No curve found with name: "..curveName)
+    -- TODO erased lines will cause this
   end
+end
+
+function CanvasState.WrapInCoordinateFrame(lineFrame)
+  local canvasFrameDuplicate = Instance.new("Frame")
+  canvasFrameDuplicate.AnchorPoint = Vector2.new(0.5,0.5)
+  canvasFrameDuplicate.Position = UDim2.new(0.5, 0, 0.55, 0)
+  canvasFrameDuplicate.Size = UDim2.new(0.855, 0, 0.855, 0)
+  canvasFrameDuplicate.BackgroundTransparency = 1
+  
+  local UIAspectRatioConstraint = Canvas.UIAspectRatioConstraint:Clone()
+  UIAspectRatioConstraint.Parent = canvasFrameDuplicate
+  
+  local coordinateFrame = Instance.new("Frame")
+  coordinateFrame.AnchorPoint = Vector2.new(0,0)
+  coordinateFrame.Position = UDim2.new(0, 0, 0, 0)
+  coordinateFrame.Size = UDim2.new(1,0,1,0)
+  coordinateFrame.SizeConstraint = Enum.SizeConstraint.RelativeYY
+  coordinateFrame.Parent = canvasFrameDuplicate
+  coordinateFrame.BackgroundTransparency = 1
+
+  lineFrame.Parent = coordinateFrame
+
+  return canvasFrameDuplicate
 end
 
 return CanvasState</string>
@@ -5708,9 +5770,47 @@ end)</string>
       <string name="Name">Workspace</string>
       <bool name="FilteringEnabled">true</bool>
     </Properties>
-    <Item class="Model" referent="123">
+    <Item class="Part" referent="123">
       <Properties>
-        <string name="Name">Whiteboard</string>
+        <string name="Name">Baseplate</string>
+        <bool name="Anchored">true</bool>
+        <token name="BottomSurface">0</token>
+        <Color3uint8 name="Color3uint8">5987163</Color3uint8>
+        <bool name="Locked">true</bool>
+        <token name="Material">256</token>
+        <Vector3 name="Position">
+          <X>0</X>
+          <Y>-8</Y>
+          <Z>0</Z>
+        </Vector3>
+        <Vector3 name="size">
+          <X>2048</X>
+          <Y>16</Y>
+          <Z>2048</Z>
+        </Vector3>
+        <token name="TopSurface">0</token>
+      </Properties>
+      <Item class="Texture" referent="124">
+        <Properties>
+          <string name="Name">Texture</string>
+          <Color3 name="Color3">
+            <R>0</R>
+            <G>0</G>
+            <B>0</B>
+          </Color3>
+          <token name="Face">1</token>
+          <float name="StudsPerTileU">8</float>
+          <float name="StudsPerTileV">8</float>
+          <Content name="Texture">
+            <url>rbxassetid://6372755229</url>
+          </Content>
+          <float name="Transparency">0.800000011920929</float>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Model" referent="125">
+      <Properties>
+        <string name="Name">WhiteBoardModel</string>
         <BinaryString name="AttributesSerialize">
         </BinaryString>
         <token name="LevelOfDetail">0</token>
@@ -5740,7 +5840,7 @@ end)</string>
         <BinaryString name="Tags">
         </BinaryString>
       </Properties>
-      <Item class="Part" referent="124">
+      <Item class="Part" referent="126">
         <Properties>
           <string name="Name">Board</string>
           <bool name="Anchored">true</bool>
@@ -5833,7 +5933,7 @@ end)</string>
             <Z>0</Z>
           </Vector3>
         </Properties>
-        <Item class="SurfaceLight" referent="125">
+        <Item class="SurfaceLight" referent="127">
           <Properties>
             <string name="Name">SurfaceLight</string>
             <float name="Angle">90</float>
@@ -5854,7 +5954,7 @@ end)</string>
             </BinaryString>
           </Properties>
         </Item>
-        <Item class="ObjectValue" referent="126">
+        <Item class="ObjectValue" referent="128">
           <Properties>
             <string name="Name">EntireModel</string>
             <BinaryString name="AttributesSerialize">
@@ -5862,14 +5962,14 @@ end)</string>
             <int64 name="SourceAssetId">-1</int64>
             <BinaryString name="Tags">
             </BinaryString>
-            <Ref name="Value">123</Ref>
+            <Ref name="Value">129</Ref>
           </Properties>
         </Item>
-        <Item class="SurfaceGui" referent="127">
+        <Item class="SurfaceGui" referent="130">
           <Properties>
             <string name="Name">SurfaceGui</string>
             <bool name="Active">true</bool>
-            <Ref name="Adornee">124</Ref>
+            <Ref name="Adornee">126</Ref>
             <bool name="AlwaysOnTop">true</bool>
             <BinaryString name="AttributesSerialize">
             </BinaryString>
@@ -5894,7 +5994,7 @@ end)</string>
             <token name="ZIndexBehavior">1</token>
             <float name="ZOffset">0</float>
           </Properties>
-          <Item class="TextButton" referent="128">
+          <Item class="TextButton" referent="131">
             <Properties>
               <string name="Name">BoardButton</string>
               <bool name="Active">true</bool>
@@ -5979,7 +6079,7 @@ end)</string>
           </Item>
         </Item>
       </Item>
-      <Item class="Part" referent="129">
+      <Item class="Part" referent="132">
         <Properties>
           <string name="Name">Base</string>
           <bool name="Anchored">true</bool>
@@ -6074,7 +6174,7 @@ end)</string>
           </Vector3>
         </Properties>
       </Item>
-      <Item class="Part" referent="130">
+      <Item class="Part" referent="133">
         <Properties>
           <string name="Name">Back</string>
           <bool name="Anchored">true</bool>
@@ -6167,44 +6267,6 @@ end)</string>
             <Y>0</Y>
             <Z>0</Z>
           </Vector3>
-        </Properties>
-      </Item>
-    </Item>
-    <Item class="Part" referent="131">
-      <Properties>
-        <string name="Name">Baseplate</string>
-        <bool name="Anchored">true</bool>
-        <token name="BottomSurface">0</token>
-        <Color3uint8 name="Color3uint8">5987163</Color3uint8>
-        <bool name="Locked">true</bool>
-        <token name="Material">256</token>
-        <Vector3 name="Position">
-          <X>0</X>
-          <Y>-8</Y>
-          <Z>0</Z>
-        </Vector3>
-        <Vector3 name="size">
-          <X>2048</X>
-          <Y>16</Y>
-          <Z>2048</Z>
-        </Vector3>
-        <token name="TopSurface">0</token>
-      </Properties>
-      <Item class="Texture" referent="132">
-        <Properties>
-          <string name="Name">Texture</string>
-          <Color3 name="Color3">
-            <R>0</R>
-            <G>0</G>
-            <B>0</B>
-          </Color3>
-          <token name="Face">1</token>
-          <float name="StudsPerTileU">8</float>
-          <float name="StudsPerTileV">8</float>
-          <Content name="Texture">
-            <url>rbxassetid://6372755229</url>
-          </Content>
-          <float name="Transparency">0.800000011920929</float>
         </Properties>
       </Item>
     </Item>

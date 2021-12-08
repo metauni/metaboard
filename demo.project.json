@@ -40,10 +40,12 @@
 
     "Workspace": {
       "$className": "Workspace",
-      "$path": "src/Workspace",
       "$ignoreUnknownInstances": true,
       "$properties": {
         "FilteringEnabled": true
+      },
+      "WhiteBoardModel" : {
+        "$path": "WhiteBoardModel.rbxmx"
       },
       "Baseplate": {
         "$className": "Part",
