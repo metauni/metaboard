@@ -95,7 +95,7 @@ function CanvasState.OpenBoard(board)
     board.Curves.DescendantRemoving:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") then
-        local curveName = descendant.Parent
+        local curveName = descendant.Parent.Name
 
         local curve = Curves:FindFirstChild(curveName)
 
@@ -108,18 +108,22 @@ function CanvasState.OpenBoard(board)
               return
             end
           end
+        else
         end
       end
     end)
 
   for _, worldCurve in ipairs(board.Curves:GetChildren()) do
-    local curve = Instance.new("Folder")
+    local curve = Instance.new("ScreenGui")
+    curve.IgnoreGuiInset = true
     curve.Name = worldCurve.Name
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
+      curve.DisplayOrder = worldLine:GetAttribute("ZIndex")
       local lineProperties = LineProperties.ReadFromAttributes(worldLine)
       local lineFrame = CanvasState.CreateLineFrame(lineProperties, worldLine:GetAttribute("ZIndex"))
-      lineProperties:StoreAttributes(lineFrame)
-      lineFrame.Parent = curve
+      local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
+      lineProperties:StoreAttributes(wrappedLine)
+      wrappedLine.Parent = curve
     end
     curve.Parent = Curves
   end
@@ -164,10 +168,9 @@ function CanvasState.CreateLineFrame(lineProperties, zIndex)
 
   lineFrame.Position = UDim2.new(lineProperties.Centre.X, 0, lineProperties.Centre.Y, 0)
   lineFrame.Rotation = lineProperties.RotationDegrees
-  lineFrame.AnchorPoint = Vector2.new(0.5,0.5) --this bases the position and rotation at the same point (object centre)
+  lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
   lineFrame.BackgroundColor3 = lineProperties.Color
   lineFrame.BorderSizePixel = 0
-  lineFrame.ZIndex = zIndex
   
   -- Round the corners
   local UICorner = Instance.new("UICorner")
@@ -184,18 +187,24 @@ function CanvasState.DrawLine(board, lineProperties)
   local curve = Curves:FindFirstChild(lineProperties.CurveName)
 
   if curve == nil then
-    curve = Instance.new("Folder")
+    curve = Instance.new("ScreenGui")
     curve.Name = lineProperties.CurveName
+    curve.IgnoreGuiInset = true
     curve.Parent = Curves
 
     zIndex += 1
+
+    curve.DisplayOrder = zIndex
   end
+
 
   local lineFrame = CanvasState.CreateLineFrame(lineProperties, zIndex)
 
-  lineFrame.Parent = curve
+  local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
 
-  lineProperties:StoreAttributes(lineFrame)
+  lineProperties:StoreAttributes(wrappedLine)
+
+  wrappedLine.Parent = curve
 end
 
 -- Draw/update the cursor for a player's tool on the Gui
@@ -315,8 +324,31 @@ function CanvasState.DeleteCurve(curveName)
   if curve then
     curve:Destroy()
   else
-    error("No curve found with name: "..curveName)
+    -- TODO erased lines will cause this
   end
+end
+
+function CanvasState.WrapInCoordinateFrame(lineFrame)
+  local canvasFrameDuplicate = Instance.new("Frame")
+  canvasFrameDuplicate.AnchorPoint = Vector2.new(0.5,0.5)
+  canvasFrameDuplicate.Position = UDim2.new(0.5, 0, 0.55, 0)
+  canvasFrameDuplicate.Size = UDim2.new(0.855, 0, 0.855, 0)
+  canvasFrameDuplicate.BackgroundTransparency = 1
+  
+  local UIAspectRatioConstraint = Canvas.UIAspectRatioConstraint:Clone()
+  UIAspectRatioConstraint.Parent = canvasFrameDuplicate
+  
+  local coordinateFrame = Instance.new("Frame")
+  coordinateFrame.AnchorPoint = Vector2.new(0,0)
+  coordinateFrame.Position = UDim2.new(0, 0, 0, 0)
+  coordinateFrame.Size = UDim2.new(1,0,1,0)
+  coordinateFrame.SizeConstraint = Enum.SizeConstraint.RelativeYY
+  coordinateFrame.Parent = canvasFrameDuplicate
+  coordinateFrame.BackgroundTransparency = 1
+
+  lineFrame.Parent = coordinateFrame
+
+  return canvasFrameDuplicate
 end
 
 return CanvasState
