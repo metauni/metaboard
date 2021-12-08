@@ -74,10 +74,8 @@ function CanvasState.OpenBoard(board)
 
   game.StarterGui:SetCore("TopbarEnabled", false)
 
-  print(Drawing.CurveIndex[board])
   Buttons.OnBoardOpen(board)
   Drawing.OnBoardOpen(board)
-  print(Drawing.CurveIndex[board])
 
   Canvas.UIAspectRatioConstraint.AspectRatio = board.Size.X / board.Size.Y
 
