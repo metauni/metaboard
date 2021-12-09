@@ -1,0 +1,5 @@
+# Rules for linting
+
+[rules]
+multiple_statements = "allow"
+incorrect_standard_library_use = "allow"
