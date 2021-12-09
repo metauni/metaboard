@@ -7,7 +7,7 @@ local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
-MetaBoard = {}
+local MetaBoard = {}
 MetaBoard.__index = MetaBoard
 
 function MetaBoard.Init()

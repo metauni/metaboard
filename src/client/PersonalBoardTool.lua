@@ -4,7 +4,7 @@ local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
-PersonalBoardTool = {}
+local PersonalBoardTool = {}
 PersonalBoardTool.__index = PersonalBoardTool
 
 function PersonalBoardTool.Init(localCharacter)

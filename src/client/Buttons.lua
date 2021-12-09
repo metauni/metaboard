@@ -8,7 +8,7 @@ local Toolbar
 local UserInputService = game:GetService("UserInputService")
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
-Buttons = {}
+local Buttons = {}
 Buttons.__index = Buttons
 
 

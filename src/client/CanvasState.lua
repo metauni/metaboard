@@ -108,7 +108,6 @@ function CanvasState.OpenBoard(board)
               return
             end
           end
-        else
         end
       end
     end)
@@ -321,10 +320,9 @@ end
 
 function CanvasState.DeleteCurve(curveName)
   local curve = Curves:FindFirstChild(curveName)
+  -- TODO erased curves won't be there
   if curve then
     curve:Destroy()
-  else
-    -- TODO erased lines will cause this
   end
 end
 

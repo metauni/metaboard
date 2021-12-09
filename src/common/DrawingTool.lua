@@ -1,4 +1,4 @@
-Pen = {}
+local Pen = {}
 Pen.__index = Pen
 
 function Pen.new(color, thicknessYScale, guiButton)
@@ -27,7 +27,7 @@ function Pen:Set(color, thicknessYScale)
 	self.ThicknessYScale = thicknessYScale
 end
 
-Eraser = {}
+local Eraser = {}
 Eraser.__index = Eraser
 
 function Eraser.new(thicknessYScale, guiButton)

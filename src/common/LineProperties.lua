@@ -1,4 +1,4 @@
-LineProperties = {}
+local LineProperties = {}
 LineProperties.__index = LineProperties
 
 function LineProperties.new(start, stop, thicknessYScale, color, curveName)

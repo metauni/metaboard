@@ -9,7 +9,7 @@ local PersonalBoardModel = Common.PersonalBoardModel
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 
-PersonalBoardManager = {
+local PersonalBoardManager = {
   PersonalBoardOfPlayer = {}
 }
 PersonalBoardManager.__index = PersonalBoardManager

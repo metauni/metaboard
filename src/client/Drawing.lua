@@ -18,7 +18,7 @@ local Curves
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 
-Drawing = {
+local Drawing = {
   -- mouse state
   ---------------
   MouseHeld = false,

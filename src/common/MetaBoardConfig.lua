@@ -1,4 +1,4 @@
-Config = {
+local Config = {
   BoardTag = "metaboard",
 
   MinThicknessYScale = 1.5/1000,
