@@ -8,7 +8,7 @@ on:
 
 # Jobs to perform on trigger.
 jobs:
-  lint:
+  Lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
