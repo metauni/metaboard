@@ -3,9 +3,9 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
 local LineProperties = require(Common.LineProperties)
 
-local DrawLineRemoteEvent = Common.DrawLineRemoteEvent
-local EraseLineRemoteEvent = Common.EraseLineRemoteEvent
-local UndoCurveRemoteEvent = Common.UndoCurveRemoteEvent
+local DrawLineRemoteEvent = Common.Remotes.DrawLine
+local EraseLineRemoteEvent = Common.Remotes.EraseLine
+local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 MetaBoard = {}
 MetaBoard.__index = MetaBoard

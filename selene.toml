@@ -1,4 +1,4 @@
-# Rules for linting
+std = "roblox"
 
 [rules]
 unused_variable = "allow"

@@ -6,7 +6,7 @@ local Config = require(Common.MetaBoardConfig)
 local PersonalBoardModel = Common.PersonalBoardModel
 
 
-local PersonalBoardRemoteEvent = Common.PersonalBoardRemoteEvent
+local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 
 PersonalBoardManager = {

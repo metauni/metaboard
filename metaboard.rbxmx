@@ -11,9 +11,9 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
 local LineProperties = require(Common.LineProperties)
 
-local DrawLineRemoteEvent = Common.DrawLineRemoteEvent
-local EraseLineRemoteEvent = Common.EraseLineRemoteEvent
-local UndoCurveRemoteEvent = Common.UndoCurveRemoteEvent
+local DrawLineRemoteEvent = Common.Remotes.DrawLine
+local EraseLineRemoteEvent = Common.Remotes.EraseLine
+local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 MetaBoard = {}
 MetaBoard.__index = MetaBoard
@@ -184,7 +184,7 @@ local Config = require(Common.MetaBoardConfig)
 local PersonalBoardModel = Common.PersonalBoardModel
 
 
-local PersonalBoardRemoteEvent = Common.PersonalBoardRemoteEvent
+local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 
 PersonalBoardManager = {
@@ -281,7 +281,7 @@ local CanvasState
 local Toolbar
 
 local UserInputService = game:GetService("UserInputService")
-local UndoCurveRemoteEvent = Common.UndoCurveRemoteEvent
+local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 Buttons = {}
 Buttons.__index = Buttons
@@ -915,8 +915,8 @@ local BoardGui
 local Canvas
 local Curves
 
-local DrawLineRemoteEvent = Common.DrawLineRemoteEvent
-local EraseLineRemoteEvent = Common.EraseLineRemoteEvent
+local DrawLineRemoteEvent = Common.Remotes.DrawLine
+local EraseLineRemoteEvent = Common.Remotes.EraseLine
 
 Drawing = {
   -- mouse state
@@ -1109,7 +1109,7 @@ return Drawing</string>
           <string name="Name">PersonalBoardTool</string>
           <string name="Source">local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
-local PersonalBoardRemoteEvent = Common.PersonalBoardRemoteEvent
+local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
@@ -1182,16 +1182,7 @@ end)</string>
       <Properties>
         <string name="Name">MetaBoardCommon</string>
       </Properties>
-      <Item class="RemoteEvent" referent="11">
-        <Properties>
-          <string name="Name">DrawLineRemoteEvent</string>
-          <BinaryString name="AttributesSerialize">
-          </BinaryString>
-          <int64 name="SourceAssetId">-1</int64>
-          <BinaryString name="Tags"></BinaryString>
-        </Properties>
-      </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="11">
         <Properties>
           <string name="Name">DrawingTool</string>
           <string name="Source"><![CDATA[Pen = {}
@@ -1246,16 +1237,7 @@ return {Pen=Pen, Eraser=Eraser}
 ]]></string>
         </Properties>
       </Item>
-      <Item class="RemoteEvent" referent="13">
-        <Properties>
-          <string name="Name">EraseLineRemoteEvent</string>
-          <BinaryString name="AttributesSerialize">
-          </BinaryString>
-          <int64 name="SourceAssetId">-1</int64>
-          <BinaryString name="Tags"></BinaryString>
-        </Properties>
-      </Item>
-      <Item class="ModuleScript" referent="14">
+      <Item class="ModuleScript" referent="12">
         <Properties>
           <string name="Name">GuiPositioning</string>
           <string name="Source">-- The AbsolutePosition of any object is not the same as it's actual pixel
@@ -1324,7 +1306,7 @@ return {
 }</string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="15">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">LineProperties</string>
           <string name="Source">LineProperties = {}
@@ -1371,7 +1353,7 @@ end
 return LineProperties</string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="16">
+      <Item class="ModuleScript" referent="14">
         <Properties>
           <string name="Name">MetaBoardConfig</string>
           <string name="Source">Config = {
@@ -1418,7 +1400,7 @@ end
 return Config</string>
         </Properties>
       </Item>
-      <Item class="Model" referent="17">
+      <Item class="Model" referent="15">
         <Properties>
           <string name="Name">PersonalBoardModel</string>
           <BinaryString name="AttributesSerialize">
@@ -1445,11 +1427,11 @@ return Config</string>
             <Z>0</Z>
           </Vector3>
           <bool name="NeedsPivotMigration">false</bool>
-          <Ref name="PrimaryPart">18</Ref>
+          <Ref name="PrimaryPart">16</Ref>
           <int64 name="SourceAssetId">-1</int64>
           <BinaryString name="Tags"></BinaryString>
         </Properties>
-        <Item class="Part" referent="18">
+        <Item class="Part" referent="16">
           <Properties>
             <string name="Name">Board</string>
             <bool name="Anchored">true</bool>
@@ -1542,7 +1524,7 @@ return Config</string>
               <Z>0</Z>
             </Vector3>
           </Properties>
-          <Item class="SurfaceLight" referent="19">
+          <Item class="SurfaceLight" referent="17">
             <Properties>
               <string name="Name">SurfaceLight</string>
               <float name="Angle">90</float>
@@ -1562,21 +1544,21 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="ObjectValue" referent="20">
+          <Item class="ObjectValue" referent="18">
             <Properties>
               <string name="Name">EntireModel</string>
               <BinaryString name="AttributesSerialize">
               </BinaryString>
               <int64 name="SourceAssetId">-1</int64>
               <BinaryString name="Tags"></BinaryString>
-              <Ref name="Value">17</Ref>
+              <Ref name="Value">15</Ref>
             </Properties>
           </Item>
-          <Item class="SurfaceGui" referent="21">
+          <Item class="SurfaceGui" referent="19">
             <Properties>
               <string name="Name">SurfaceGui</string>
               <bool name="Active">true</bool>
-              <Ref name="Adornee">18</Ref>
+              <Ref name="Adornee">16</Ref>
               <bool name="AlwaysOnTop">true</bool>
               <BinaryString name="AttributesSerialize">
               </BinaryString>
@@ -1600,7 +1582,7 @@ return Config</string>
               <token name="ZIndexBehavior">1</token>
               <float name="ZOffset">0</float>
             </Properties>
-            <Item class="TextButton" referent="22">
+            <Item class="TextButton" referent="20">
               <Properties>
                 <string name="Name">BoardButton</string>
                 <bool name="Active">true</bool>
@@ -1684,7 +1666,7 @@ return Config</string>
             </Item>
           </Item>
         </Item>
-        <Item class="Part" referent="23">
+        <Item class="Part" referent="21">
           <Properties>
             <string name="Name">Base</string>
             <bool name="Anchored">true</bool>
@@ -1778,7 +1760,7 @@ return Config</string>
             </Vector3>
           </Properties>
         </Item>
-        <Item class="Part" referent="24">
+        <Item class="Part" referent="22">
           <Properties>
             <string name="Name">Back</string>
             <bool name="Anchored">true</bool>
@@ -1873,26 +1855,33 @@ return Config</string>
           </Properties>
         </Item>
       </Item>
-      <Item class="RemoteEvent" referent="25">
+      <Item class="Folder" referent="23">
         <Properties>
-          <string name="Name">PersonalBoardRemoteEvent</string>
-          <BinaryString name="AttributesSerialize">
-          </BinaryString>
-          <int64 name="SourceAssetId">-1</int64>
-          <BinaryString name="Tags"></BinaryString>
+          <string name="Name">Remotes</string>
         </Properties>
-      </Item>
-      <Item class="RemoteEvent" referent="26">
-        <Properties>
-          <string name="Name">UndoCurveRemoteEvent</string>
-          <BinaryString name="AttributesSerialize">
-          </BinaryString>
-          <int64 name="SourceAssetId">-1</int64>
-          <BinaryString name="Tags"></BinaryString>
-        </Properties>
+        <Item class="RemoteEvent" referent="24">
+          <Properties>
+            <string name="Name">DrawLine</string>
+          </Properties>
+        </Item>
+        <Item class="RemoteEvent" referent="25">
+          <Properties>
+            <string name="Name">EraseLine</string>
+          </Properties>
+        </Item>
+        <Item class="RemoteEvent" referent="26">
+          <Properties>
+            <string name="Name">PersonalBoard</string>
+          </Properties>
+        </Item>
+        <Item class="RemoteEvent" referent="27">
+          <Properties>
+            <string name="Name">UndoCurve</string>
+          </Properties>
+        </Item>
       </Item>
     </Item>
-    <Item class="ScreenGui" referent="27">
+    <Item class="ScreenGui" referent="28">
       <Properties>
         <string name="Name">BoardGui</string>
         <BinaryString name="AttributesSerialize">
@@ -1907,7 +1896,7 @@ return Config</string>
         <BinaryString name="Tags"></BinaryString>
         <token name="ZIndexBehavior">1</token>
       </Properties>
-      <Item class="Frame" referent="28">
+      <Item class="Frame" referent="29">
         <Properties>
           <string name="Name">CanvasZone</string>
           <bool name="Active">false</bool>
@@ -1962,7 +1951,7 @@ return Config</string>
           <bool name="Visible">true</bool>
           <int name="ZIndex">1</int>
         </Properties>
-        <Item class="TextButton" referent="29">
+        <Item class="TextButton" referent="30">
           <Properties>
             <string name="Name">Canvas</string>
             <bool name="Active">true</bool>
@@ -2043,7 +2032,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIAspectRatioConstraint" referent="30">
+          <Item class="UIAspectRatioConstraint" referent="31">
             <Properties>
               <string name="Name">UIAspectRatioConstraint</string>
               <float name="AspectRatio">1.3333334</float>
@@ -2055,7 +2044,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UICorner" referent="31">
+          <Item class="UICorner" referent="32">
             <Properties>
               <string name="Name">UICorner</string>
               <BinaryString name="AttributesSerialize">
@@ -2068,7 +2057,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="32">
+          <Item class="UIStroke" referent="33">
             <Properties>
               <string name="Name">UIStroke</string>
               <token name="ApplyStrokeMode">0</token>
@@ -2087,7 +2076,7 @@ return Config</string>
               <float name="Transparency">0</float>
             </Properties>
           </Item>
-          <Item class="Frame" referent="33">
+          <Item class="Frame" referent="34">
             <Properties>
               <string name="Name">Curves</string>
               <bool name="Active">false</bool>
@@ -2145,7 +2134,7 @@ return Config</string>
           </Item>
         </Item>
       </Item>
-      <Item class="Frame" referent="34">
+      <Item class="Frame" referent="35">
         <Properties>
           <string name="Name">Toolbar</string>
           <bool name="Active">false</bool>
@@ -2200,7 +2189,7 @@ return Config</string>
           <bool name="Visible">true</bool>
           <int name="ZIndex">-100</int>
         </Properties>
-        <Item class="ImageButton" referent="35">
+        <Item class="ImageButton" referent="36">
           <Properties>
             <string name="Name">CloseButton</string>
             <bool name="Active">true</bool>
@@ -2303,7 +2292,7 @@ return Config</string>
             <int name="ZIndex">1</int>
           </Properties>
         </Item>
-        <Item class="UICorner" referent="36">
+        <Item class="UICorner" referent="37">
           <Properties>
             <string name="Name">UICorner</string>
             <BinaryString name="AttributesSerialize">
@@ -2316,7 +2305,7 @@ return Config</string>
             <BinaryString name="Tags"></BinaryString>
           </Properties>
         </Item>
-        <Item class="Frame" referent="37">
+        <Item class="Frame" referent="38">
           <Properties>
             <string name="Name">Colors</string>
             <bool name="Active">false</bool>
@@ -2371,7 +2360,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIListLayout" referent="38">
+          <Item class="UIListLayout" referent="39">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -2388,7 +2377,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="39">
+          <Item class="TextButton" referent="40">
             <Properties>
               <string name="Name">White</string>
               <bool name="Active">true</bool>
@@ -2469,7 +2458,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="40">
+            <Item class="UICorner" referent="41">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2482,7 +2471,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="41">
+            <Item class="Frame" referent="42">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2537,7 +2526,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="42">
+              <Item class="UICorner" referent="43">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2552,7 +2541,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="43">
+          <Item class="TextButton" referent="44">
             <Properties>
               <string name="Name">Yellow</string>
               <bool name="Active">true</bool>
@@ -2633,7 +2622,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="44">
+            <Item class="UICorner" referent="45">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2646,7 +2635,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="45">
+            <Item class="Frame" referent="46">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2701,7 +2690,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="46">
+              <Item class="UICorner" referent="47">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2716,7 +2705,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="47">
+          <Item class="TextButton" referent="48">
             <Properties>
               <string name="Name">Blue</string>
               <bool name="Active">true</bool>
@@ -2797,7 +2786,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="48">
+            <Item class="UICorner" referent="49">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2810,7 +2799,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="49">
+            <Item class="Frame" referent="50">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2865,7 +2854,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="50">
+              <Item class="UICorner" referent="51">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2880,7 +2869,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="51">
+          <Item class="TextButton" referent="52">
             <Properties>
               <string name="Name">Black</string>
               <bool name="Active">true</bool>
@@ -2961,7 +2950,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="52">
+            <Item class="UICorner" referent="53">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2974,7 +2963,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="53">
+            <Item class="Frame" referent="54">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3029,7 +3018,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="54">
+              <Item class="UICorner" referent="55">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3044,7 +3033,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="55">
+          <Item class="TextButton" referent="56">
             <Properties>
               <string name="Name">Red</string>
               <bool name="Active">true</bool>
@@ -3125,7 +3114,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="56">
+            <Item class="UICorner" referent="57">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3138,7 +3127,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="57">
+            <Item class="Frame" referent="58">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3193,7 +3182,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="58">
+              <Item class="UICorner" referent="59">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3208,7 +3197,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="59">
+          <Item class="TextButton" referent="60">
             <Properties>
               <string name="Name">Orange</string>
               <bool name="Active">true</bool>
@@ -3289,7 +3278,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="60">
+            <Item class="UICorner" referent="61">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3302,7 +3291,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="61">
+            <Item class="Frame" referent="62">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3357,7 +3346,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="62">
+              <Item class="UICorner" referent="63">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3372,7 +3361,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="63">
+          <Item class="TextButton" referent="64">
             <Properties>
               <string name="Name">Green</string>
               <bool name="Active">true</bool>
@@ -3453,7 +3442,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="64">
+            <Item class="UICorner" referent="65">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3466,7 +3455,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="65">
+            <Item class="Frame" referent="66">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3521,7 +3510,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="66">
+              <Item class="UICorner" referent="67">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3536,7 +3525,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="67">
+          <Item class="TextButton" referent="68">
             <Properties>
               <string name="Name">Brown</string>
               <bool name="Active">true</bool>
@@ -3617,7 +3606,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="68">
+            <Item class="UICorner" referent="69">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3630,7 +3619,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="69">
+            <Item class="Frame" referent="70">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3685,7 +3674,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="70">
+              <Item class="UICorner" referent="71">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3700,7 +3689,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="71">
+          <Item class="TextButton" referent="72">
             <Properties>
               <string name="Name">Pink</string>
               <bool name="Active">true</bool>
@@ -3781,7 +3770,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="72">
+            <Item class="UICorner" referent="73">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3794,7 +3783,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="73">
+            <Item class="Frame" referent="74">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3849,7 +3838,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="74">
+              <Item class="UICorner" referent="75">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3864,7 +3853,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="75">
+          <Item class="TextButton" referent="76">
             <Properties>
               <string name="Name">Purple</string>
               <bool name="Active">true</bool>
@@ -3945,7 +3934,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="76">
+            <Item class="UICorner" referent="77">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3958,7 +3947,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="77">
+            <Item class="Frame" referent="78">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -4013,7 +4002,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="78">
+              <Item class="UICorner" referent="79">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4029,7 +4018,7 @@ return Config</string>
             </Item>
           </Item>
         </Item>
-        <Item class="ImageButton" referent="79">
+        <Item class="ImageButton" referent="80">
           <Properties>
             <string name="Name">UndoButton</string>
             <bool name="Active">true</bool>
@@ -4131,7 +4120,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UICorner" referent="80">
+          <Item class="UICorner" referent="81">
             <Properties>
               <string name="Name">UICorner</string>
               <BinaryString name="AttributesSerialize">
@@ -4144,7 +4133,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="81">
+          <Item class="UIStroke" referent="82">
             <Properties>
               <string name="Name">UIStroke</string>
               <token name="ApplyStrokeMode">0</token>
@@ -4164,7 +4153,7 @@ return Config</string>
             </Properties>
           </Item>
         </Item>
-        <Item class="Frame" referent="82">
+        <Item class="Frame" referent="83">
           <Properties>
             <string name="Name">Erasers</string>
             <bool name="Active">false</bool>
@@ -4219,7 +4208,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIListLayout" referent="83">
+          <Item class="UIListLayout" referent="84">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -4236,7 +4225,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="84">
+          <Item class="TextButton" referent="85">
             <Properties>
               <string name="Name">LargeButton</string>
               <bool name="Active">true</bool>
@@ -4317,7 +4306,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="85">
+            <Item class="UICorner" referent="86">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4330,7 +4319,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="86">
+            <Item class="ImageLabel" referent="87">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4420,7 +4409,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="87">
+              <Item class="UICorner" referent="88">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4435,7 +4424,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="88">
+          <Item class="TextButton" referent="89">
             <Properties>
               <string name="Name">MediumButton</string>
               <bool name="Active">true</bool>
@@ -4516,7 +4505,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="89">
+            <Item class="UICorner" referent="90">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4529,7 +4518,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="90">
+            <Item class="ImageLabel" referent="91">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4619,7 +4608,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="91">
+              <Item class="UICorner" referent="92">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4634,7 +4623,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="92">
+          <Item class="TextButton" referent="93">
             <Properties>
               <string name="Name">SmallButton</string>
               <bool name="Active">true</bool>
@@ -4715,7 +4704,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="93">
+            <Item class="UICorner" referent="94">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4728,7 +4717,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="94">
+            <Item class="ImageLabel" referent="95">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4818,7 +4807,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="95">
+              <Item class="UICorner" referent="96">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4833,7 +4822,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="ImageLabel" referent="96">
+          <Item class="ImageLabel" referent="97">
             <Properties>
               <string name="Name">EraserIcon</string>
               <bool name="Active">false</bool>
@@ -4925,7 +4914,7 @@ return Config</string>
             </Properties>
           </Item>
         </Item>
-        <Item class="UIListLayout" referent="97">
+        <Item class="UIListLayout" referent="98">
           <Properties>
             <string name="Name">UIListLayout</string>
             <BinaryString name="AttributesSerialize">
@@ -4942,7 +4931,7 @@ return Config</string>
             <token name="VerticalAlignment">0</token>
           </Properties>
         </Item>
-        <Item class="Frame" referent="98">
+        <Item class="Frame" referent="99">
           <Properties>
             <string name="Name">Pens</string>
             <bool name="Active">false</bool>
@@ -4997,7 +4986,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="Frame" referent="99">
+          <Item class="Frame" referent="100">
             <Properties>
               <string name="Name">Slider</string>
               <bool name="Active">false</bool>
@@ -5052,7 +5041,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="TextButton" referent="100">
+            <Item class="TextButton" referent="101">
               <Properties>
                 <string name="Name">Rail</string>
                 <bool name="Active">true</bool>
@@ -5133,7 +5122,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="101">
+              <Item class="UICorner" referent="102">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5146,7 +5135,7 @@ return Config</string>
                   <BinaryString name="Tags"></BinaryString>
                 </Properties>
               </Item>
-              <Item class="TextButton" referent="102">
+              <Item class="TextButton" referent="103">
                 <Properties>
                   <string name="Name">Knob</string>
                   <bool name="Active">true</bool>
@@ -5227,7 +5216,7 @@ return Config</string>
                   <bool name="Visible">true</bool>
                   <int name="ZIndex">1</int>
                 </Properties>
-                <Item class="UICorner" referent="103">
+                <Item class="UICorner" referent="104">
                   <Properties>
                     <string name="Name">UICorner</string>
                     <BinaryString name="AttributesSerialize">
@@ -5243,7 +5232,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="UIListLayout" referent="104">
+          <Item class="UIListLayout" referent="105">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -5260,7 +5249,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="105">
+          <Item class="TextButton" referent="106">
             <Properties>
               <string name="Name">PenAButton</string>
               <bool name="Active">true</bool>
@@ -5341,7 +5330,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="106">
+            <Item class="UICorner" referent="107">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -5354,7 +5343,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="107">
+            <Item class="Frame" referent="108">
               <Properties>
                 <string name="Name">PenStroke</string>
                 <bool name="Active">false</bool>
@@ -5409,7 +5398,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="108">
+              <Item class="UICorner" referent="109">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5424,7 +5413,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="109">
+          <Item class="TextButton" referent="110">
             <Properties>
               <string name="Name">PenBButton</string>
               <bool name="Active">true</bool>
@@ -5505,7 +5494,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="110">
+            <Item class="UICorner" referent="111">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -5518,7 +5507,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="111">
+            <Item class="Frame" referent="112">
               <Properties>
                 <string name="Name">PenStroke</string>
                 <bool name="Active">false</bool>
@@ -5573,7 +5562,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="112">
+              <Item class="UICorner" referent="113">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5589,7 +5578,7 @@ return Config</string>
             </Item>
           </Item>
         </Item>
-        <Item class="UIAspectRatioConstraint" referent="113">
+        <Item class="UIAspectRatioConstraint" referent="114">
           <Properties>
             <string name="Name">UIAspectRatioConstraint</string>
             <float name="AspectRatio">14.7</float>
@@ -5603,7 +5592,7 @@ return Config</string>
         </Item>
       </Item>
     </Item>
-    <Item class="ScreenGui" referent="114">
+    <Item class="ScreenGui" referent="115">
       <Properties>
         <string name="Name">CursorsGui</string>
         <BinaryString name="AttributesSerialize">

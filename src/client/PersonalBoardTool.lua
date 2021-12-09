@@ -1,6 +1,6 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
-local PersonalBoardRemoteEvent = Common.PersonalBoardRemoteEvent
+local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
