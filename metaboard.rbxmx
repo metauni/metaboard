@@ -8,14 +8,14 @@
         <string name="Name">MetaBoard</string>
         <string name="Source">local CollectionService = game:GetService("CollectionService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
-local LineProperties = require(Common.LineProperties)
+local Config = require(Common.Config)
+local LineInfo = require(Common.LineInfo)
 
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
-MetaBoard = {}
+local MetaBoard = {}
 MetaBoard.__index = MetaBoard
 
 function MetaBoard.Init()
@@ -26,12 +26,12 @@ function MetaBoard.Init()
 
   CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
 
-  DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineProperties)
-    MetaBoard.DrawWorldLine(player, board, lineProperties)
+  DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
+    MetaBoard.DrawWorldLine(player, board, lineInfo)
   end)
   
-  EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineProperties)
-    MetaBoard.EraseWorldLine(board, lineProperties)
+  EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
+    MetaBoard.EraseWorldLine(board, lineInfo)
   end)
 
   UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
@@ -41,75 +41,156 @@ function MetaBoard.Init()
   print("MetaBoard Server initialized")
 end
 
-function MetaBoard.InitBoard(board)
+function MetaBoard.GetSurfaceCFrame(part, face)
+  if face == "Front" then
+    return part.CFrame * CFrame.Angles(0,0,0) * CFrame.new(0,0,-part.Size.Z/2)
+  elseif face == "Left" then
+    return part.CFrame * CFrame.Angles(0,math.pi/2,0) * CFrame.new(0,0,-part.Size.X/2)
+  elseif face == "Back" then
+    return part.CFrame * CFrame.Angles(0,math.pi,0) * CFrame.new(0,0,-part.Size.Z/2)
+  elseif face == "Right" then
+    return part.CFrame * CFrame.Angles(0,-math.pi/2,0) * CFrame.new(0,0,-part.Size.X/2)
+  elseif face == "Top" then
+    return part.CFrame * CFrame.Angles(math.pi/2,0,0) * CFrame.new(0,0,-part.Size.Y/2)
+  elseif face == "Bottom" then
+    return part.CFrame * CFrame.Angles(-math.pi/2,0,0) * CFrame.new(0,0,-part.Size.Y/2)
+  end
+end
 
-  if board:FindFirstChild("Curves") == nil then
-      local curvesFolder = Instance.new("Folder")
-      curvesFolder.Name = "Curves"
-      curvesFolder.Parent = board
+function MetaBoard.GetSurfaceDimensions(part, face)
+  if face == "Front" then
+    return Vector2.new(part.Size.X,part.Size.Y)
+  elseif face == "Left" then
+    return Vector2.new(part.Size.Z,part.Size.Y)
+  elseif face == "Back" then
+    return Vector2.new(part.Size.X,part.Size.Y)
+  elseif face == "Right" then
+    return Vector2.new(part.Size.Z,part.Size.Y)
+  elseif face == "Top" then
+    return Vector2.new(part.Size.X,part.Size.Z) 
+  elseif face == "Bottom" then
+    return Vector2.new(part.Size.X,part.Size.Z) 
+  end
+end
+
+function MetaBoard.InitBoard(board)
+  
+  local face = board:FindFirstChild("Face")
+  if face == nil then
+    face = Instance.new("StringValue")
+    face.Name = "Face"
+    face.Value = "Front"
+    
+    face.Parent = board
   end
   
-  if board:FindFirstChild("CurrentZIndex") == nil then
-    local CurrentZIndex = Instance.new("NumberValue")
-    CurrentZIndex.Value = 0
-    CurrentZIndex.Name = "CurrentZIndex"
-    CurrentZIndex.Parent = board
+  local canvasColor = board:FindFirstChild("CanvasColor")
+  if canvasColor == nil then
+    canvasColor = Instance.new("Color3Value")
+    canvasColor.Name = "CanvasColor"
+    canvasColor.Value = board.Color or Color3.new(1,1,1)
+
+    canvasColor.Parent = board
+  end
+  
+  local canvas = board:FindFirstChild("Canvas")
+
+  if canvas == nil then
+    canvas = Instance.new("Part")
+    canvas.Name = "Canvas"
+    canvas.Anchored = true
+    canvas.CanCollide = false
+    canvas.CanTouch = false
+    local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
+    print(dimensions)
+    canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.CanvasThickness)
+    canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
+    canvas.Transparency = 1
+
+    local curves = Instance.new("Folder")
+    curves.Name = "Curves"
+    curves.Parent = canvas
+
+    local surfaceGui = Instance.new("SurfaceGui")
+    surfaceGui.Parent = canvas
+    surfaceGui.Name = "SurfaceGui"
+    surfaceGui.Adornee = canvas
+
+    local button = Instance.new("TextButton")
+    button.Name = "Button"
+    button.Text = ""
+    button.BackgroundTransparency = 1
+    button.Size = UDim2.new(1,0,1,0)
+
+    button.Parent = surfaceGui
+
+    canvas.Parent = board
+  end
+  
+  local currentZIndex = board:FindFirstChild("CurrentZIndex")
+
+  if currentZIndex == nil then
+    currentZIndex = Instance.new("NumberValue")
+    currentZIndex.Value = 0
+    currentZIndex.Name = "CurrentZIndex"
+    currentZIndex.Parent = board
   end
 end
 
-local function lerp(a, b, c)
-	return a + (b - a) * c
-end
+function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 
-function MetaBoard.CreateWorldLine(worldLineType, board, lineProperties, zIndex)
+  local function lerp(a, b, c)
+    return a + (b - a) * c
+  end
 
   -- TODO dealing with aspect ratio is gross, figure out square coordinates, similar to GUI
 
   if worldLineType == "HandleAdornments" then
-    local aspectRatio = board.Size.X / board.Size.Y
-    local yStuds = board.Size.Y
+    local aspectRatio = canvas.Size.X / canvas.Size.Y
+    local yStuds = canvas.Size.Y
 
     local boxHandle = Instance.new("BoxHandleAdornment")
     boxHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Centre.X/aspectRatio),
-        lerp(1,-1,lineProperties.Centre.Y),
+        lerp(1,-1,lineInfo.Centre.X/aspectRatio),
+        lerp(1,-1,lineInfo.Centre.Y),
         -- TODO figure out why this is negative
-        -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+        1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
     boxHandle.Size =
       Vector3.new(
-        lineProperties.Length * yStuds,
-        lineProperties.ThicknessYScale * yStuds,
+        lineInfo.Length * yStuds,
+        lineInfo.ThicknessYScale * yStuds,
         Config.WorldLine.ZThicknessStuds)
-    boxHandle.CFrame = CFrame.Angles(0,0,lineProperties.RotationRadians)
-    boxHandle.Color3 = lineProperties.Color
+    boxHandle.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
+    boxHandle.Color3 = lineInfo.Color
     
 
     local startHandle = Instance.new("CylinderHandleAdornment")
     startHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Start.X/aspectRatio),
-        lerp(1,-1,lineProperties.Start.Y),
-        -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-    startHandle.Radius = lineProperties.ThicknessYScale / 2 * yStuds
+        lerp(1,-1,lineInfo.Start.X/aspectRatio),
+        lerp(1,-1,lineInfo.Start.Y),
+        1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+    startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
     startHandle.Height = Config.WorldLine.ZThicknessStuds
-    startHandle.Color3 = lineProperties.Color
+    startHandle.Color3 = lineInfo.Color
 
     local stopHandle = Instance.new("CylinderHandleAdornment")
     stopHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Stop.X/aspectRatio),
-        lerp(1,-1,lineProperties.Stop.Y),
-        -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-    stopHandle.Radius = lineProperties.ThicknessYScale / 2 * yStuds
+        lerp(1,-1,lineInfo.Stop.X/aspectRatio),
+        lerp(1,-1,lineInfo.Stop.Y),
+        1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+    stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
     stopHandle.Height = Config.WorldLine.ZThicknessStuds
-    stopHandle.Color3 = lineProperties.Color
+    stopHandle.Color3 = lineInfo.Color
 
     startHandle.Parent = boxHandle
     stopHandle.Parent = boxHandle
-    -- TODO bad, this function should just make the line, not addornee/parent it
-    startHandle.Adornee = board
-    stopHandle.Adornee = board
+
+    startHandle.Adornee = canvas
+    stopHandle.Adornee = canvas
+    boxHandle.Adornee = canvas
 
     return boxHandle
   end
@@ -117,40 +198,42 @@ function MetaBoard.CreateWorldLine(worldLineType, board, lineProperties, zIndex)
   error(worldLineType.." world line type not implemented")
 end
 
-function MetaBoard.DrawWorldLine(player, board, lineProperties)
+function MetaBoard.DrawWorldLine(player, board, lineInfo)
   local zIndex
-  local curve = board.Curves:FindFirstChild(lineProperties.CurveName)
+  local curve = board.Canvas.Curves:FindFirstChild(lineInfo.CurveName)
   if curve == nil then
     curve = Instance.new("Folder")
-    curve.Name = lineProperties.CurveName
+    curve.Name = lineInfo.CurveName
     curve:SetAttribute("AuthorUserId", player.UserId)
-    curve.Parent = board.Curves
+    curve.Parent = board.Canvas.Curves
 
     board.CurrentZIndex.Value += 1
   end
 
   zIndex = board.CurrentZIndex.Value
 
-  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board, lineProperties, zIndex)
+  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board.Canvas, lineInfo, zIndex)
 
 
   lineHandle.Parent = curve
-  LineProperties.StoreAttributes(lineProperties, lineHandle)
+  LineInfo.StoreInfo(lineHandle, lineInfo)
   lineHandle:SetAttribute("ZIndex", zIndex)
   
-  lineHandle.Adornee = board
+  lineHandle.Adornee = board.Canvas
 end
 
-function MetaBoard.EraseWorldLine(board, lineProperties)
-  local curve = board.Curves:FindFirstChild(lineProperties.CurveName)
+function MetaBoard.EraseWorldLine(board, lineInfo)
+  local curve = board.Canvas.Curves:FindFirstChild(lineInfo.CurveName)
   if curve == nil then
-    error(lineProperties.CurveName.." not found")
+    error(lineInfo.CurveName.." not found")
   end
 
   for _, lineHandle in ipairs(curve:GetChildren()) do
-    if
-      -- TODO figure out why lineProperties:Equals(...) doesn't work
-      LineProperties.Equals(lineProperties, LineProperties.ReadFromAttributes(lineHandle))
+    local lineHandleInfo = LineInfo.ReadInfo(lineHandle)
+    if 
+      lineHandleInfo.Start == lineInfo.Start and
+      lineHandleInfo.Stop == lineInfo.Stop and
+      lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
     then
       lineHandle:Destroy()
 
@@ -163,7 +246,7 @@ function MetaBoard.EraseWorldLine(board, lineProperties)
 end
 
 function MetaBoard.DeleteWorldCurve(board, curveName)
-  local curve = board.Curves:FindFirstChild(curveName)
+  local curve = board.Canvas.Curves:FindFirstChild(curveName)
 
   if curve then
     curve:Destroy()
@@ -180,19 +263,21 @@ return MetaBoard</string>
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local PersonalBoardModel = Common.PersonalBoardModel
+local MetaBoard = require(script.Parent.MetaBoard)
 
 
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 
-PersonalBoardManager = {
+local PersonalBoardManager = {
   PersonalBoardOfPlayer = {}
 }
 PersonalBoardManager.__index = PersonalBoardManager
 
 function PersonalBoardManager.Init()
+
   Players.PlayerAdded:Connect(function(player)
     local personalBoardModel = PersonalBoardModel:Clone()
     personalBoardModel.Name = player.Name.."PersonalBoard"
@@ -274,7 +359,7 @@ PersonalBoardManager.Init()</string>
         <Properties>
           <string name="Name">Buttons</string>
           <string name="Source">local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local Drawing = require(script.Parent.Drawing)
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local CanvasState
@@ -283,7 +368,7 @@ local Toolbar
 local UserInputService = game:GetService("UserInputService")
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
-Buttons = {}
+local Buttons = {}
 Buttons.__index = Buttons
 
 
@@ -544,8 +629,8 @@ return Buttons</string>
 local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
-local LineProperties = require(Common.LineProperties)
+local Config = require(Common.Config)
+local LineInfo = require(Common.LineInfo)
 local BoardGui
 local CursorsGui
 local Canvas
@@ -581,10 +666,12 @@ function CanvasState.Init(boardGui, cursorsGui)
   CursorsGui.Enabled = false
 
   for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-    CanvasState.ConnectOpenBoardButton(board)
+    CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
   end
 
-  CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(CanvasState.ConnectOpenBoardButton)
+  CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(board)
+    CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
+  end)
   CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(function(board)
     if board == CanvasState.EquippedBoard then
       CanvasState.CloseBoard(board)
@@ -598,9 +685,9 @@ function CanvasState.Init(boardGui, cursorsGui)
 
 end
 
-function CanvasState.ConnectOpenBoardButton(board)
+function CanvasState.ConnectOpenBoardButton(board, button)
   CanvasState.SurfaceGuiConnections[board] =
-    board.SurfaceGui.BoardButton.Activated:Connect(function()
+    board.Canvas.SurfaceGui.Button.Activated:Connect(function()
       if CanvasState.EquippedBoard ~= nil then return end
       CanvasState.OpenBoard(board)
     end)
@@ -618,22 +705,22 @@ function CanvasState.OpenBoard(board)
   Buttons.OnBoardOpen(board)
   Drawing.OnBoardOpen(board)
 
-  Canvas.UIAspectRatioConstraint.AspectRatio = board.Size.X / board.Size.Y
+  Canvas.UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
 
   Canvas.BackgroundColor3 = board.Color
   BoardGui.Enabled = true
   CursorsGui.Enabled = true
 
   CanvasState.EquippedBoardAddLineConnection =
-    board.Curves.DescendantAdded:Connect(function(descendant)
+    board.Canvas.Curves.DescendantAdded:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") and descendant.Parent:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
-        CanvasState.DrawLine(board, LineProperties.ReadFromAttributes(descendant))
+        CanvasState.DrawLine(board, LineInfo.ReadInfo(descendant))
       end
     end)
   
   CanvasState.EquippedBoardRemoveLineConnection =
-    board.Curves.DescendantRemoving:Connect(function(descendant)
+    board.Canvas.Curves.DescendantRemoving:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") then
         local curveName = descendant.Parent.Name
@@ -642,28 +729,31 @@ function CanvasState.OpenBoard(board)
 
         if curve then
           for _, lineFrame in ipairs(curve:GetChildren()) do
+            local descendantInfo = LineInfo.ReadInfo(descendant)
+            local lineInfo = LineInfo.ReadInfo(lineFrame)
             if 
-              LineProperties.ReadFromAttributes(lineFrame):Equals(LineProperties.ReadFromAttributes(descendant))
+               descendantInfo.Start == lineInfo.Start and
+               descendantInfo.Stop == lineInfo.Stop and
+               descendantInfo.ThicknessYScale == lineInfo.ThicknessYScale
             then
               CanvasState.DeleteLine(lineFrame)
               return
             end
           end
-        else
         end
       end
     end)
 
-  for _, worldCurve in ipairs(board.Curves:GetChildren()) do
+  for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
     local curve = Instance.new("ScreenGui")
     curve.IgnoreGuiInset = true
     curve.Name = worldCurve.Name
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
       curve.DisplayOrder = worldLine:GetAttribute("ZIndex")
-      local lineProperties = LineProperties.ReadFromAttributes(worldLine)
-      local lineFrame = CanvasState.CreateLineFrame(lineProperties, worldLine:GetAttribute("ZIndex"))
+      local lineInfo = LineInfo.ReadInfo(worldLine)
+      local lineFrame = CanvasState.CreateLineFrame(lineInfo, worldLine:GetAttribute("ZIndex"))
       local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
-      lineProperties:StoreAttributes(wrappedLine)
+      LineInfo.StoreInfo(wrappedLine, lineInfo)
       wrappedLine.Parent = curve
     end
     curve.Parent = Curves
@@ -698,19 +788,19 @@ function CanvasState.CanvasYScaleToOffset(yScaleValue)
   return yScaleValue * Canvas.AbsoluteSize.Y
 end
 
-function CanvasState.CreateLineFrame(lineProperties, zIndex)
+function CanvasState.CreateLineFrame(lineInfo, zIndex)
   local lineFrame = Instance.new("Frame")
 
-  if lineProperties.Start == lineProperties.Stop then
-    lineFrame.Size = UDim2.new(lineProperties.ThicknessYScale, 0, lineProperties.ThicknessYScale, 0)
+  if lineInfo.Start == lineInfo.Stop then
+    lineFrame.Size = UDim2.new(lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
   else
-    lineFrame.Size = UDim2.new(lineProperties.Length + lineProperties.ThicknessYScale, 0, lineProperties.ThicknessYScale, 0)
+    lineFrame.Size = UDim2.new(lineInfo.Length + lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
   end
 
-  lineFrame.Position = UDim2.new(lineProperties.Centre.X, 0, lineProperties.Centre.Y, 0)
-  lineFrame.Rotation = lineProperties.RotationDegrees
+  lineFrame.Position = UDim2.new(lineInfo.Centre.X, 0, lineInfo.Centre.Y, 0)
+  lineFrame.Rotation = lineInfo.RotationDegrees
   lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
-  lineFrame.BackgroundColor3 = lineProperties.Color
+  lineFrame.BackgroundColor3 = lineInfo.Color
   lineFrame.BorderSizePixel = 0
   
   -- Round the corners
@@ -722,14 +812,14 @@ function CanvasState.CreateLineFrame(lineProperties, zIndex)
 end
 
 
-function CanvasState.DrawLine(board, lineProperties)
+function CanvasState.DrawLine(board, lineInfo)
   local zIndex = board.CurrentZIndex.Value
   
-  local curve = Curves:FindFirstChild(lineProperties.CurveName)
+  local curve = Curves:FindFirstChild(lineInfo.CurveName)
 
   if curve == nil then
     curve = Instance.new("ScreenGui")
-    curve.Name = lineProperties.CurveName
+    curve.Name = lineInfo.CurveName
     curve.IgnoreGuiInset = true
     curve.Parent = Curves
 
@@ -739,11 +829,11 @@ function CanvasState.DrawLine(board, lineProperties)
   end
 
 
-  local lineFrame = CanvasState.CreateLineFrame(lineProperties, zIndex)
+  local lineFrame = CanvasState.CreateLineFrame(lineInfo, zIndex)
 
   local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
 
-  lineProperties:StoreAttributes(wrappedLine)
+  LineInfo.StoreInfo(wrappedLine, lineInfo)
 
   wrappedLine.Parent = curve
 end
@@ -862,10 +952,9 @@ end
 
 function CanvasState.DeleteCurve(curveName)
   local curve = Curves:FindFirstChild(curveName)
+  -- TODO erased curves won't be there
   if curve then
     curve:Destroy()
-  else
-    -- TODO erased lines will cause this
   end
 end
 
@@ -901,9 +990,9 @@ return CanvasState</string>
           <string name="Source">local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local GuiPositioning = require(Common.GuiPositioning)
-local LineProperties = require(Common.LineProperties)
+local LineInfo = require(Common.LineInfo)
 local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
 local PositionFromPixel = GuiPositioning.PositionFromPixel
 local CanvasState
@@ -918,7 +1007,7 @@ local Curves
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 
-Drawing = {
+local Drawing = {
   -- mouse state
   ---------------
   MouseHeld = false,
@@ -1010,7 +1099,7 @@ function Drawing.ToolDown(x,y)
       newCanvasPos,
       Drawing.EquippedTool.ThicknessYScale/2,
       function(lineFrame)
-        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineProperties.ReadFromAttributes(lineFrame))
+        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
         CanvasState.DeleteLine(lineFrame)
       end)
 
@@ -1021,7 +1110,7 @@ function Drawing.ToolDown(x,y)
 
     CanvasState.DrawLine(
       CanvasState.EquippedBoard,
-      LineProperties.new(
+      LineInfo.new(
         newCanvasPos,
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
@@ -1032,7 +1121,7 @@ function Drawing.ToolDown(x,y)
     
     DrawLineRemoteEvent:FireServer(
       CanvasState.EquippedBoard,
-      LineProperties.new(
+      LineInfo.new(
         newCanvasPos,
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
@@ -1058,7 +1147,7 @@ function Drawing.ToolMoved(x,y)
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale/2,
         function(lineFrame)
-          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineProperties.ReadFromAttributes(lineFrame))
+          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
           CanvasState.DeleteLine(lineFrame)
         end)
     else
@@ -1071,7 +1160,7 @@ function Drawing.ToolMoved(x,y)
 
       CanvasState.DrawLine(
         CanvasState.EquippedBoard,
-        LineProperties.new(
+        LineInfo.new(
           CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,
@@ -1082,7 +1171,7 @@ function Drawing.ToolMoved(x,y)
 
       DrawLineRemoteEvent:FireServer(
         CanvasState.EquippedBoard,
-        LineProperties.new(
+        LineInfo.new(
           CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,
@@ -1108,12 +1197,12 @@ return Drawing</string>
         <Properties>
           <string name="Name">PersonalBoardTool</string>
           <string name="Source">local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
 local LocalPlayer = game:GetService("Players").LocalPlayer
 
-PersonalBoardTool = {}
+local PersonalBoardTool = {}
 PersonalBoardTool.__index = PersonalBoardTool
 
 function PersonalBoardTool.Init(localCharacter)
@@ -1184,8 +1273,60 @@ end)</string>
       </Properties>
       <Item class="ModuleScript" referent="11">
         <Properties>
+          <string name="Name">Config</string>
+          <string name="Source">local Config = {
+  BoardTag = "metaboard",
+
+  MinThicknessYScale = 1.5/1000,
+  MaxThicknessYScale = 40/1000,
+  MinLineLengthScale = 0,
+  MaxLineLengthTouchScale = 200/1000,
+
+  EraserSmallRadiusYScale = 10/1000,
+  EraserMediumRadiusYScale = 80/1000,
+  EraserLargeRadiusYScale = 250/1000,
+
+  Gui = {
+    HighlightTransparency = 0.75,
+  },
+
+  IntersectionResolution = 1/1000,
+
+  -- Will be able to draw n = (CanvasThickness - ZThicknessStuds)/StudsPerIndex
+  -- many curves before the curves appear above the SurfaceGui button
+  -- e.g. (0.5 - 0.1)/0.001 = 400
+  CanvasThickness = 0.5,
+}
+
+Config.Defaults = {
+  PenAColor = Color3.new(0, 122/255, 255/255),
+  PenBColor = Color3.new(0, 122/255, 255/255),
+  PenAThicknessYScale = 2/1000,
+  PenBThicknessYScale = 10/1000,
+  EraserRadiusYScale = Config.EraserSmallRadiusYScale,
+}
+
+Config.WorldLine = {
+  ZThicknessStuds = 0.01,
+  StudsPerZIndex = 0.001,
+}
+
+Config.PersonalBoard = {
+  Enabled = true,
+  TorsoOffset = Vector3.new(0,2,-5),
+}
+
+function Config.CurveNamer(playerName, curveIndex)
+  return playerName..curveIndex
+end
+
+return Config</string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="12">
+        <Properties>
           <string name="Name">DrawingTool</string>
-          <string name="Source"><![CDATA[Pen = {}
+          <string name="Source"><![CDATA[local Pen = {}
 Pen.__index = Pen
 
 function Pen.new(color, thicknessYScale, guiButton)
@@ -1214,7 +1355,7 @@ function Pen:Set(color, thicknessYScale)
 	self.ThicknessYScale = thicknessYScale
 end
 
-Eraser = {}
+local Eraser = {}
 Eraser.__index = Eraser
 
 function Eraser.new(thicknessYScale, guiButton)
@@ -1237,7 +1378,7 @@ return {Pen=Pen, Eraser=Eraser}
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="12">
+      <Item class="ModuleScript" referent="13">
         <Properties>
           <string name="Name">GuiPositioning</string>
           <string name="Source">-- The AbsolutePosition of any object is not the same as it's actual pixel
@@ -1306,13 +1447,13 @@ return {
 }</string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="13">
+      <Item class="ModuleScript" referent="14">
         <Properties>
-          <string name="Name">LineProperties</string>
-          <string name="Source">LineProperties = {}
-LineProperties.__index = LineProperties
+          <string name="Name">LineInfo</string>
+          <string name="Source">local LineInfo = {}
+LineInfo.__index = LineInfo
 
-function LineProperties.new(start, stop, thicknessYScale, color, curveName)
+function LineInfo.new(start, stop, thicknessYScale, color, curveName)
   return setmetatable({
     Start = start,
     Stop = stop,
@@ -1323,81 +1464,26 @@ function LineProperties.new(start, stop, thicknessYScale, color, curveName)
     RotationRadians = math.atan2((stop - start).Y, (stop-start).X),
     RotationDegrees = math.deg(math.atan2((stop - start).Y, (stop-start).X)),
     CurveName = curveName,
-  }, LineProperties)
+  }, LineInfo)
 end
 
-function LineProperties:StoreAttributes(lineObject)
-  lineObject:SetAttribute("Start", self.Start)
-  lineObject:SetAttribute("Stop", self.Stop)
-  lineObject:SetAttribute("Color", self.Color)
-  lineObject:SetAttribute("ThicknessYScale", self.ThicknessYScale)
+function LineInfo.StoreInfo(object, info)
+  object:SetAttribute("Start", info.Start)
+  object:SetAttribute("Stop", info.Stop)
+  object:SetAttribute("Color", info.Color)
+  object:SetAttribute("ThicknessYScale", info.ThicknessYScale)
 end
 
-function LineProperties.ReadFromAttributes(lineObject)
-  return LineProperties.new(
-    lineObject:GetAttribute("Start"),
-    lineObject:GetAttribute("Stop"),
-    lineObject:GetAttribute("ThicknessYScale"),
-    lineObject:GetAttribute("Color"),
-    lineObject.Parent.Name)
+function LineInfo.ReadInfo(object)
+  return LineInfo.new(
+    object:GetAttribute("Start"),
+    object:GetAttribute("Stop"),
+    object:GetAttribute("ThicknessYScale"),
+    object:GetAttribute("Color"),
+    object.Parent.Name)
 end
 
-function LineProperties:Equals(otherLineProperties)
-  -- TODO check more properties?
-  return
-    self.Start == otherLineProperties.Start and
-    self.Stop == otherLineProperties.Stop and
-    self.ThicknessYScale == otherLineProperties.ThicknessYScale
-end
-
-return LineProperties</string>
-        </Properties>
-      </Item>
-      <Item class="ModuleScript" referent="14">
-        <Properties>
-          <string name="Name">MetaBoardConfig</string>
-          <string name="Source">Config = {
-  BoardTag = "metaboard",
-
-  MinThicknessYScale = 1.5/1000,
-  MaxThicknessYScale = 40/1000,
-  MinLineLengthScale = 0,
-  MaxLineLengthTouchScale = 200/1000,
-
-  EraserSmallRadiusYScale = 10/1000,
-  EraserMediumRadiusYScale = 80/1000,
-  EraserLargeRadiusYScale = 250/1000,
-
-  Gui = {
-    HighlightTransparency = 0.75,
-  },
-
-  IntersectionResolution = 1/1000,
-}
-
-Config.Defaults = {
-  PenAColor = Color3.new(0, 122/255, 255/255),
-  PenBColor = Color3.new(0, 122/255, 255/255),
-  PenAThicknessYScale = 2/1000,
-  PenBThicknessYScale = 10/1000,
-  EraserRadiusYScale = Config.EraserSmallRadiusYScale,
-}
-
-Config.WorldLine = {
-  ZThicknessStuds = 0.01,
-  StudsPerZIndex = 0.001,
-}
-
-Config.PersonalBoard = {
-  Enabled = true,
-  TorsoOffset = Vector3.new(0,2,-5),
-}
-
-function Config.CurveNamer(playerName, curveIndex)
-  return playerName..curveIndex
-end
-
-return Config</string>
+return LineInfo</string>
         </Properties>
       </Item>
       <Item class="Model" referent="15">
@@ -1554,119 +1640,8 @@ return Config</string>
               <Ref name="Value">15</Ref>
             </Properties>
           </Item>
-          <Item class="SurfaceGui" referent="19">
-            <Properties>
-              <string name="Name">SurfaceGui</string>
-              <bool name="Active">true</bool>
-              <Ref name="Adornee">16</Ref>
-              <bool name="AlwaysOnTop">true</bool>
-              <BinaryString name="AttributesSerialize">
-              </BinaryString>
-              <bool name="AutoLocalize">true</bool>
-              <float name="Brightness">1</float>
-              <Vector2 name="CanvasSize">
-                <X>800</X>
-                <Y>600</Y>
-              </Vector2>
-              <bool name="ClipsDescendants">true</bool>
-              <bool name="Enabled">true</bool>
-              <token name="Face">5</token>
-              <float name="LightInfluence">1</float>
-              <float name="PixelsPerStud">50</float>
-              <bool name="ResetOnSpawn">true</bool>
-              <Ref name="RootLocalizationTable">null</Ref>
-              <token name="SizingMode">1</token>
-              <int64 name="SourceAssetId">-1</int64>
-              <BinaryString name="Tags"></BinaryString>
-              <float name="ToolPunchThroughDistance">0</float>
-              <token name="ZIndexBehavior">1</token>
-              <float name="ZOffset">0</float>
-            </Properties>
-            <Item class="TextButton" referent="20">
-              <Properties>
-                <string name="Name">BoardButton</string>
-                <bool name="Active">true</bool>
-                <Vector2 name="AnchorPoint">
-                  <X>0</X>
-                  <Y>0</Y>
-                </Vector2>
-                <BinaryString name="AttributesSerialize">
-                </BinaryString>
-                <bool name="AutoButtonColor">true</bool>
-                <bool name="AutoLocalize">true</bool>
-                <token name="AutomaticSize">0</token>
-                <Color3 name="BackgroundColor3">
-                  <R>0.99215686</R>
-                  <G>0.5019608</G>
-                  <B>0.03137255</B>
-                </Color3>
-                <float name="BackgroundTransparency">1</float>
-                <Color3 name="BorderColor3">
-                  <R>0.10588236</R>
-                  <G>0.16470589</G>
-                  <B>0.20784315</B>
-                </Color3>
-                <token name="BorderMode">2</token>
-                <int name="BorderSizePixel">0</int>
-                <bool name="ClipsDescendants">false</bool>
-                <bool name="Draggable">false</bool>
-                <token name="Font">3</token>
-                <int name="LayoutOrder">0</int>
-                <float name="LineHeight">1</float>
-                <int name="MaxVisibleGraphemes">-1</int>
-                <bool name="Modal">false</bool>
-                <Ref name="NextSelectionDown">null</Ref>
-                <Ref name="NextSelectionLeft">null</Ref>
-                <Ref name="NextSelectionRight">null</Ref>
-                <Ref name="NextSelectionUp">null</Ref>
-                <UDim2 name="Position">
-                  <XS>0</XS>
-                  <XO>0</XO>
-                  <YS>0</YS>
-                  <YO>0</YO>
-                </UDim2>
-                <bool name="RichText">false</bool>
-                <Ref name="RootLocalizationTable">null</Ref>
-                <float name="Rotation">0</float>
-                <bool name="Selectable">true</bool>
-                <bool name="Selected">false</bool>
-                <Ref name="SelectionImageObject">null</Ref>
-                <UDim2 name="Size">
-                  <XS>1</XS>
-                  <XO>0</XO>
-                  <YS>1</YS>
-                  <YO>0</YO>
-                </UDim2>
-                <token name="SizeConstraint">0</token>
-                <int64 name="SourceAssetId">-1</int64>
-                <token name="Style">0</token>
-                <BinaryString name="Tags"></BinaryString>
-                <string name="Text"></string>
-                <Color3 name="TextColor3">
-                  <R>0</R>
-                  <G>0</G>
-                  <B>0</B>
-                </Color3>
-                <bool name="TextScaled">false</bool>
-                <float name="TextSize">14</float>
-                <Color3 name="TextStrokeColor3">
-                  <R>0</R>
-                  <G>0</G>
-                  <B>0</B>
-                </Color3>
-                <float name="TextStrokeTransparency">1</float>
-                <float name="TextTransparency">0</float>
-                <token name="TextTruncate">0</token>
-                <bool name="TextWrapped">false</bool>
-                <token name="TextXAlignment">2</token>
-                <token name="TextYAlignment">1</token>
-                <bool name="Visible">true</bool>
-                <int name="ZIndex">1000000000</int>
-              </Properties>
-            </Item>
-          </Item>
         </Item>
-        <Item class="Part" referent="21">
+        <Item class="Part" referent="19">
           <Properties>
             <string name="Name">Base</string>
             <bool name="Anchored">true</bool>
@@ -1760,7 +1735,7 @@ return Config</string>
             </Vector3>
           </Properties>
         </Item>
-        <Item class="Part" referent="22">
+        <Item class="Part" referent="20">
           <Properties>
             <string name="Name">Back</string>
             <bool name="Anchored">true</bool>
@@ -1855,33 +1830,33 @@ return Config</string>
           </Properties>
         </Item>
       </Item>
-      <Item class="Folder" referent="23">
+      <Item class="Folder" referent="21">
         <Properties>
           <string name="Name">Remotes</string>
         </Properties>
-        <Item class="RemoteEvent" referent="24">
+        <Item class="RemoteEvent" referent="22">
           <Properties>
             <string name="Name">DrawLine</string>
           </Properties>
         </Item>
-        <Item class="RemoteEvent" referent="25">
+        <Item class="RemoteEvent" referent="23">
           <Properties>
             <string name="Name">EraseLine</string>
           </Properties>
         </Item>
-        <Item class="RemoteEvent" referent="26">
+        <Item class="RemoteEvent" referent="24">
           <Properties>
             <string name="Name">PersonalBoard</string>
           </Properties>
         </Item>
-        <Item class="RemoteEvent" referent="27">
+        <Item class="RemoteEvent" referent="25">
           <Properties>
             <string name="Name">UndoCurve</string>
           </Properties>
         </Item>
       </Item>
     </Item>
-    <Item class="ScreenGui" referent="28">
+    <Item class="ScreenGui" referent="26">
       <Properties>
         <string name="Name">BoardGui</string>
         <BinaryString name="AttributesSerialize">
@@ -1896,7 +1871,7 @@ return Config</string>
         <BinaryString name="Tags"></BinaryString>
         <token name="ZIndexBehavior">1</token>
       </Properties>
-      <Item class="Frame" referent="29">
+      <Item class="Frame" referent="27">
         <Properties>
           <string name="Name">CanvasZone</string>
           <bool name="Active">false</bool>
@@ -1951,7 +1926,7 @@ return Config</string>
           <bool name="Visible">true</bool>
           <int name="ZIndex">1</int>
         </Properties>
-        <Item class="TextButton" referent="30">
+        <Item class="TextButton" referent="28">
           <Properties>
             <string name="Name">Canvas</string>
             <bool name="Active">true</bool>
@@ -2032,7 +2007,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIAspectRatioConstraint" referent="31">
+          <Item class="UIAspectRatioConstraint" referent="29">
             <Properties>
               <string name="Name">UIAspectRatioConstraint</string>
               <float name="AspectRatio">1.3333334</float>
@@ -2044,7 +2019,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UICorner" referent="32">
+          <Item class="UICorner" referent="30">
             <Properties>
               <string name="Name">UICorner</string>
               <BinaryString name="AttributesSerialize">
@@ -2057,7 +2032,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="33">
+          <Item class="UIStroke" referent="31">
             <Properties>
               <string name="Name">UIStroke</string>
               <token name="ApplyStrokeMode">0</token>
@@ -2076,7 +2051,7 @@ return Config</string>
               <float name="Transparency">0</float>
             </Properties>
           </Item>
-          <Item class="Frame" referent="34">
+          <Item class="Frame" referent="32">
             <Properties>
               <string name="Name">Curves</string>
               <bool name="Active">false</bool>
@@ -2134,7 +2109,7 @@ return Config</string>
           </Item>
         </Item>
       </Item>
-      <Item class="Frame" referent="35">
+      <Item class="Frame" referent="33">
         <Properties>
           <string name="Name">Toolbar</string>
           <bool name="Active">false</bool>
@@ -2189,7 +2164,7 @@ return Config</string>
           <bool name="Visible">true</bool>
           <int name="ZIndex">-100</int>
         </Properties>
-        <Item class="ImageButton" referent="36">
+        <Item class="ImageButton" referent="34">
           <Properties>
             <string name="Name">CloseButton</string>
             <bool name="Active">true</bool>
@@ -2292,7 +2267,7 @@ return Config</string>
             <int name="ZIndex">1</int>
           </Properties>
         </Item>
-        <Item class="UICorner" referent="37">
+        <Item class="UICorner" referent="35">
           <Properties>
             <string name="Name">UICorner</string>
             <BinaryString name="AttributesSerialize">
@@ -2305,7 +2280,7 @@ return Config</string>
             <BinaryString name="Tags"></BinaryString>
           </Properties>
         </Item>
-        <Item class="Frame" referent="38">
+        <Item class="Frame" referent="36">
           <Properties>
             <string name="Name">Colors</string>
             <bool name="Active">false</bool>
@@ -2360,7 +2335,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIListLayout" referent="39">
+          <Item class="UIListLayout" referent="37">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -2377,7 +2352,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="40">
+          <Item class="TextButton" referent="38">
             <Properties>
               <string name="Name">White</string>
               <bool name="Active">true</bool>
@@ -2458,7 +2433,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="41">
+            <Item class="UICorner" referent="39">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2471,7 +2446,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="42">
+            <Item class="Frame" referent="40">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2526,7 +2501,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="43">
+              <Item class="UICorner" referent="41">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2541,7 +2516,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="44">
+          <Item class="TextButton" referent="42">
             <Properties>
               <string name="Name">Yellow</string>
               <bool name="Active">true</bool>
@@ -2622,7 +2597,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="45">
+            <Item class="UICorner" referent="43">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2635,7 +2610,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="46">
+            <Item class="Frame" referent="44">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2690,7 +2665,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="47">
+              <Item class="UICorner" referent="45">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2705,7 +2680,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="48">
+          <Item class="TextButton" referent="46">
             <Properties>
               <string name="Name">Blue</string>
               <bool name="Active">true</bool>
@@ -2786,7 +2761,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="49">
+            <Item class="UICorner" referent="47">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2799,7 +2774,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="50">
+            <Item class="Frame" referent="48">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -2854,7 +2829,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="51">
+              <Item class="UICorner" referent="49">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -2869,7 +2844,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="52">
+          <Item class="TextButton" referent="50">
             <Properties>
               <string name="Name">Black</string>
               <bool name="Active">true</bool>
@@ -2950,7 +2925,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="53">
+            <Item class="UICorner" referent="51">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -2963,7 +2938,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="54">
+            <Item class="Frame" referent="52">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3018,7 +2993,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="55">
+              <Item class="UICorner" referent="53">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3033,7 +3008,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="56">
+          <Item class="TextButton" referent="54">
             <Properties>
               <string name="Name">Red</string>
               <bool name="Active">true</bool>
@@ -3114,7 +3089,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="57">
+            <Item class="UICorner" referent="55">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3127,7 +3102,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="58">
+            <Item class="Frame" referent="56">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3182,7 +3157,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="59">
+              <Item class="UICorner" referent="57">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3197,7 +3172,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="60">
+          <Item class="TextButton" referent="58">
             <Properties>
               <string name="Name">Orange</string>
               <bool name="Active">true</bool>
@@ -3278,7 +3253,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="61">
+            <Item class="UICorner" referent="59">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3291,7 +3266,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="62">
+            <Item class="Frame" referent="60">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3346,7 +3321,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="63">
+              <Item class="UICorner" referent="61">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3361,7 +3336,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="64">
+          <Item class="TextButton" referent="62">
             <Properties>
               <string name="Name">Green</string>
               <bool name="Active">true</bool>
@@ -3442,7 +3417,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="65">
+            <Item class="UICorner" referent="63">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3455,7 +3430,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="66">
+            <Item class="Frame" referent="64">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3510,7 +3485,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="67">
+              <Item class="UICorner" referent="65">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3525,7 +3500,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="68">
+          <Item class="TextButton" referent="66">
             <Properties>
               <string name="Name">Brown</string>
               <bool name="Active">true</bool>
@@ -3606,7 +3581,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="69">
+            <Item class="UICorner" referent="67">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3619,7 +3594,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="70">
+            <Item class="Frame" referent="68">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3674,7 +3649,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="71">
+              <Item class="UICorner" referent="69">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3689,7 +3664,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="72">
+          <Item class="TextButton" referent="70">
             <Properties>
               <string name="Name">Pink</string>
               <bool name="Active">true</bool>
@@ -3770,7 +3745,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="73">
+            <Item class="UICorner" referent="71">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3783,7 +3758,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="74">
+            <Item class="Frame" referent="72">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -3838,7 +3813,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="75">
+              <Item class="UICorner" referent="73">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -3853,7 +3828,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="76">
+          <Item class="TextButton" referent="74">
             <Properties>
               <string name="Name">Purple</string>
               <bool name="Active">true</bool>
@@ -3934,7 +3909,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="77">
+            <Item class="UICorner" referent="75">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -3947,7 +3922,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="78">
+            <Item class="Frame" referent="76">
               <Properties>
                 <string name="Name">Highlight</string>
                 <bool name="Active">false</bool>
@@ -4002,7 +3977,7 @@ return Config</string>
                 <bool name="Visible">false</bool>
                 <int name="ZIndex">-1</int>
               </Properties>
-              <Item class="UICorner" referent="79">
+              <Item class="UICorner" referent="77">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4018,7 +3993,7 @@ return Config</string>
             </Item>
           </Item>
         </Item>
-        <Item class="ImageButton" referent="80">
+        <Item class="ImageButton" referent="78">
           <Properties>
             <string name="Name">UndoButton</string>
             <bool name="Active">true</bool>
@@ -4120,7 +4095,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UICorner" referent="81">
+          <Item class="UICorner" referent="79">
             <Properties>
               <string name="Name">UICorner</string>
               <BinaryString name="AttributesSerialize">
@@ -4133,7 +4108,7 @@ return Config</string>
               <BinaryString name="Tags"></BinaryString>
             </Properties>
           </Item>
-          <Item class="UIStroke" referent="82">
+          <Item class="UIStroke" referent="80">
             <Properties>
               <string name="Name">UIStroke</string>
               <token name="ApplyStrokeMode">0</token>
@@ -4153,7 +4128,7 @@ return Config</string>
             </Properties>
           </Item>
         </Item>
-        <Item class="Frame" referent="83">
+        <Item class="Frame" referent="81">
           <Properties>
             <string name="Name">Erasers</string>
             <bool name="Active">false</bool>
@@ -4208,7 +4183,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="UIListLayout" referent="84">
+          <Item class="UIListLayout" referent="82">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -4225,7 +4200,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="85">
+          <Item class="TextButton" referent="83">
             <Properties>
               <string name="Name">LargeButton</string>
               <bool name="Active">true</bool>
@@ -4306,7 +4281,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="86">
+            <Item class="UICorner" referent="84">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4319,7 +4294,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="87">
+            <Item class="ImageLabel" referent="85">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4409,7 +4384,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="88">
+              <Item class="UICorner" referent="86">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4424,7 +4399,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="89">
+          <Item class="TextButton" referent="87">
             <Properties>
               <string name="Name">MediumButton</string>
               <bool name="Active">true</bool>
@@ -4505,7 +4480,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="90">
+            <Item class="UICorner" referent="88">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4518,7 +4493,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="91">
+            <Item class="ImageLabel" referent="89">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4608,7 +4583,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="92">
+              <Item class="UICorner" referent="90">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4623,7 +4598,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="93">
+          <Item class="TextButton" referent="91">
             <Properties>
               <string name="Name">SmallButton</string>
               <bool name="Active">true</bool>
@@ -4704,7 +4679,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="94">
+            <Item class="UICorner" referent="92">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -4717,7 +4692,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="ImageLabel" referent="95">
+            <Item class="ImageLabel" referent="93">
               <Properties>
                 <string name="Name">EraserStroke</string>
                 <bool name="Active">false</bool>
@@ -4807,7 +4782,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="96">
+              <Item class="UICorner" referent="94">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -4822,7 +4797,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="ImageLabel" referent="97">
+          <Item class="ImageLabel" referent="95">
             <Properties>
               <string name="Name">EraserIcon</string>
               <bool name="Active">false</bool>
@@ -4914,7 +4889,7 @@ return Config</string>
             </Properties>
           </Item>
         </Item>
-        <Item class="UIListLayout" referent="98">
+        <Item class="UIListLayout" referent="96">
           <Properties>
             <string name="Name">UIListLayout</string>
             <BinaryString name="AttributesSerialize">
@@ -4931,7 +4906,7 @@ return Config</string>
             <token name="VerticalAlignment">0</token>
           </Properties>
         </Item>
-        <Item class="Frame" referent="99">
+        <Item class="Frame" referent="97">
           <Properties>
             <string name="Name">Pens</string>
             <bool name="Active">false</bool>
@@ -4986,7 +4961,7 @@ return Config</string>
             <bool name="Visible">true</bool>
             <int name="ZIndex">1</int>
           </Properties>
-          <Item class="Frame" referent="100">
+          <Item class="Frame" referent="98">
             <Properties>
               <string name="Name">Slider</string>
               <bool name="Active">false</bool>
@@ -5041,7 +5016,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="TextButton" referent="101">
+            <Item class="TextButton" referent="99">
               <Properties>
                 <string name="Name">Rail</string>
                 <bool name="Active">true</bool>
@@ -5122,7 +5097,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="102">
+              <Item class="UICorner" referent="100">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5135,7 +5110,7 @@ return Config</string>
                   <BinaryString name="Tags"></BinaryString>
                 </Properties>
               </Item>
-              <Item class="TextButton" referent="103">
+              <Item class="TextButton" referent="101">
                 <Properties>
                   <string name="Name">Knob</string>
                   <bool name="Active">true</bool>
@@ -5216,7 +5191,7 @@ return Config</string>
                   <bool name="Visible">true</bool>
                   <int name="ZIndex">1</int>
                 </Properties>
-                <Item class="UICorner" referent="104">
+                <Item class="UICorner" referent="102">
                   <Properties>
                     <string name="Name">UICorner</string>
                     <BinaryString name="AttributesSerialize">
@@ -5232,7 +5207,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="UIListLayout" referent="105">
+          <Item class="UIListLayout" referent="103">
             <Properties>
               <string name="Name">UIListLayout</string>
               <BinaryString name="AttributesSerialize">
@@ -5249,7 +5224,7 @@ return Config</string>
               <token name="VerticalAlignment">0</token>
             </Properties>
           </Item>
-          <Item class="TextButton" referent="106">
+          <Item class="TextButton" referent="104">
             <Properties>
               <string name="Name">PenAButton</string>
               <bool name="Active">true</bool>
@@ -5330,7 +5305,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="107">
+            <Item class="UICorner" referent="105">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -5343,7 +5318,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="108">
+            <Item class="Frame" referent="106">
               <Properties>
                 <string name="Name">PenStroke</string>
                 <bool name="Active">false</bool>
@@ -5398,7 +5373,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="109">
+              <Item class="UICorner" referent="107">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5413,7 +5388,7 @@ return Config</string>
               </Item>
             </Item>
           </Item>
-          <Item class="TextButton" referent="110">
+          <Item class="TextButton" referent="108">
             <Properties>
               <string name="Name">PenBButton</string>
               <bool name="Active">true</bool>
@@ -5494,7 +5469,7 @@ return Config</string>
               <bool name="Visible">true</bool>
               <int name="ZIndex">1</int>
             </Properties>
-            <Item class="UICorner" referent="111">
+            <Item class="UICorner" referent="109">
               <Properties>
                 <string name="Name">UICorner</string>
                 <BinaryString name="AttributesSerialize">
@@ -5507,7 +5482,7 @@ return Config</string>
                 <BinaryString name="Tags"></BinaryString>
               </Properties>
             </Item>
-            <Item class="Frame" referent="112">
+            <Item class="Frame" referent="110">
               <Properties>
                 <string name="Name">PenStroke</string>
                 <bool name="Active">false</bool>
@@ -5562,7 +5537,7 @@ return Config</string>
                 <bool name="Visible">true</bool>
                 <int name="ZIndex">1</int>
               </Properties>
-              <Item class="UICorner" referent="113">
+              <Item class="UICorner" referent="111">
                 <Properties>
                   <string name="Name">UICorner</string>
                   <BinaryString name="AttributesSerialize">
@@ -5578,7 +5553,7 @@ return Config</string>
             </Item>
           </Item>
         </Item>
-        <Item class="UIAspectRatioConstraint" referent="114">
+        <Item class="UIAspectRatioConstraint" referent="112">
           <Properties>
             <string name="Name">UIAspectRatioConstraint</string>
             <float name="AspectRatio">14.7</float>
@@ -5592,7 +5567,7 @@ return Config</string>
         </Item>
       </Item>
     </Item>
-    <Item class="ScreenGui" referent="115">
+    <Item class="ScreenGui" referent="113">
       <Properties>
         <string name="Name">CursorsGui</string>
         <BinaryString name="AttributesSerialize">

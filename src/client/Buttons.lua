@@ -1,5 +1,5 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local Drawing = require(script.Parent.Drawing)
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local CanvasState

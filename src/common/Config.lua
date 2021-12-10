@@ -15,6 +15,11 @@ local Config = {
   },
 
   IntersectionResolution = 1/1000,
+
+  -- Will be able to draw n = (CanvasThickness - ZThicknessStuds)/StudsPerIndex
+  -- many curves before the curves appear above the SurfaceGui button
+  -- e.g. (0.5 - 0.1)/0.001 = 400
+  CanvasThickness = 0.5,
 }
 
 Config.Defaults = {

@@ -3,7 +3,7 @@ local VRService = game:GetService("VRService")
 local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 local BoardGui
 local CursorsGui
@@ -40,10 +40,12 @@ function CanvasState.Init(boardGui, cursorsGui)
   CursorsGui.Enabled = false
 
   for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-    CanvasState.ConnectOpenBoardButton(board)
+    CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
   end
 
-  CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(CanvasState.ConnectOpenBoardButton)
+  CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(board)
+    CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
+  end)
   CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(function(board)
     if board == CanvasState.EquippedBoard then
       CanvasState.CloseBoard(board)
@@ -57,9 +59,9 @@ function CanvasState.Init(boardGui, cursorsGui)
 
 end
 
-function CanvasState.ConnectOpenBoardButton(board)
+function CanvasState.ConnectOpenBoardButton(board, button)
   CanvasState.SurfaceGuiConnections[board] =
-    board.SurfaceGui.BoardButton.Activated:Connect(function()
+    board.Canvas.SurfaceGui.Button.Activated:Connect(function()
       if CanvasState.EquippedBoard ~= nil then return end
       CanvasState.OpenBoard(board)
     end)
@@ -77,14 +79,14 @@ function CanvasState.OpenBoard(board)
   Buttons.OnBoardOpen(board)
   Drawing.OnBoardOpen(board)
 
-  Canvas.UIAspectRatioConstraint.AspectRatio = board.Size.X / board.Size.Y
+  Canvas.UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
 
   Canvas.BackgroundColor3 = board.Color
   BoardGui.Enabled = true
   CursorsGui.Enabled = true
 
   CanvasState.EquippedBoardAddLineConnection =
-    board.Curves.DescendantAdded:Connect(function(descendant)
+    board.Canvas.Curves.DescendantAdded:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") and descendant.Parent:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
         CanvasState.DrawLine(board, LineInfo.ReadInfo(descendant))
@@ -92,7 +94,7 @@ function CanvasState.OpenBoard(board)
     end)
   
   CanvasState.EquippedBoardRemoveLineConnection =
-    board.Curves.DescendantRemoving:Connect(function(descendant)
+    board.Canvas.Curves.DescendantRemoving:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") then
         local curveName = descendant.Parent.Name
@@ -116,7 +118,7 @@ function CanvasState.OpenBoard(board)
       end
     end)
 
-  for _, worldCurve in ipairs(board.Curves:GetChildren()) do
+  for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
     local curve = Instance.new("ScreenGui")
     curve.IgnoreGuiInset = true
     curve.Name = worldCurve.Name

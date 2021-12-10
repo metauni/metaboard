@@ -2,8 +2,9 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.MetaBoardConfig)
+local Config = require(Common.Config)
 local PersonalBoardModel = Common.PersonalBoardModel
+local MetaBoard = require(script.Parent.MetaBoard)
 
 
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
@@ -15,6 +16,7 @@ local PersonalBoardManager = {
 PersonalBoardManager.__index = PersonalBoardManager
 
 function PersonalBoardManager.Init()
+
   Players.PlayerAdded:Connect(function(player)
     local personalBoardModel = PersonalBoardModel:Clone()
     personalBoardModel.Name = player.Name.."PersonalBoard"
