@@ -4,7 +4,7 @@ local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
-local LineProperties = require(Common.LineProperties)
+local LineInfo = require(Common.LineInfo)
 local BoardGui
 local CursorsGui
 local Canvas
@@ -87,7 +87,7 @@ function CanvasState.OpenBoard(board)
     board.Curves.DescendantAdded:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") and descendant.Parent:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
-        CanvasState.DrawLine(board, LineProperties.ReadFromAttributes(descendant))
+        CanvasState.DrawLine(board, LineInfo.ReadInfo(descendant))
       end
     end)
   
@@ -101,8 +101,12 @@ function CanvasState.OpenBoard(board)
 
         if curve then
           for _, lineFrame in ipairs(curve:GetChildren()) do
+            local descendantInfo = LineInfo.ReadInfo(descendant)
+            local lineInfo = LineInfo.ReadInfo(lineFrame)
             if 
-              LineProperties.ReadFromAttributes(lineFrame):Equals(LineProperties.ReadFromAttributes(descendant))
+               descendantInfo.Start == lineInfo.Start and
+               descendantInfo.Stop == lineInfo.Stop and
+               descendantInfo.ThicknessYScale == lineInfo.ThicknessYScale
             then
               CanvasState.DeleteLine(lineFrame)
               return
@@ -118,10 +122,10 @@ function CanvasState.OpenBoard(board)
     curve.Name = worldCurve.Name
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
       curve.DisplayOrder = worldLine:GetAttribute("ZIndex")
-      local lineProperties = LineProperties.ReadFromAttributes(worldLine)
-      local lineFrame = CanvasState.CreateLineFrame(lineProperties, worldLine:GetAttribute("ZIndex"))
+      local lineInfo = LineInfo.ReadInfo(worldLine)
+      local lineFrame = CanvasState.CreateLineFrame(lineInfo, worldLine:GetAttribute("ZIndex"))
       local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
-      lineProperties:StoreAttributes(wrappedLine)
+      LineInfo.StoreInfo(wrappedLine, lineInfo)
       wrappedLine.Parent = curve
     end
     curve.Parent = Curves
@@ -156,19 +160,19 @@ function CanvasState.CanvasYScaleToOffset(yScaleValue)
   return yScaleValue * Canvas.AbsoluteSize.Y
 end
 
-function CanvasState.CreateLineFrame(lineProperties, zIndex)
+function CanvasState.CreateLineFrame(lineInfo, zIndex)
   local lineFrame = Instance.new("Frame")
 
-  if lineProperties.Start == lineProperties.Stop then
-    lineFrame.Size = UDim2.new(lineProperties.ThicknessYScale, 0, lineProperties.ThicknessYScale, 0)
+  if lineInfo.Start == lineInfo.Stop then
+    lineFrame.Size = UDim2.new(lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
   else
-    lineFrame.Size = UDim2.new(lineProperties.Length + lineProperties.ThicknessYScale, 0, lineProperties.ThicknessYScale, 0)
+    lineFrame.Size = UDim2.new(lineInfo.Length + lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
   end
 
-  lineFrame.Position = UDim2.new(lineProperties.Centre.X, 0, lineProperties.Centre.Y, 0)
-  lineFrame.Rotation = lineProperties.RotationDegrees
+  lineFrame.Position = UDim2.new(lineInfo.Centre.X, 0, lineInfo.Centre.Y, 0)
+  lineFrame.Rotation = lineInfo.RotationDegrees
   lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
-  lineFrame.BackgroundColor3 = lineProperties.Color
+  lineFrame.BackgroundColor3 = lineInfo.Color
   lineFrame.BorderSizePixel = 0
   
   -- Round the corners
@@ -180,14 +184,14 @@ function CanvasState.CreateLineFrame(lineProperties, zIndex)
 end
 
 
-function CanvasState.DrawLine(board, lineProperties)
+function CanvasState.DrawLine(board, lineInfo)
   local zIndex = board.CurrentZIndex.Value
   
-  local curve = Curves:FindFirstChild(lineProperties.CurveName)
+  local curve = Curves:FindFirstChild(lineInfo.CurveName)
 
   if curve == nil then
     curve = Instance.new("ScreenGui")
-    curve.Name = lineProperties.CurveName
+    curve.Name = lineInfo.CurveName
     curve.IgnoreGuiInset = true
     curve.Parent = Curves
 
@@ -197,11 +201,11 @@ function CanvasState.DrawLine(board, lineProperties)
   end
 
 
-  local lineFrame = CanvasState.CreateLineFrame(lineProperties, zIndex)
+  local lineFrame = CanvasState.CreateLineFrame(lineInfo, zIndex)
 
   local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
 
-  lineProperties:StoreAttributes(wrappedLine)
+  LineInfo.StoreInfo(wrappedLine, lineInfo)
 
   wrappedLine.Parent = curve
 end

@@ -3,7 +3,7 @@ local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
 local GuiPositioning = require(Common.GuiPositioning)
-local LineProperties = require(Common.LineProperties)
+local LineInfo = require(Common.LineInfo)
 local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
 local PositionFromPixel = GuiPositioning.PositionFromPixel
 local CanvasState
@@ -110,7 +110,7 @@ function Drawing.ToolDown(x,y)
       newCanvasPos,
       Drawing.EquippedTool.ThicknessYScale/2,
       function(lineFrame)
-        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineProperties.ReadFromAttributes(lineFrame))
+        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
         CanvasState.DeleteLine(lineFrame)
       end)
 
@@ -121,7 +121,7 @@ function Drawing.ToolDown(x,y)
 
     CanvasState.DrawLine(
       CanvasState.EquippedBoard,
-      LineProperties.new(
+      LineInfo.new(
         newCanvasPos,
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
@@ -132,7 +132,7 @@ function Drawing.ToolDown(x,y)
     
     DrawLineRemoteEvent:FireServer(
       CanvasState.EquippedBoard,
-      LineProperties.new(
+      LineInfo.new(
         newCanvasPos,
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale,
@@ -158,7 +158,7 @@ function Drawing.ToolMoved(x,y)
         newCanvasPos,
         Drawing.EquippedTool.ThicknessYScale/2,
         function(lineFrame)
-          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineProperties.ReadFromAttributes(lineFrame))
+          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
           CanvasState.DeleteLine(lineFrame)
         end)
     else
@@ -171,7 +171,7 @@ function Drawing.ToolMoved(x,y)
 
       CanvasState.DrawLine(
         CanvasState.EquippedBoard,
-        LineProperties.new(
+        LineInfo.new(
           CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,
@@ -182,7 +182,7 @@ function Drawing.ToolMoved(x,y)
 
       DrawLineRemoteEvent:FireServer(
         CanvasState.EquippedBoard,
-        LineProperties.new(
+        LineInfo.new(
           CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
           newCanvasPos,
           Drawing.EquippedTool.ThicknessYScale,

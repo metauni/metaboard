@@ -1,7 +1,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.MetaBoardConfig)
-local LineProperties = require(Common.LineProperties)
+local LineInfo = require(Common.LineInfo)
 
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
@@ -18,12 +18,12 @@ function MetaBoard.Init()
 
   CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
 
-  DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineProperties)
-    MetaBoard.DrawWorldLine(player, board, lineProperties)
+  DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
+    MetaBoard.DrawWorldLine(player, board, lineInfo)
   end)
   
-  EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineProperties)
-    MetaBoard.EraseWorldLine(board, lineProperties)
+  EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
+    MetaBoard.EraseWorldLine(board, lineInfo)
   end)
 
   UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
@@ -53,7 +53,7 @@ local function lerp(a, b, c)
 	return a + (b - a) * c
 end
 
-function MetaBoard.CreateWorldLine(worldLineType, board, lineProperties, zIndex)
+function MetaBoard.CreateWorldLine(worldLineType, board, lineInfo, zIndex)
 
   -- TODO dealing with aspect ratio is gross, figure out square coordinates, similar to GUI
 
@@ -64,38 +64,38 @@ function MetaBoard.CreateWorldLine(worldLineType, board, lineProperties, zIndex)
     local boxHandle = Instance.new("BoxHandleAdornment")
     boxHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Centre.X/aspectRatio),
-        lerp(1,-1,lineProperties.Centre.Y),
+        lerp(1,-1,lineInfo.Centre.X/aspectRatio),
+        lerp(1,-1,lineInfo.Centre.Y),
         -- TODO figure out why this is negative
         -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
     boxHandle.Size =
       Vector3.new(
-        lineProperties.Length * yStuds,
-        lineProperties.ThicknessYScale * yStuds,
+        lineInfo.Length * yStuds,
+        lineInfo.ThicknessYScale * yStuds,
         Config.WorldLine.ZThicknessStuds)
-    boxHandle.CFrame = CFrame.Angles(0,0,lineProperties.RotationRadians)
-    boxHandle.Color3 = lineProperties.Color
+    boxHandle.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
+    boxHandle.Color3 = lineInfo.Color
     
 
     local startHandle = Instance.new("CylinderHandleAdornment")
     startHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Start.X/aspectRatio),
-        lerp(1,-1,lineProperties.Start.Y),
+        lerp(1,-1,lineInfo.Start.X/aspectRatio),
+        lerp(1,-1,lineInfo.Start.Y),
         -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-    startHandle.Radius = lineProperties.ThicknessYScale / 2 * yStuds
+    startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
     startHandle.Height = Config.WorldLine.ZThicknessStuds
-    startHandle.Color3 = lineProperties.Color
+    startHandle.Color3 = lineInfo.Color
 
     local stopHandle = Instance.new("CylinderHandleAdornment")
     stopHandle.SizeRelativeOffset =
       Vector3.new(
-        lerp(1,-1,lineProperties.Stop.X/aspectRatio),
-        lerp(1,-1,lineProperties.Stop.Y),
+        lerp(1,-1,lineInfo.Stop.X/aspectRatio),
+        lerp(1,-1,lineInfo.Stop.Y),
         -1 - (Config.WorldLine.ZThicknessStuds / board.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-    stopHandle.Radius = lineProperties.ThicknessYScale / 2 * yStuds
+    stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
     stopHandle.Height = Config.WorldLine.ZThicknessStuds
-    stopHandle.Color3 = lineProperties.Color
+    stopHandle.Color3 = lineInfo.Color
 
     startHandle.Parent = boxHandle
     stopHandle.Parent = boxHandle
@@ -109,12 +109,12 @@ function MetaBoard.CreateWorldLine(worldLineType, board, lineProperties, zIndex)
   error(worldLineType.." world line type not implemented")
 end
 
-function MetaBoard.DrawWorldLine(player, board, lineProperties)
+function MetaBoard.DrawWorldLine(player, board, lineInfo)
   local zIndex
-  local curve = board.Curves:FindFirstChild(lineProperties.CurveName)
+  local curve = board.Curves:FindFirstChild(lineInfo.CurveName)
   if curve == nil then
     curve = Instance.new("Folder")
-    curve.Name = lineProperties.CurveName
+    curve.Name = lineInfo.CurveName
     curve:SetAttribute("AuthorUserId", player.UserId)
     curve.Parent = board.Curves
 
@@ -123,26 +123,28 @@ function MetaBoard.DrawWorldLine(player, board, lineProperties)
 
   zIndex = board.CurrentZIndex.Value
 
-  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board, lineProperties, zIndex)
+  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board, lineInfo, zIndex)
 
 
   lineHandle.Parent = curve
-  LineProperties.StoreAttributes(lineProperties, lineHandle)
+  LineInfo.StoreInfo(lineHandle, lineInfo)
   lineHandle:SetAttribute("ZIndex", zIndex)
   
   lineHandle.Adornee = board
 end
 
-function MetaBoard.EraseWorldLine(board, lineProperties)
-  local curve = board.Curves:FindFirstChild(lineProperties.CurveName)
+function MetaBoard.EraseWorldLine(board, lineInfo)
+  local curve = board.Curves:FindFirstChild(lineInfo.CurveName)
   if curve == nil then
-    error(lineProperties.CurveName.." not found")
+    error(lineInfo.CurveName.." not found")
   end
 
   for _, lineHandle in ipairs(curve:GetChildren()) do
-    if
-      -- TODO figure out why lineProperties:Equals(...) doesn't work
-      LineProperties.Equals(lineProperties, LineProperties.ReadFromAttributes(lineHandle))
+    local lineHandleInfo = LineInfo.ReadInfo(lineHandle)
+    if 
+      lineHandleInfo.Start == lineInfo.Start and
+      lineHandleInfo.Stop == lineInfo.Stop and
+      lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
     then
       lineHandle:Destroy()
 
