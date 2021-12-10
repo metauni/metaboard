@@ -44,8 +44,11 @@
       "$properties": {
         "FilteringEnabled": true
       },
-      "WhiteBoardModel" : {
-        "$path": "WhiteBoardModel.rbxmx"
+      "WhiteBoard" : {
+        "$path": "boards/WhiteBoard.rbxmx"
+      },
+      "BrickWallBoard" : {
+        "$path": "boards/BrickWallBoard.rbxmx"
       },
       "Baseplate": {
         "$className": "Part",

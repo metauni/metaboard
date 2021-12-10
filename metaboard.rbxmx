@@ -98,7 +98,7 @@ function MetaBoard.InitBoard(board)
   if canvas == nil then
     canvas = Instance.new("Part")
     canvas.Name = "Canvas"
-    canvas.Anchored = true
+    canvas.Massless = true
     canvas.CanCollide = false
     canvas.CanTouch = false
     local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
@@ -107,21 +107,29 @@ function MetaBoard.InitBoard(board)
     canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
     canvas.Transparency = 1
 
+    local weldConstraint = Instance.new("WeldConstraint")
+    weldConstraint.Part0 = board
+    weldConstraint.Part1 = canvas
+    weldConstraint.Parent = board
+
     local curves = Instance.new("Folder")
     curves.Name = "Curves"
     curves.Parent = canvas
 
     local surfaceGui = Instance.new("SurfaceGui")
-    surfaceGui.Parent = canvas
     surfaceGui.Name = "SurfaceGui"
     surfaceGui.Adornee = canvas
-
+    surfaceGui.Parent = canvas
+    
+    local clickDetector = Instance.new("ClickDetector")
+    clickDetector.Name = "ClickDetector"
+    clickDetector.Parent = board
+    
     local button = Instance.new("TextButton")
     button.Name = "Button"
     button.Text = ""
     button.BackgroundTransparency = 1
     button.Size = UDim2.new(1,0,1,0)
-
     button.Parent = surfaceGui
 
     canvas.Parent = board
