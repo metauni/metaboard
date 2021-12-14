@@ -1,7 +1,9 @@
 local CollectionService = game:GetService("CollectionService")
+local StarterPack = game:GetService("StarterPack")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
+local DrawingTask = require(Common.DrawingTask)
 
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
@@ -18,9 +20,9 @@ function MetaBoard.Init()
 
   CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
 
-  DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
-    MetaBoard.DrawWorldLine(player, board, lineInfo)
-  end)
+  -- DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
+  --   MetaBoard.DrawWorldLine(player, board, lineInfo)
+  -- end)
   
   EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
     MetaBoard.EraseWorldLine(board, lineInfo)
@@ -30,7 +32,97 @@ function MetaBoard.Init()
     MetaBoard.DeleteWorldCurve(board, curveName)
   end)
 
+  MetaBoard.DrawingTasks = {}
+
+  DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, taskKind, ...)
+    local drawingTask
+    if taskKind == "FreeHand" then
+      drawingTask = MetaBoard.CreateFreehandTask(player)
+      MetaBoard.DrawingTasks[player] = drawingTask
+    else
+      error(taskKind.." drawing task kind not implemented")
+      return
+    end
+    drawingTask.Init(drawingTask.State, ...)
+  end)
+
+  DrawingTask.UpdateRemoteEvent.OnServerEvent:Connect(function(player, ...)
+    local drawingTask = MetaBoard.DrawingTasks[player]
+    if drawingTask then
+      drawingTask.Update(drawingTask.State, ...)
+    else
+      error("No drawing task to update for "..player.Name)
+    end
+  end)
+
+  DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, ...)
+    local drawingTask = MetaBoard.DrawingTasks[player]
+    if drawingTask then
+      drawingTask.Finish(drawingTask.State, ...)
+      -- TODO: Is this necessary? Think about garbage collection
+      MetaBoard.DrawingTasks[player] = nil
+    else
+      error("No drawing task to finish for "..player.Name)
+    end
+  end)
+
   print("MetaBoard Server initialized")
+end
+
+function MetaBoard.CreateFreehandTask(player)
+  local init = function(state, board, pos, thicknessYScale, color, curveName)
+    state.Author = player
+    state.Board = board
+    state.ThicknessYScale = thicknessYScale
+    state.Color = color
+    state.CurveName = curveName
+    
+    board.CurrentZIndex.Value += 1
+    state.ZIndex = board.CurrentZIndex.Value
+    
+    state.Curve = Instance.new("Folder")
+    state.Curve.Name = curveName
+    state.Curve:SetAttribute("AuthorUserId", player.UserId)
+    state.Curve:SetAttribute("ZIndex", state.ZIndex)
+    
+    state.Points = {pos}
+    local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
+    local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+    LineInfo.StoreInfo(worldLine, lineInfo)
+    state.Curve.Parent = board.Canvas.Curves
+    state.Lines = {worldLine}
+    
+    worldLine.Parent = state.Curve
+  end
+
+  local update = function(state, pos)
+    local lineInfo = LineInfo.new(state.Points[#state.Points], pos, state.ThicknessYScale, state.Color)
+    local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+    LineInfo.StoreInfo(worldLine, lineInfo)
+    worldLine.Parent = state.Curve
+
+    state.Points[#state.Points+1] = pos
+    state.Lines[#state.Lines+1] = worldLine
+  end
+
+  -- TODO: Make this smooth the line in future (get client to say what lines to keep)
+  local finish = function(state, doSmoothing, smoothedCurvePoints)
+    if doSmoothing then
+      state.Curve:ClearAllChildren()
+      state.Points = smoothedCurvePoints
+      state.Lines = {}
+      
+      for i=1, #smoothedCurvePoints-1 do
+        local lineInfo = LineInfo.new(smoothedCurvePoints[i], smoothedCurvePoints[i+1], state.ThicknessYScale, state.Color)
+        local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+        LineInfo.StoreInfo(worldLine, lineInfo)
+        worldLine.Parent = state.Curve
+      end
+    end
+    return
+  end
+
+  return DrawingTask.new(init, update, finish)
 end
 
 function MetaBoard.GetSurfaceCFrame(part, face)
@@ -94,7 +186,6 @@ function MetaBoard.InitBoard(board)
     canvas.CanCollide = false
     canvas.CanTouch = false
     local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
-    print(dimensions)
     canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.CanvasThickness)
     canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
     canvas.Transparency = 1
@@ -199,27 +290,21 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 end
 
 function MetaBoard.DrawWorldLine(player, board, lineInfo)
-  local zIndex
   local curve = board.Canvas.Curves:FindFirstChild(lineInfo.CurveName)
   if curve == nil then
     curve = Instance.new("Folder")
     curve.Name = lineInfo.CurveName
     curve:SetAttribute("AuthorUserId", player.UserId)
-    curve.Parent = board.Canvas.Curves
-
     board.CurrentZIndex.Value += 1
+    curve:SetAttribute("ZIndex", board.CurrentZIndex.Value)
+    curve.Parent = board.Canvas.Curves
   end
 
-  zIndex = board.CurrentZIndex.Value
-
-  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board.Canvas, lineInfo, zIndex)
+  local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board.Canvas, lineInfo, board.CurrentZIndex.Value)
 
 
-  lineHandle.Parent = curve
   LineInfo.StoreInfo(lineHandle, lineInfo)
-  lineHandle:SetAttribute("ZIndex", zIndex)
-  
-  lineHandle.Adornee = board.Canvas
+  lineHandle.Parent = curve
 end
 
 function MetaBoard.EraseWorldLine(board, lineInfo)

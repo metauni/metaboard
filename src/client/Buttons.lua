@@ -242,10 +242,10 @@ function Buttons.ConnectUndoButton(undoButton)
     local board = CanvasState.EquippedBoard
     
     -- nothing to undo
-    if Drawing.CurveIndex[board] == 0 then return end
+    if Drawing.CurveIndexOf[board] == 0 then return end
 
-    local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[board])
-    Drawing.CurveIndex[board] -= 1
+    local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[board])
+    Drawing.CurveIndexOf[board] -= 1
 
     CanvasState.DeleteCurve(curveName)
     UndoCurveRemoteEvent:FireServer(board, curveName)

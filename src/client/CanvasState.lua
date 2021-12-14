@@ -5,6 +5,7 @@ local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
+local GuiPositioning = require(Common.GuiPositioning)
 local BoardGui
 local CursorsGui
 local Canvas
@@ -12,9 +13,6 @@ local Curves
 local Buttons
 local Drawing
 
-local GuiPositioning = require(Common.GuiPositioning)
-local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
-local PositionFromPixel = GuiPositioning.PositionFromPixel
 
 local CanvasState = {
 
@@ -30,8 +28,8 @@ local CanvasState = {
 function CanvasState.Init(boardGui, cursorsGui)
   BoardGui = boardGui
   CursorsGui = cursorsGui
-  Canvas = boardGui.CanvasZone.Canvas
-  Curves = Canvas.Curves
+  Canvas = boardGui.Canvas
+  Curves = boardGui.Curves
 
   Buttons = require(script.Parent.Buttons)
   Drawing = require(script.Parent.Drawing)
@@ -89,7 +87,15 @@ function CanvasState.OpenBoard(board)
     board.Canvas.Curves.DescendantAdded:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
       if descendant:IsA("BoxHandleAdornment") and descendant.Parent:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
-        CanvasState.DrawLine(board, LineInfo.ReadInfo(descendant))
+        local curveName = descendant.Parent.Name
+        local curve = Curves:FindFirstChild(curveName)
+
+        if curve then
+          local lineInfo = LineInfo.ReadInfo(descendant)
+          local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+          LineInfo.StoreInfo(lineFrame, lineInfo)
+          CanvasState.AttachLine(lineFrame, curve)
+        end
       end
     end)
   
@@ -102,7 +108,7 @@ function CanvasState.OpenBoard(board)
         local curve = Curves:FindFirstChild(curveName)
 
         if curve then
-          for _, lineFrame in ipairs(curve:GetChildren()) do
+          for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
             local descendantInfo = LineInfo.ReadInfo(descendant)
             local lineInfo = LineInfo.ReadInfo(lineFrame)
             if 
@@ -119,16 +125,12 @@ function CanvasState.OpenBoard(board)
     end)
 
   for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
-    local curve = Instance.new("ScreenGui")
-    curve.IgnoreGuiInset = true
-    curve.Name = worldCurve.Name
+    local curve = CanvasState.CreateCurve(board, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
-      curve.DisplayOrder = worldLine:GetAttribute("ZIndex")
       local lineInfo = LineInfo.ReadInfo(worldLine)
-      local lineFrame = CanvasState.CreateLineFrame(lineInfo, worldLine:GetAttribute("ZIndex"))
-      local wrappedLine = CanvasState.WrapInCoordinateFrame(lineFrame)
-      LineInfo.StoreInfo(wrappedLine, lineInfo)
-      wrappedLine.Parent = curve
+      local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+      LineInfo.StoreInfo(lineFrame, lineInfo)
+      CanvasState.AttachLine(lineFrame, curve)
     end
     curve.Parent = Curves
   end
@@ -155,14 +157,59 @@ function CanvasState.GetCanvasPixelPosition()
 end
 
 function CanvasState.GetScalePositionOnCanvas(pixelPos)
-  return (pixelPos - (Curves.AbsolutePosition + Vector2.new(0,36)))/Curves.AbsoluteSize.Y
+  return (pixelPos - (Canvas.AbsolutePosition + Vector2.new(0,36)))/Canvas.AbsoluteSize.Y
 end
 
 function CanvasState.CanvasYScaleToOffset(yScaleValue)
   return yScaleValue * Canvas.AbsoluteSize.Y
 end
 
-function CanvasState.CreateLineFrame(lineInfo, zIndex)
+function CanvasState.CreateCurve(board, curveName, zIndex)
+  local curveGui = Instance.new("ScreenGui")
+  curveGui.Name = curveName
+  curveGui.IgnoreGuiInset = true
+  curveGui.Parent = Curves
+
+  curveGui.DisplayOrder = zIndex
+  
+  local canvasGhost = Instance.new("Frame")
+  canvasGhost.Name = "CanvasGhost"
+  canvasGhost.AnchorPoint = Vector2.new(0.5,0)
+  canvasGhost.Size = UDim2.new(0.85,0,0.85,0)
+  canvasGhost.Position = UDim2.new(0.5,0,0.125,0)
+  canvasGhost.BackgroundTransparency = 1
+
+  local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
+  UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
+
+  local coordinateFrame = Instance.new("Frame")
+  coordinateFrame.Name = "CoordinateFrame"
+  coordinateFrame.AnchorPoint = Vector2.new(0,0)
+  coordinateFrame.Position = UDim2.new(0,0,0,0)
+  coordinateFrame.Size = UDim2.new(1,0,1,0)
+  coordinateFrame.SizeConstraint = Enum.SizeConstraint.RelativeYY
+  coordinateFrame.BackgroundTransparency = 1
+
+  UIAspectRatioConstraint.Parent = canvasGhost
+  coordinateFrame.Parent = canvasGhost
+  canvasGhost.Parent = curveGui
+
+  return curveGui
+end
+
+function CanvasState.GetLinesContainer(curve)
+  return curve.CanvasGhost.CoordinateFrame
+end
+
+function CanvasState.AttachLine(line, curve)
+  line.Parent = curve.CanvasGhost.CoordinateFrame
+end
+
+function CanvasState.GetParentCurve(line)
+  return line.Parent.Parent.Parent
+end
+
+function CanvasState.CreateLineFrame(lineInfo)
   local lineFrame = Instance.new("Frame")
 
   if lineInfo.Start == lineInfo.Stop then
@@ -178,9 +225,11 @@ function CanvasState.CreateLineFrame(lineInfo, zIndex)
   lineFrame.BorderSizePixel = 0
   
   -- Round the corners
-  local UICorner = Instance.new("UICorner")
-  UICorner.CornerRadius = UDim.new(0.5,0)
-  UICorner.Parent = lineFrame
+  if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.UICornerThreshold then
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.5,0)
+    UICorner.Parent = lineFrame
+  end
 
   return lineFrame
 end
@@ -248,7 +297,7 @@ function CanvasState.DrawToolCursor(player, tool, x, y)
   end
 
   -- Reposition cursor to new position (should be given with Scale values)
-  cursor.Position = PositionFromPixel(x,y, CursorsGui.IgnoreGuiInset)
+  cursor.Position = GuiPositioning.PositionFromPixel(x,y, CursorsGui.IgnoreGuiInset)
 
   -- Configure cursor appearance based on tool type
   if tool.ToolType == "Pen" then
@@ -300,7 +349,7 @@ end
 
 function CanvasState.Erase(pos, radiusYScale, lineFrameDestroyer)
   for _, curve in ipairs(Curves:GetChildren()) do
-    for _, lineFrame in ipairs(curve:GetChildren()) do
+    for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
       if CanvasState.intersects(
           pos,
           radiusYScale,
@@ -319,7 +368,7 @@ function CanvasState.DeleteLine(lineFrame)
   lineFrame:Destroy()
   
   -- TODO consider erase-undo interaction with curve index
-  if #curve:GetChildren() == 0 then
+  if #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
     curve:Destroy()
   end
 end
