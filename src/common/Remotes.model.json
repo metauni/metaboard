@@ -16,6 +16,18 @@
 		{
 			"Name": "UndoCurve",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "DrawingTaskInit",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "DrawingTaskUpdate",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "DrawingTaskFinish",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

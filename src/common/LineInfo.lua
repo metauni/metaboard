@@ -1,7 +1,7 @@
 local LineInfo = {}
 LineInfo.__index = LineInfo
 
-function LineInfo.new(start, stop, thicknessYScale, color, curveName)
+function LineInfo.new(start, stop, thicknessYScale, color)
   return setmetatable({
     Start = start,
     Stop = stop,
@@ -11,7 +11,6 @@ function LineInfo.new(start, stop, thicknessYScale, color, curveName)
     ThicknessYScale = thicknessYScale,
     RotationRadians = math.atan2((stop - start).Y, (stop-start).X),
     RotationDegrees = math.deg(math.atan2((stop - start).Y, (stop-start).X)),
-    CurveName = curveName,
   }, LineInfo)
 end
 
@@ -27,8 +26,8 @@ function LineInfo.ReadInfo(object)
     object:GetAttribute("Start"),
     object:GetAttribute("Stop"),
     object:GetAttribute("ThicknessYScale"),
-    object:GetAttribute("Color"),
-    object.Parent.Name)
+    object:GetAttribute("Color")
+  )
 end
 
 return LineInfo

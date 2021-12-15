@@ -2,12 +2,11 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
-local GuiPositioning = require(Common.GuiPositioning)
 local LineInfo = require(Common.LineInfo)
-local PositionFromAbsolute = GuiPositioning.PositionFromAbsolute
-local PositionFromPixel = GuiPositioning.PositionFromPixel
-local CanvasState
+local DrawingTask = require(Common.DrawingTask)
+local ClientDrawingTasks
 local DrawingTool = require(Common.DrawingTool)
+local CanvasState
 local Pen = DrawingTool.Pen
 local Eraser = DrawingTool.Eraser
 
@@ -15,7 +14,6 @@ local BoardGui
 local Canvas
 local Curves
 
-local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 
 local Drawing = {
@@ -30,6 +28,9 @@ local Drawing = {
   PenA = nil,
   PenB = nil,
 
+  -- Drawing Mode
+  PenMode = nil,
+
   -- eraser state
   ----------------
   Eraser = nil,
@@ -40,23 +41,29 @@ local Drawing = {
 
   -- Every line drawn by this player on a given board will be sequentially
   -- numbered by a curve index for undo-functionality. 
-  -- CurveIndex[board] will be the current curve being drawn on the board
+  -- CurveIndexOf[board] will be the current curve being drawn on the board
   -- by this player (or the last drawn curve if mouseHeld is false)
   -- (See Config.CurveNamer)
-  CurveIndex = {},
+  CurveIndexOf = {},
+
+  CurrentTask = nil
 }
 Drawing.__index = Drawing
 
 function Drawing.Init(boardGui)
   BoardGui = boardGui
 
-  Canvas = BoardGui.CanvasZone.Canvas
-  Curves = Canvas.Curves
+  Canvas = BoardGui.Canvas
+  Curves = BoardGui.Curves
 
   CanvasState = require(script.Parent.CanvasState)
 
   Drawing.PenA = Pen.new(Config.Defaults.PenAColor, Config.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
   Drawing.PenB = Pen.new(Config.Defaults.PenBColor, Config.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
+
+  Drawing.PenMode = "FreeHand"
+
+  ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
 
   Drawing.Eraser = Eraser.new(Config.EraserSmall, BoardGui.Toolbar.Erasers.SmallButton)
 
@@ -70,26 +77,31 @@ function Drawing.Init(boardGui)
     Drawing.ToolMoved(x,y)
   end)
 
-  UserInputService.InputEnded:Connect(function(input, gp) Drawing.ToolLift(nil,nil) end)
+  UserInputService.InputEnded:Connect(function(input, gp)
+    if Drawing.MouseHeld then
+      Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
+    end
+  end)
   
-  Canvas.MouseLeave:Connect(function(x,y) 
-    Drawing.MouseHeld = false
+  Canvas.MouseLeave:Connect(function(x,y)
+    -- TODO: this seems to run before InputEnded on touch screens
+    -- Drawing.MouseHeld = false
     CanvasState.DestroyToolCursor(LocalPlayer)
   end)
 
 end
 
 function Drawing.OnBoardOpen(board)
-  if Drawing.CurveIndex[board] == nil then
-    Drawing.CurveIndex[board] = 0
+  if Drawing.CurveIndexOf[board] == nil then
+    Drawing.CurveIndexOf[board] = 0
   end
 end
 
 function Drawing.WithinBounds(x,y, thicknessYScale)
-  local leftBuffer = (x - Canvas.AbsolutePosition.X)/Curves.AbsoluteSize.Y
-  local rightBuffer = (Canvas.AbsolutePosition.X + Canvas.AbsoluteSize.X - x)/Curves.AbsoluteSize.Y
-  local upBuffer = (y - (Canvas.AbsolutePosition.Y + 36))/Curves.AbsoluteSize.Y
-  local downBuffer = ((Canvas.AbsolutePosition.Y + Canvas.AbsoluteSize.Y + 36) - y)/Curves.AbsoluteSize.Y
+  local leftBuffer = (x - Canvas.AbsolutePosition.X)/Canvas.AbsoluteSize.Y
+  local rightBuffer = (Canvas.AbsolutePosition.X + Canvas.AbsoluteSize.X - x)/Canvas.AbsoluteSize.Y
+  local upBuffer = (y - (Canvas.AbsolutePosition.Y + 36))/Canvas.AbsoluteSize.Y
+  local downBuffer = ((Canvas.AbsolutePosition.Y + Canvas.AbsoluteSize.Y + 36) - y)/Canvas.AbsoluteSize.Y
 
   return
     leftBuffer >= thicknessYScale/2 and
@@ -101,45 +113,22 @@ end
 function Drawing.ToolDown(x,y)
 
   Drawing.MouseHeld = true
-  Drawing.CurveIndex[CanvasState.EquippedBoard] += 1
+  Drawing.CurveIndexOf[CanvasState.EquippedBoard] += 1
 
   local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x,y))
 
-  if Drawing.EquippedTool.ToolType == "Eraser" then 
-    CanvasState.Erase(
-      newCanvasPos,
-      Drawing.EquippedTool.ThicknessYScale/2,
-      function(lineFrame)
-        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
-        CanvasState.DeleteLine(lineFrame)
-      end)
-
+  if Drawing.EquippedTool.ToolType == "Eraser" then
+    Drawing.CurrentTask = ClientDrawingTasks.new("Erase")
+    Drawing.CurrentTask.Init(Drawing.CurrentTask.State, newCanvasPos)
   else
     if not Drawing.WithinBounds(x,y, Drawing.EquippedTool.ThicknessYScale) then
       return
     end
 
-    CanvasState.DrawLine(
-      CanvasState.EquippedBoard,
-      LineInfo.new(
-        newCanvasPos,
-        newCanvasPos,
-        Drawing.EquippedTool.ThicknessYScale,
-        Drawing.EquippedTool.Color,
-        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
-      )
-    )
-    
-    DrawLineRemoteEvent:FireServer(
-      CanvasState.EquippedBoard,
-      LineInfo.new(
-        newCanvasPos,
-        newCanvasPos,
-        Drawing.EquippedTool.ThicknessYScale,
-        Drawing.EquippedTool.Color,
-        Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
-      )
-    )
+    if Drawing.EquippedTool.ToolType == "Pen" then
+      Drawing.CurrentTask = ClientDrawingTasks.new(Drawing.PenMode)
+      Drawing.CurrentTask.Init(Drawing.CurrentTask.State, newCanvasPos)
+    end
   end
 
   Drawing.MousePixelPos = Vector2.new(x, y)
@@ -152,15 +141,7 @@ function Drawing.ToolMoved(x,y)
     local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
     
     if Drawing.EquippedTool.ToolType == "Eraser" then
-      -- TODO consider erasing everything between old mouse position and new position
-
-      CanvasState.Erase(
-        newCanvasPos,
-        Drawing.EquippedTool.ThicknessYScale/2,
-        function(lineFrame)
-          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
-          CanvasState.DeleteLine(lineFrame)
-        end)
+      Drawing.CurrentTask.Update(Drawing.CurrentTask.State, newCanvasPos)
     else
       assert(Drawing.EquippedTool.ToolType == "Pen")
 
@@ -169,27 +150,8 @@ function Drawing.ToolMoved(x,y)
         return
       end
 
-      CanvasState.DrawLine(
-        CanvasState.EquippedBoard,
-        LineInfo.new(
-          CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
-          newCanvasPos,
-          Drawing.EquippedTool.ThicknessYScale,
-          Drawing.EquippedTool.Color,
-          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
-        )
-      )
+      Drawing.CurrentTask.Update(Drawing.CurrentTask.State, newCanvasPos)
 
-      DrawLineRemoteEvent:FireServer(
-        CanvasState.EquippedBoard,
-        LineInfo.new(
-          CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
-          newCanvasPos,
-          Drawing.EquippedTool.ThicknessYScale,
-          Drawing.EquippedTool.Color,
-          Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[CanvasState.EquippedBoard])
-        )
-      )
     end
 
     Drawing.MousePixelPos = Vector2.new(x, y)
@@ -198,7 +160,45 @@ function Drawing.ToolMoved(x,y)
 end
 
 function Drawing.ToolLift(x,y)
+
+  local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
   Drawing.MouseHeld = false
+  Drawing.MousePixelPos = Vector2.new(x,y)
+  
+  Drawing.CurrentTask.Finish(Drawing.CurrentTask.State, newCanvasPos)
 end
+
+-- Perform the Douglas-Peucker algorithm on a polyline given as an array
+-- of points. Instead of returning a new polyline, this function sets
+-- all of the removed points to nil
+function Drawing.DouglasPeucker(points, startIndex, stopIndex, epsilon)
+  
+  if stopIndex - startIndex + 1 <= 2 then return end
+
+  local startPoint = points[startIndex]
+  local stopPoint = points[stopIndex]
+
+  local maxPerp = nil
+  local maxPerpIndex = nil
+  
+  for i = startIndex+1, stopIndex-1 do
+    -- Get the length of the perpendicular vector between points[i] and the line through startPoint and stopPoint
+    local perp = math.abs((points[i] - startPoint).Unit:Cross((startPoint-stopPoint).Unit) * ((points[i] - startPoint).Magnitude))
+    if maxPerp == nil or perp > maxPerp then
+      maxPerp = perp
+      maxPerpIndex = i
+    end
+  end
+
+  if maxPerp > epsilon then
+    Drawing.DouglasPeucker(points, startIndex, maxPerpIndex, epsilon)
+    Drawing.DouglasPeucker(points, maxPerpIndex, stopIndex, epsilon)
+  else
+    for i = startIndex+1, stopIndex-1 do
+      points[i] = nil
+    end
+  end
+end
+
 
 return Drawing

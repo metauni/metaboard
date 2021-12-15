@@ -6,6 +6,8 @@ local Config = {
   MinLineLengthScale = 0,
   MaxLineLengthTouchScale = 200/1000,
 
+  UICornerThreshold = 4,
+
   EraserSmallRadiusYScale = 10/1000,
   EraserMediumRadiusYScale = 80/1000,
   EraserLargeRadiusYScale = 250/1000,
@@ -15,6 +17,12 @@ local Config = {
   },
 
   IntersectionResolution = 1/1000,
+
+  DouglasPeuckerEpsilon = 1/1000,
+  CatRomLength = 3/1000,
+
+  -- "DouglasPeucker", "CatRom", or nil (no smoothing)
+  SmoothingAlgorithm = nil,
 
   -- Will be able to draw n = (CanvasThickness - ZThicknessStuds)/StudsPerIndex
   -- many curves before the curves appear above the SurfaceGui button
@@ -40,8 +48,8 @@ Config.PersonalBoard = {
   TorsoOffset = Vector3.new(0,2,-5),
 }
 
-function Config.CurveNamer(playerName, curveIndex)
-  return playerName..curveIndex
+function Config.CurveNamer(player, curveIndex)
+  return player.UserId.."#"..curveIndex
 end
 
 return Config

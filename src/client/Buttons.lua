@@ -21,7 +21,9 @@ function Buttons.Init(toolbar)
       Buttons.ConnectColorButton(colorButton)
     end
   end
+
   
+  Buttons.ConnectPenModeButton(Toolbar.PenModeButton)
   Buttons.ConnectSlider(Toolbar.Pens.Slider.Rail, Toolbar.Pens.Slider.Rail.Knob)
   Buttons.ConnectPenButton(Toolbar.Pens.PenAButton, Drawing.PenA)
   Buttons.ConnectPenButton(Toolbar.Pens.PenBButton, Drawing.PenB)
@@ -34,6 +36,7 @@ function Buttons.Init(toolbar)
   Buttons.SyncSlider(Drawing.EquippedTool)
   Buttons.SyncPenButton(Toolbar.Pens.PenAButton, Drawing.PenA)
   Buttons.SyncPenButton(Toolbar.Pens.PenBButton, Drawing.PenB)
+  Buttons.SyncPenModeButton(Toolbar.PenModeButton, Drawing.PenMode)
   
   print("Buttons initialized")
 end
@@ -242,10 +245,10 @@ function Buttons.ConnectUndoButton(undoButton)
     local board = CanvasState.EquippedBoard
     
     -- nothing to undo
-    if Drawing.CurveIndex[board] == 0 then return end
+    if Drawing.CurveIndexOf[board] == 0 then return end
 
-    local curveName = Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndex[board])
-    Drawing.CurveIndex[board] -= 1
+    local curveName = Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[board])
+    Drawing.CurveIndexOf[board] -= 1
 
     CanvasState.DeleteCurve(curveName)
     UndoCurveRemoteEvent:FireServer(board, curveName)
@@ -256,6 +259,28 @@ function Buttons.ConnectCloseButton(closeButton)
   closeButton.Activated:Connect(function()
     CanvasState.CloseBoard(CanvasState.EquippedBoard)
   end)
+end
+
+function Buttons.ConnectPenModeButton(penModeButton)
+  penModeButton.Activated:Connect(function()
+    if Drawing.EquippedTool.ToolType == "Pen" then
+      if Drawing.PenMode == "FreeHand" then
+        Buttons.SyncPenModeButton(penModeButton, "Line")
+        Drawing.PenMode = "Line"
+      else
+        Buttons.SyncPenModeButton(penModeButton, "FreeHand")
+        Drawing.PenMode = "FreeHand"
+      end
+    end
+  end)
+end
+
+function Buttons.SyncPenModeButton(penModeButton, mode)
+  if mode == "FreeHand" then
+    penModeButton.Image = "rbxassetid://8260808744"
+  elseif mode == "Line" then
+    penModeButton.Image = "rbxassetid://8260809648"
+  end
 end
 
 return Buttons
