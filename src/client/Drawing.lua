@@ -2,11 +2,10 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
-local GuiPositioning = require(Common.GuiPositioning)
 local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
+local ClientDrawingTasks
 local DrawingTool = require(Common.DrawingTool)
-local CatRom = require(Common.Packages.CatRom)
 local CanvasState
 local Pen = DrawingTool.Pen
 local Eraser = DrawingTool.Eraser
@@ -15,7 +14,6 @@ local BoardGui
 local Canvas
 local Curves
 
-local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
 
 local Drawing = {
@@ -29,6 +27,9 @@ local Drawing = {
   ---------------------
   PenA = nil,
   PenB = nil,
+
+  -- Drawing Mode
+  PenMode = nil,
 
   -- eraser state
   ----------------
@@ -45,7 +46,7 @@ local Drawing = {
   -- (See Config.CurveNamer)
   CurveIndexOf = {},
 
-  CurrentCurvePoints = nil,
+  CurrentTask = nil
 }
 Drawing.__index = Drawing
 
@@ -59,6 +60,10 @@ function Drawing.Init(boardGui)
 
   Drawing.PenA = Pen.new(Config.Defaults.PenAColor, Config.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
   Drawing.PenB = Pen.new(Config.Defaults.PenBColor, Config.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
+
+  Drawing.PenMode = "FreeHand"
+
+  ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
 
   Drawing.Eraser = Eraser.new(Config.EraserSmall, BoardGui.Toolbar.Erasers.SmallButton)
 
@@ -74,7 +79,7 @@ function Drawing.Init(boardGui)
 
   UserInputService.InputEnded:Connect(function(input, gp)
     if Drawing.MouseHeld then
-      Drawing.ToolLift()
+      Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
     end
   end)
   
@@ -112,49 +117,18 @@ function Drawing.ToolDown(x,y)
 
   local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x,y))
 
-  if Drawing.EquippedTool.ToolType == "Eraser" then 
-    CanvasState.Erase(
-      newCanvasPos,
-      Drawing.EquippedTool.ThicknessYScale/2,
-      function(lineFrame)
-        EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
-        CanvasState.DeleteLine(lineFrame)
-      end)
-
+  if Drawing.EquippedTool.ToolType == "Eraser" then
+    Drawing.CurrentTask = ClientDrawingTasks.new("Erase")
+    Drawing.CurrentTask.Init(Drawing.CurrentTask.State, newCanvasPos)
   else
     if not Drawing.WithinBounds(x,y, Drawing.EquippedTool.ThicknessYScale) then
       return
     end
 
-    local zIndex = CanvasState.EquippedBoard.CurrentZIndex.Value + 1
-
-    local curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[CanvasState.EquippedBoard]), zIndex)
-
-    local lineInfo = 
-      LineInfo.new(
-        newCanvasPos,
-        newCanvasPos,
-        Drawing.EquippedTool.ThicknessYScale,
-        Drawing.EquippedTool.Color
-      )
-    local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-    LineInfo.StoreInfo(lineFrame, lineInfo)
-
-    CanvasState.AttachLine(lineFrame, curve)
-
-    curve.Parent = Curves
-
-    Drawing.CurrentCurvePoints = {newCanvasPos}
-    
-    DrawingTask.InitRemoteEvent:FireServer(
-      "FreeHand",
-      CanvasState.EquippedBoard,
-      newCanvasPos,
-      Drawing.EquippedTool.ThicknessYScale,
-      Drawing.EquippedTool.Color,
-      Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[CanvasState.EquippedBoard])
-    )
+    if Drawing.EquippedTool.ToolType == "Pen" then
+      Drawing.CurrentTask = ClientDrawingTasks.new(Drawing.PenMode)
+      Drawing.CurrentTask.Init(Drawing.CurrentTask.State, newCanvasPos)
+    end
   end
 
   Drawing.MousePixelPos = Vector2.new(x, y)
@@ -167,15 +141,7 @@ function Drawing.ToolMoved(x,y)
     local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
     
     if Drawing.EquippedTool.ToolType == "Eraser" then
-      -- TODO consider erasing everything between old mouse position and new position
-
-      CanvasState.Erase(
-        newCanvasPos,
-        Drawing.EquippedTool.ThicknessYScale/2,
-        function(lineFrame)
-          EraseLineRemoteEvent:FireServer(CanvasState.EquippedBoard, LineInfo.ReadInfo(lineFrame))
-          CanvasState.DeleteLine(lineFrame)
-        end)
+      Drawing.CurrentTask.Update(Drawing.CurrentTask.State, newCanvasPos)
     else
       assert(Drawing.EquippedTool.ToolType == "Pen")
 
@@ -184,24 +150,8 @@ function Drawing.ToolMoved(x,y)
         return
       end
 
-      local curve = Curves:FindFirstChild(Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[CanvasState.EquippedBoard]))
+      Drawing.CurrentTask.Update(Drawing.CurrentTask.State, newCanvasPos)
 
-      local lineInfo =
-        LineInfo.new(
-          CanvasState.GetScalePositionOnCanvas(Drawing.MousePixelPos),
-          newCanvasPos,
-          Drawing.EquippedTool.ThicknessYScale,
-          Drawing.EquippedTool.Color
-        )
-      local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-      Drawing.CurrentCurvePoints[#Drawing.CurrentCurvePoints+1] = newCanvasPos
-
-      LineInfo.StoreInfo(lineFrame, lineInfo)
-
-      CanvasState.AttachLine(lineFrame, curve)
-
-      DrawingTask.UpdateRemoteEvent:FireServer(newCanvasPos)
     end
 
     Drawing.MousePixelPos = Vector2.new(x, y)
@@ -209,91 +159,13 @@ function Drawing.ToolMoved(x,y)
   end
 end
 
-function Drawing.ToolLift()
+function Drawing.ToolLift(x,y)
+
+  local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
   Drawing.MouseHeld = false
-
-  if Drawing.EquippedTool.ToolType == "Pen" then
-
-    if Config.SmoothingAlgorithm == "CatRom" then
-      
-      local numPoints = #Drawing.CurrentCurvePoints
-      
-      if numPoints <= 2 then return end
-      
-      local chain = CatRom.Chain.new(Drawing.CurrentCurvePoints)
-
-      local curve = Curves:FindFirstChild(Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[CanvasState.EquippedBoard]))
-      CanvasState.GetLinesContainer(curve):ClearAllChildren()
-
-      -- obviously a slow way to do this
-      local length = 0
-      for i=1, (numPoints)-1 do
-        length += (Drawing.CurrentCurvePoints[i+1] - Drawing.CurrentCurvePoints[i]).Magnitude
-      end
-      
-      if curve then
-
-        local curvePoints = {chain:SolvePosition(0)}
-
-        for i=1, length/Config.CatRomLength - 1 do
-            local lineInfo =
-              LineInfo.new(
-                chain:SolvePosition((i-1)/(length/Config.CatRomLength - 1)),
-                chain:SolvePosition(i/(length/Config.CatRomLength - 1)),
-                Drawing.EquippedTool.ThicknessYScale,
-                Drawing.EquippedTool.Color
-              )
-            local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-            LineInfo.StoreInfo(lineFrame, lineInfo)
-            CanvasState.AttachLine(lineFrame, curve)
-
-            table.insert(curvePoints, chain:SolvePosition(i/(length/Config.CatRomLength - 1)))
-        end
-
-        DrawingTask.FinishRemoteEvent:FireServer(true, curvePoints)
-      end
-
-    elseif Config.SmoothingAlgorithm == "DouglasPeucker" then
-      
-      local numPoints = #Drawing.CurrentCurvePoints
+  Drawing.MousePixelPos = Vector2.new(x,y)
   
-      if numPoints <= 2 then return end
-  
-      local curvePoints = Drawing.CurrentCurvePoints
-
-      Drawing.DouglasPeucker(curvePoints, 1, numPoints, Config.DouglasPeuckerEpsilon)
-
-      local curve = Curves:FindFirstChild(Config.CurveNamer(LocalPlayer.Name, Drawing.CurveIndexOf[CanvasState.EquippedBoard]))
-
-      if curve then
-        CanvasState.GetLinesContainer(curve):ClearAllChildren()
-
-        local i = 1
-        while i < #curvePoints do
-          while i < #curvePoints and curvePoints[i] == nil do i += 1 end
-          local j = i+1
-          while j <= #curvePoints and curvePoints[j] == nil do j += 1 end
-          if curvePoints[j] then
-            local lineInfo =
-              LineInfo.new(
-                curvePoints[i],
-                curvePoints[j],
-                Drawing.EquippedTool.ThicknessYScale,
-                Drawing.EquippedTool.Color
-              )
-            local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-            LineInfo.StoreInfo(lineFrame, lineInfo)
-            CanvasState.AttachLine(lineFrame, curve)
-          end
-          i += 1
-        end
-        -- DrawingTask.FinishRemoteEvent:FireServer(true, curvePoints)
-      end
-      DrawingTask.FinishRemoteEvent:FireServer(false)
-    end
-  end
+  Drawing.CurrentTask.Finish(Drawing.CurrentTask.State, newCanvasPos)
 end
 
 -- Perform the Douglas-Peucker algorithm on a polyline given as an array

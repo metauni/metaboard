@@ -21,6 +21,7 @@ local CanvasState = {
 
   EquippedBoardAddLineConnection = nil,
   EquippedBoardRemoveLineConnection = nil,
+  EquippedBoardRemoveCurveConnection = nil,
 
   SurfaceGuiConnections = {}
 }
@@ -86,6 +87,11 @@ function CanvasState.OpenBoard(board)
   CanvasState.EquippedBoardAddLineConnection =
     board.Canvas.Curves.DescendantAdded:Connect(function(descendant)
       -- TODO: hardcoded dependency on details of word line generation
+      -- if descendant:IsA("BoxHandleAdornment") then
+      --   print(descendant.Parent:GetAttribute("AuthorUserId"))
+      -- end
+
+
       if descendant:IsA("BoxHandleAdornment") and descendant.Parent:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
         local curveName = descendant.Parent.Name
         local curve = Curves:FindFirstChild(curveName)
@@ -124,6 +130,17 @@ function CanvasState.OpenBoard(board)
       end
     end)
 
+    CanvasState.EquippedBoardRemoveCurveConnection =
+    board.Canvas.Curves.ChildRemoved:Connect(function(worldCurve)
+      local curve = Curves:FindFirstChild(worldCurve.Name)
+
+      if curve then
+        curve:Destroy()
+      end
+    end)
+
+  
+
   for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
     local curve = CanvasState.CreateCurve(board, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
     for _, worldLine in ipairs(worldCurve:GetChildren()) do
@@ -144,6 +161,7 @@ function CanvasState.CloseBoard(board)
 
   CanvasState.EquippedBoardAddLineConnection:Disconnect()
   CanvasState.EquippedBoardRemoveLineConnection:Disconnect()
+  CanvasState.EquippedBoardRemoveCurveConnection:Disconnect()
   
   game.StarterGui:SetCore("TopbarEnabled", true)
 
@@ -212,6 +230,19 @@ end
 function CanvasState.CreateLineFrame(lineInfo)
   local lineFrame = Instance.new("Frame")
 
+  CanvasState.UpdateLineFrame(lineFrame, lineInfo)
+  
+  -- Round the corners
+  if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.UICornerThreshold then
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0.5,0)
+    UICorner.Parent = lineFrame
+  end
+
+  return lineFrame
+end
+
+function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
   if lineInfo.Start == lineInfo.Stop then
     lineFrame.Size = UDim2.new(lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
   else
@@ -223,15 +254,6 @@ function CanvasState.CreateLineFrame(lineInfo)
   lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
   lineFrame.BackgroundColor3 = lineInfo.Color
   lineFrame.BorderSizePixel = 0
-  
-  -- Round the corners
-  if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.UICornerThreshold then
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0.5,0)
-    UICorner.Parent = lineFrame
-  end
-
-  return lineFrame
 end
 
 
@@ -323,25 +345,21 @@ function CanvasState.DestroyToolCursor(player)
   if cursor then cursor:Destroy() end
 end
 
-function CanvasState.intersects(pos, radius, start, stop, thicknessYScale)
-  assert(pos~=nil)
-  assert(radius~=nil)
-  assert(start~=nil)
-  assert(stop~=nil)
-  local u = pos - start
-  local v = stop - start
+function CanvasState.Intersects(pos, radius, lineInfo)
+  local u = pos - lineInfo.Start
+  local v = lineInfo.Stop - lineInfo.Start
 
   if v.Magnitude <= Config.IntersectionResolution then
-    return u.Magnitude <= radius + thicknessYScale
+    return u.Magnitude <= radius + lineInfo.ThicknessYScale
   end
 
   local vhat = v / v.Magnitude
   
   -- Check if the tip of the projection of u onto v is within the radius of the thick line around v
-  if -thicknessYScale <= u:Dot(vhat) + radius and u:Dot(vhat) - radius <= v.Magnitude + thicknessYScale then
+  if -lineInfo.ThicknessYScale <= u:Dot(vhat) + radius and u:Dot(vhat) - radius <= v.Magnitude + lineInfo.ThicknessYScale then
     -- Check if the tip of the 'rejection' of u onto v (i.e. u minus the projection)
     -- is within the radius of the thick line around v
-    return (u - ((u:Dot(vhat) * v))).Magnitude <= radius + thicknessYScale
+    return (u - ((u:Dot(vhat) * v))).Magnitude <= radius + lineInfo.ThicknessYScale
   end
 
   return false
@@ -350,7 +368,7 @@ end
 function CanvasState.Erase(pos, radiusYScale, lineFrameDestroyer)
   for _, curve in ipairs(Curves:GetChildren()) do
     for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
-      if CanvasState.intersects(
+      if CanvasState.Intersects(
           pos,
           radiusYScale,
           lineFrame:GetAttribute("Start"),
@@ -364,13 +382,8 @@ function CanvasState.Erase(pos, radiusYScale, lineFrameDestroyer)
 end
 
 function CanvasState.DeleteLine(lineFrame)
-  local curve = lineFrame.Parent
+  local curve = CanvasState.GetParentCurve(lineFrame)
   lineFrame:Destroy()
-  
-  -- TODO consider erase-undo interaction with curve index
-  if #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
-    curve:Destroy()
-  end
 end
 
 function CanvasState.DeleteCurve(curveName)

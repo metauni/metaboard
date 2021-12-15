@@ -1,9 +1,9 @@
 local CollectionService = game:GetService("CollectionService")
-local StarterPack = game:GetService("StarterPack")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
+local ServerDrawingTasks
 
 local DrawLineRemoteEvent = Common.Remotes.DrawLine
 local EraseLineRemoteEvent = Common.Remotes.EraseLine
@@ -14,19 +14,13 @@ MetaBoard.__index = MetaBoard
 
 function MetaBoard.Init()
 
+  ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
+
   for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
     MetaBoard.InitBoard(board)
   end
 
   CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
-
-  -- DrawLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
-  --   MetaBoard.DrawWorldLine(player, board, lineInfo)
-  -- end)
-  
-  EraseLineRemoteEvent.OnServerEvent:Connect(function(player, board, lineInfo)
-    MetaBoard.EraseWorldLine(board, lineInfo)
-  end)
 
   UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
     MetaBoard.DeleteWorldCurve(board, curveName)
@@ -34,15 +28,9 @@ function MetaBoard.Init()
 
   MetaBoard.DrawingTasks = {}
 
-  DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, taskKind, ...)
-    local drawingTask
-    if taskKind == "FreeHand" then
-      drawingTask = MetaBoard.CreateFreehandTask(player)
-      MetaBoard.DrawingTasks[player] = drawingTask
-    else
-      error(taskKind.." drawing task kind not implemented")
-      return
-    end
+  DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskKind, ...)
+    local drawingTask = ServerDrawingTasks.new(taskKind, player, board)
+    MetaBoard.DrawingTasks[player] = drawingTask
     drawingTask.Init(drawingTask.State, ...)
   end)
 
@@ -67,62 +55,6 @@ function MetaBoard.Init()
   end)
 
   print("MetaBoard Server initialized")
-end
-
-function MetaBoard.CreateFreehandTask(player)
-  local init = function(state, board, pos, thicknessYScale, color, curveName)
-    state.Author = player
-    state.Board = board
-    state.ThicknessYScale = thicknessYScale
-    state.Color = color
-    state.CurveName = curveName
-    
-    board.CurrentZIndex.Value += 1
-    state.ZIndex = board.CurrentZIndex.Value
-    
-    state.Curve = Instance.new("Folder")
-    state.Curve.Name = curveName
-    state.Curve:SetAttribute("AuthorUserId", player.UserId)
-    state.Curve:SetAttribute("ZIndex", state.ZIndex)
-    
-    state.Points = {pos}
-    local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
-    local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
-    LineInfo.StoreInfo(worldLine, lineInfo)
-    state.Curve.Parent = board.Canvas.Curves
-    state.Lines = {worldLine}
-    
-    worldLine.Parent = state.Curve
-  end
-
-  local update = function(state, pos)
-    local lineInfo = LineInfo.new(state.Points[#state.Points], pos, state.ThicknessYScale, state.Color)
-    local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
-    LineInfo.StoreInfo(worldLine, lineInfo)
-    worldLine.Parent = state.Curve
-
-    state.Points[#state.Points+1] = pos
-    state.Lines[#state.Lines+1] = worldLine
-  end
-
-  -- TODO: Make this smooth the line in future (get client to say what lines to keep)
-  local finish = function(state, doSmoothing, smoothedCurvePoints)
-    if doSmoothing then
-      state.Curve:ClearAllChildren()
-      state.Points = smoothedCurvePoints
-      state.Lines = {}
-      
-      for i=1, #smoothedCurvePoints-1 do
-        local lineInfo = LineInfo.new(smoothedCurvePoints[i], smoothedCurvePoints[i+1], state.ThicknessYScale, state.Color)
-        local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
-        LineInfo.StoreInfo(worldLine, lineInfo)
-        worldLine.Parent = state.Curve
-      end
-    end
-    return
-  end
-
-  return DrawingTask.new(init, update, finish)
 end
 
 function MetaBoard.GetSurfaceCFrame(part, face)
@@ -245,7 +177,6 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
       Vector3.new(
         lerp(1,-1,lineInfo.Centre.X/aspectRatio),
         lerp(1,-1,lineInfo.Centre.Y),
-        -- TODO figure out why this is negative
         1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
     boxHandle.Size =
       Vector3.new(
@@ -307,8 +238,8 @@ function MetaBoard.DrawWorldLine(player, board, lineInfo)
   lineHandle.Parent = curve
 end
 
-function MetaBoard.EraseWorldLine(board, lineInfo)
-  local curve = board.Canvas.Curves:FindFirstChild(lineInfo.CurveName)
+function MetaBoard.EraseWorldLine(board, lineInfo, curveName)
+  local curve = board.Canvas.Curves:FindFirstChild(curveName)
   if curve == nil then
     error(lineInfo.CurveName.." not found")
   end
