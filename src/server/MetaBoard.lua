@@ -5,8 +5,6 @@ local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
 local ServerDrawingTasks
 
-local DrawLineRemoteEvent = Common.Remotes.DrawLine
-local EraseLineRemoteEvent = Common.Remotes.EraseLine
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 local MetaBoard = {}

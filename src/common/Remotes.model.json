@@ -1,33 +1,25 @@
 {
-	"ClassName": "Folder",
-	"Children": [
-		{
-			"Name": "DrawLine",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "EraseLine",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "PersonalBoard",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "UndoCurve",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "DrawingTaskInit",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "DrawingTaskUpdate",
-			"ClassName": "RemoteEvent"
-		},
-		{
-			"Name": "DrawingTaskFinish",
-			"ClassName": "RemoteEvent"
-		}
-	]
+  "ClassName": "Folder",
+  "Children": [
+    {
+      "Name": "PersonalBoard",
+      "ClassName": "RemoteEvent"
+    },
+    {
+      "Name": "UndoCurve",
+      "ClassName": "RemoteEvent"
+    },
+    {
+      "Name": "DrawingTaskInit",
+      "ClassName": "RemoteEvent"
+    },
+    {
+      "Name": "DrawingTaskUpdate",
+      "ClassName": "RemoteEvent"
+    },
+    {
+      "Name": "DrawingTaskFinish",
+      "ClassName": "RemoteEvent"
+    }
+  ]
 }

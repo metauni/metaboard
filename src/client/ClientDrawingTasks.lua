@@ -227,7 +227,7 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
           Drawing.EquippedTool.ThicknessYScale/2,
           lineInfo) then
         
-        CanvasState.DeleteLine(lineFrame)
+        lineFrame:Destroy()
         table.insert(lineInfos, lineInfo)
       end
     end

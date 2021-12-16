@@ -14,8 +14,6 @@ local BoardGui
 local Canvas
 local Curves
 
-local EraseLineRemoteEvent = Common.Remotes.EraseLine
-
 local Drawing = {
   -- mouse state
   ---------------
