@@ -1,109 +1,109 @@
 {
-  "name": "metaboard",
-  "tree": {
-    "$className": "DataModel",
+	"name": "metaboard",
+	"tree": {
+		"$className": "DataModel",
 
-    "ReplicatedStorage": {
-      "$ignoreUnknownInstances": true,
-      "$className": "ReplicatedStorage",
-      "MetaBoardCommon": {
-        "$path": "src/common"
-      }
-    },
+		"ReplicatedStorage": {
+			"$ignoreUnknownInstances": true,
+			"$className": "ReplicatedStorage",
+			"MetaBoardCommon": {
+				"$path": "src/common"
+			}
+		},
 
-    "ServerScriptService": {
-      "$ignoreUnknownInstances": true,
-      "$className": "ServerScriptService",
-      "MetaBoardServer": {
-        "$className": "Folder",
-        "$path": "src/server"
-      }
-    },
+		"ServerScriptService": {
+			"$ignoreUnknownInstances": true,
+			"$className": "ServerScriptService",
+			"MetaBoardServer": {
+				"$className": "Folder",
+				"$path": "src/server"
+			}
+		},
 
-    "StarterPlayer": {
-      "$ignoreUnknownInstances": true,
-      "$className": "StarterPlayer",
-      "StarterPlayerScripts": {
-        "$ignoreUnknownInstances": true,
-        "$className": "StarterPlayerScripts",
-        "MetaBoardPlayer" : {
-          "$path": "src/client"
-        }
-      }
-    },
+		"StarterPlayer": {
+			"$ignoreUnknownInstances": true,
+			"$className": "StarterPlayer",
+			"StarterPlayerScripts": {
+				"$ignoreUnknownInstances": true,
+				"$className": "StarterPlayerScripts",
+				"MetaBoardPlayer" : {
+					"$path": "src/client"
+				}
+			}
+		},
 
-    "StarterGui": {
-      "$className": "StarterGui",
-      "$ignoreUnknownInstances": true,
-      "$path": "src/StarterGui"
-    },
+		"StarterGui": {
+			"$className": "StarterGui",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/StarterGui"
+		},
 
-    "Workspace": {
-      "$className": "Workspace",
-      "$ignoreUnknownInstances": true,
-      "$properties": {
-        "FilteringEnabled": true
-      },
-      "WhiteBoard" : {
-        "$path": "boards/WhiteBoard.rbxmx"
-      },
-      "BrickWallBoard" : {
-        "$path": "boards/BrickWallBoard.rbxmx"
-      },
-      "Baseplate": {
-        "$className": "Part",
-        "$properties": {
-          "Anchored": true,
-          "Color": [
-            0.356862745,
-            0.356862745,
-            0.356862745
-          ],
-          "Locked": true,
-          "Position": [
-            0,
-            -8,
-            0
-          ],
-          "Size": [
-            2048,
-            16,
-            2048
-          ],
-          "Material": "Plastic",
-          "BottomSurface": "Smooth",
-          "TopSurface": "Smooth"
-        },
-        "Texture": {
-          "$className": "Texture",
-          "$properties": {
-            "Texture": "rbxassetid://6372755229",
-            "StudsPerTileU": 8,
-            "StudsPerTileV": 8,
-            "Transparency": 0.8,
-            "Face": "Top",
-            "Color3": [0,0,0]
-          }
-        }
-      }
-    },
-    "Lighting": {
-      "$properties": {
-        "Ambient": [
-          0,
-          0,
-          0
-        ],
-        "Brightness": 2,
-        "GlobalShadows": true,
-        "Outlines": false,
-        "Technology": "Voxel"
-      }
-    },
-    "SoundService": {
-      "$properties": {
-        "RespectFilteringEnabled": true
-      }
-    }
-  }
+		"Workspace": {
+			"$className": "Workspace",
+			"$ignoreUnknownInstances": true,
+			"$properties": {
+				"FilteringEnabled": true
+			},
+			"WhiteBoard" : {
+				"$path": "boards/WhiteBoard.rbxmx"
+			},
+			"BrickWallBoard" : {
+				"$path": "boards/BrickWallBoard.rbxmx"
+			},
+			"Baseplate": {
+				"$className": "Part",
+				"$properties": {
+					"Anchored": true,
+					"Color": [
+						0.356862745,
+						0.356862745,
+						0.356862745
+					],
+					"Locked": true,
+					"Position": [
+						0,
+						-8,
+						0
+					],
+					"Size": [
+						2048,
+						16,
+						2048
+					],
+					"Material": "Plastic",
+					"BottomSurface": "Smooth",
+					"TopSurface": "Smooth"
+				},
+				"Texture": {
+					"$className": "Texture",
+					"$properties": {
+						"Texture": "rbxassetid://6372755229",
+						"StudsPerTileU": 8,
+						"StudsPerTileV": 8,
+						"Transparency": 0.8,
+						"Face": "Top",
+						"Color3": [0,0,0]
+					}
+				}
+			}
+		},
+		"Lighting": {
+			"$properties": {
+				"Ambient": [
+					0,
+					0,
+					0
+				],
+				"Brightness": 2,
+				"GlobalShadows": true,
+				"Outlines": false,
+				"Technology": "Voxel"
+			}
+		},
+		"SoundService": {
+			"$properties": {
+				"RespectFilteringEnabled": true
+			}
+		}
+	}
 }
