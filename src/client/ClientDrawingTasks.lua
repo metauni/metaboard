@@ -1,6 +1,7 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local DrawingTask = require(Common.DrawingTask)
 local Config = require(Common.Config)
+local Cache = require(Common.Cache)
 local Drawing
 local CanvasState
 local Curves
@@ -227,7 +228,9 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 					Drawing.EquippedTool.ThicknessYScale/2,
 					lineInfo) then
 				
-				lineFrame:Destroy()
+				LineInfo.ClearInfo(lineFrame)
+				Cache.Release(lineFrame)
+				lineFrame.Parent = nil
 				table.insert(lineInfos, lineInfo)
 			end
 		end
@@ -235,7 +238,8 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 			curveLineInfoBundles[curve.Name] = lineInfos
 		end
 		if #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
-			curve:Destroy()
+			CanvasState.DiscardCurve(curve)
+			curve.Parent = nil
 		end
 	end
 

@@ -1,6 +1,7 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local DrawingTask = require(Common.DrawingTask)
 local Config = require(Common.Config)
+local Cache = require(Common.Cache)
 local LineInfo = require(Common.LineInfo)
 local MetaBoard
 
@@ -29,10 +30,11 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 		board.CurrentZIndex.Value += 1
 		state.ZIndex = board.CurrentZIndex.Value
 		
-		state.Curve = Instance.new("Folder")
+		state.Curve = Cache.Get("Folder")
 		state.Curve.Name = curveName
 		state.Curve:SetAttribute("AuthorUserId", player.UserId)
 		state.Curve:SetAttribute("ZIndex", state.ZIndex)
+		state.Curve:SetAttribute("CurveType", "FreeHand")
 		
 		state.Points = {pos}
 		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
@@ -87,10 +89,11 @@ function ServerDrawingTasks.Line.new(player, board)
 		board.CurrentZIndex.Value += 1
 		state.ZIndex = board.CurrentZIndex.Value
 		
-		state.Curve = Instance.new("Folder")
+		state.Curve = Cache.Get("Folder")
 		state.Curve.Name = curveName
 		state.Curve:SetAttribute("AuthorUserId", state.Author.UserId)
 		state.Curve:SetAttribute("ZIndex", state.ZIndex)
+		state.Curve:SetAttribute("CurveType", "Line")
 		
 		state.Start = pos
 		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
@@ -104,12 +107,8 @@ function ServerDrawingTasks.Line.new(player, board)
 
 	local update = function(state, pos)
 		local lineInfo = LineInfo.new(state.Start, pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
-		LineInfo.StoreInfo(worldLine, lineInfo)
-		state.Line:SetAttribute("RemoverUserId", state.Author.UserId)
-		state.Line:Destroy()
-		worldLine.Parent = state.Curve
-		state.Line = worldLine
+		LineInfo.StoreInfo(state.Line, lineInfo)
+		MetaBoard.UpdateWorldLineHandle(state.Line, state.Board, lineInfo, state.Curve:GetAttribute("ZIndex"))
 	end
 
 	local finish = function(state) return end
@@ -133,13 +132,14 @@ function ServerDrawingTasks.Erase.RemoveLines(board, curveLineInfoBundles)
 						lineHandleInfo.Stop == lineInfo.Stop and
 						lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
 					then
-						lineHandle:Destroy()
+						MetaBoard.DiscardLineHandle(lineHandle)
 					end
 				end
 			end
 
 			if #curve:GetChildren() == 0 then
-				curve:Destroy()
+				Cache.Release(curve)
+				curve.Parent = nil
 			end
 		end
 	end

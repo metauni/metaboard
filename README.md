@@ -94,25 +94,27 @@ For more customised positioning of the board, make an invisible part for the boa
 
 - [ ] Google docs style indicators in GUI to show which player is currently drawing
 
+- [ ] Board textures/images for gui.
+
 ## Module descriptions
 
 ### Client module scripts (StarterPlayerScripts)
-	- `CanvasState`
-		- Maintains the lines drawn on the canvas while the Gui is open
-		- Listens to the currently opened boards Curves folder (the in-world curves)
-			to add and remove lines when other players modify the board
-		- `Drawing` and `ClientDrawingTasks` access `CanvasState`'s function to update
-			the lines that are on the board gui
-	- `Drawing`
-		- Tracks the currently equipped tool, pen mode, current drawing task and curve index of the local player
-		- Responds to mouse movement and triggers `ClientDrawingTasks` to tell them when to update some task.
-	- `ClientDrawingTasks`
-		- Creates short-term "Drawing Tasks: for each tool/pen mode which describes their behaviour
-			over the lifetime of a tool-down, tool-move, tool-move,..., tool-lift.
-	- `Buttons`
-		- Connect all the buttons in the toolbar
-	- `PersonalBoardTool`
-		- Creates and adds tool to backpack which triggers personal board events.
+- `CanvasState`
+	- Maintains the lines drawn on the canvas while the Gui is open
+	- Listens to the currently opened boards Curves folder (the in-world curves)
+		to add and remove lines when other players modify the board
+	- `Drawing` and `ClientDrawingTasks` access `CanvasState`'s function to update
+		the lines that are on the board gui
+- `Drawing`
+	- Tracks the currently equipped tool, pen mode, current drawing task and curve index of the local player
+	- Responds to mouse movement and triggers `ClientDrawingTasks` to tell them when to update some task.
+- `ClientDrawingTasks`
+	- Creates short-term "Drawing Tasks: for each tool/pen mode which describes their behaviour
+		over the lifetime of a tool-down, tool-move, tool-move,..., tool-lift.
+- `Buttons`
+	- Connect all the buttons in the toolbar
+- `PersonalBoardTool`
+	- Creates and adds tool to backpack which triggers personal board events.
 
 ### Server module scripts (ServerScriptService)
 - `MetaBoard`

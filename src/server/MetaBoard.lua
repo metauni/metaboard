@@ -3,6 +3,7 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
+local Cache = require(Common.Cache)
 local ServerDrawingTasks
 
 local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
@@ -21,19 +22,23 @@ function MetaBoard.Init()
 	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
 
 	UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
-		MetaBoard.DeleteWorldCurve(board, curveName)
+		local curve = board.Canvas.Curves:FindFirstChild(curveName)
+		if curve then
+			Cache.Release(curve)
+			curve.Parent = nil
+		end
 	end)
 
-	MetaBoard.DrawingTasks = {}
+	MetaBoard.DrawingTaskOf = {}
 
 	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskKind, ...)
 		local drawingTask = ServerDrawingTasks.new(taskKind, player, board)
-		MetaBoard.DrawingTasks[player] = drawingTask
+		MetaBoard.DrawingTaskOf[player] = drawingTask
 		drawingTask.Init(drawingTask.State, ...)
 	end)
 
 	DrawingTask.UpdateRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		local drawingTask = MetaBoard.DrawingTasks[player]
+		local drawingTask = MetaBoard.DrawingTaskOf[player]
 		if drawingTask then
 			drawingTask.Update(drawingTask.State, ...)
 		else
@@ -42,11 +47,11 @@ function MetaBoard.Init()
 	end)
 
 	DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		local drawingTask = MetaBoard.DrawingTasks[player]
+		local drawingTask = MetaBoard.DrawingTaskOf[player]
 		if drawingTask then
 			drawingTask.Finish(drawingTask.State, ...)
 			-- TODO: Is this necessary? Think about garbage collection
-			MetaBoard.DrawingTasks[player] = nil
+			MetaBoard.DrawingTaskOf[player] = nil
 		else
 			error("No drawing task to finish for "..player.Name)
 		end
@@ -158,7 +163,7 @@ function MetaBoard.InitBoard(board)
 	end
 end
 
-function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
+function MetaBoard.UpdateWorldLineHandle(lineHandle, canvas, lineInfo, zIndex)
 
 	local function lerp(a, b, c)
 		return a + (b - a) * c
@@ -166,47 +171,64 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 
 	-- TODO dealing with aspect ratio is gross, figure out square coordinates, similar to GUI
 
+	local aspectRatio = canvas.Size.X / canvas.Size.Y
+	local yStuds = canvas.Size.Y
+
+	local boxHandle = lineHandle
+	local startHandle = boxHandle.StartHandle
+	local stopHandle = boxHandle.StopHandle
+
+	boxHandle.SizeRelativeOffset =
+		Vector3.new(
+			lerp(1,-1,lineInfo.Centre.X/aspectRatio),
+			lerp(1,-1,lineInfo.Centre.Y),
+			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+	boxHandle.Size =
+		Vector3.new(
+			lineInfo.Length * yStuds,
+			lineInfo.ThicknessYScale * yStuds,
+			Config.WorldLine.ZThicknessStuds)
+	boxHandle.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
+	boxHandle.Color3 = lineInfo.Color
+
+	startHandle.SizeRelativeOffset =
+		Vector3.new(
+			lerp(1,-1,lineInfo.Start.X/aspectRatio),
+			lerp(1,-1,lineInfo.Start.Y),
+			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+	startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
+	startHandle.Height = Config.WorldLine.ZThicknessStuds
+	startHandle.Color3 = lineInfo.Color
+
+	stopHandle.SizeRelativeOffset =
+		Vector3.new(
+			lerp(1,-1,lineInfo.Stop.X/aspectRatio),
+			lerp(1,-1,lineInfo.Stop.Y),
+			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+	stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
+	stopHandle.Height = Config.WorldLine.ZThicknessStuds
+	stopHandle.Color3 = lineInfo.Color
+
+	return boxHandle
+end
+
+function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
+
 	if worldLineType == "HandleAdornments" then
-		local aspectRatio = canvas.Size.X / canvas.Size.Y
-		local yStuds = canvas.Size.Y
 
-		local boxHandle = Instance.new("BoxHandleAdornment")
-		boxHandle.SizeRelativeOffset =
-			Vector3.new(
-				lerp(1,-1,lineInfo.Centre.X/aspectRatio),
-				lerp(1,-1,lineInfo.Centre.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-		boxHandle.Size =
-			Vector3.new(
-				lineInfo.Length * yStuds,
-				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
-		boxHandle.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
-		boxHandle.Color3 = lineInfo.Color
+		local boxHandle = Cache.Get("BoxHandleAdornment")
 
-		local startHandle = Instance.new("CylinderHandleAdornment")
-		startHandle.SizeRelativeOffset =
-			Vector3.new(
-				lerp(1,-1,lineInfo.Start.X/aspectRatio),
-				lerp(1,-1,lineInfo.Start.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-		startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		startHandle.Height = Config.WorldLine.ZThicknessStuds
-		startHandle.Color3 = lineInfo.Color
-
-		local stopHandle = Instance.new("CylinderHandleAdornment")
-		stopHandle.SizeRelativeOffset =
-			Vector3.new(
-				lerp(1,-1,lineInfo.Stop.X/aspectRatio),
-				lerp(1,-1,lineInfo.Stop.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-		stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		stopHandle.Height = Config.WorldLine.ZThicknessStuds
-		stopHandle.Color3 = lineInfo.Color
+		local startHandle = Cache.Get("CylinderHandleAdornment")
+		startHandle.Name = "StartHandle"
+		
+		local stopHandle = Cache.Get("CylinderHandleAdornment")
+		stopHandle.Name = "StopHandle"
 
 		startHandle.Parent = boxHandle
 		stopHandle.Parent = boxHandle
-
+		
+		MetaBoard.UpdateWorldLineHandle(boxHandle, canvas, lineInfo, zIndex)
+		
 		startHandle.Adornee = canvas
 		stopHandle.Adornee = canvas
 		boxHandle.Adornee = canvas
@@ -217,53 +239,14 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 	error(worldLineType.." world line type not implemented")
 end
 
-function MetaBoard.DrawWorldLine(player, board, lineInfo)
-	local curve = board.Canvas.Curves:FindFirstChild(lineInfo.CurveName)
-	if curve == nil then
-		curve = Instance.new("Folder")
-		curve.Name = lineInfo.CurveName
-		curve:SetAttribute("AuthorUserId", player.UserId)
-		board.CurrentZIndex.Value += 1
-		curve:SetAttribute("ZIndex", board.CurrentZIndex.Value)
-		curve.Parent = board.Canvas.Curves
+function MetaBoard.DiscardLineHandle(lineHandle)
+	for _, cylinderHandleAdornment in ipairs(lineHandle:GetChildren()) do
+		Cache.Release(cylinderHandleAdornment)
+		cylinderHandleAdornment.Parent = nil
 	end
 
-	local lineHandle = MetaBoard.CreateWorldLine("HandleAdornments", board.Canvas, lineInfo, board.CurrentZIndex.Value)
-
-
-	LineInfo.StoreInfo(lineHandle, lineInfo)
-	lineHandle.Parent = curve
-end
-
-function MetaBoard.EraseWorldLine(board, lineInfo, curveName)
-	local curve = board.Canvas.Curves:FindFirstChild(curveName)
-	if curve == nil then
-		error(lineInfo.CurveName.." not found")
-	end
-
-	for _, lineHandle in ipairs(curve:GetChildren()) do
-		local lineHandleInfo = LineInfo.ReadInfo(lineHandle)
-		if 
-			lineHandleInfo.Start == lineInfo.Start and
-			lineHandleInfo.Stop == lineInfo.Stop and
-			lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
-		then
-			lineHandle:Destroy()
-
-			if #curve:GetChildren() == 0 then
-				curve:Destroy()
-			end
-			return
-		end
-	end
-end
-
-function MetaBoard.DeleteWorldCurve(board, curveName)
-	local curve = board.Canvas.Curves:FindFirstChild(curveName)
-
-	if curve then
-		curve:Destroy()
-	end
+	Cache.Release(lineHandle)
+	lineHandle.Parent = nil
 end
 
 return MetaBoard

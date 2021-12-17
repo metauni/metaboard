@@ -22,7 +22,7 @@ local Config = {
 	CatRomLength = 3/1000,
 
 	-- "DouglasPeucker", "CatRom", or nil (no smoothing)
-	SmoothingAlgorithm = "CatRom",
+	SmoothingAlgorithm = nil,
 
 	-- Will be able to draw n = (CanvasThickness - ZThicknessStuds)/StudsPerIndex
 	-- many curves before the curves appear above the SurfaceGui button

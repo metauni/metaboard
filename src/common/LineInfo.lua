@@ -22,12 +22,23 @@ function LineInfo.StoreInfo(object, info)
 end
 
 function LineInfo.ReadInfo(object)
-	return LineInfo.new(
-		object:GetAttribute("Start"),
-		object:GetAttribute("Stop"),
-		object:GetAttribute("ThicknessYScale"),
-		object:GetAttribute("Color")
-	)
+	local start = object:GetAttribute("Start")
+	local stop = object:GetAttribute("Stop")
+	local thicknessYScale = object:GetAttribute("ThicknessYScale")
+	local color = object:GetAttribute("Color")
+	
+	if start == nil or stop == nil or thicknessYScale == nil or color == nil then
+		return nil
+	else
+		return LineInfo.new(start, stop, thicknessYScale, color)
+	end
+end
+
+function LineInfo.ClearInfo(object)
+	object:SetAttribute("Start", nil)
+	object:SetAttribute("Stop", nil)
+	object:SetAttribute("ThicknessYScale", nil)
+	object:SetAttribute("Color", nil)
 end
 
 return LineInfo
