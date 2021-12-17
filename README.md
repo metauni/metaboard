@@ -109,6 +109,8 @@ For more customised positioning of the board, make an invisible part for the boa
       over the lifetime of a tool-down, tool-move, tool-move,..., tool-lift.
   - `Buttons`
     - Connect all the buttons in the toolbar
+  - `PersonalBoardTool`
+    - Creates and adds tool to backpack which triggers personal board events.
 
 ### Server module scripts (ServerScriptService)
 - `MetaBoard`
