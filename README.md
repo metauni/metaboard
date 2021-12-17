@@ -92,6 +92,8 @@ For more customised positioning of the board, make an invisible part for the boa
 
 - [ ] Cache gui lines
 
+- [ ] Google docs style indicators in GUI to show which player is currently drawing
+
 ## Module descriptions
 
 ### Client module scripts (StarterPlayerScripts)
