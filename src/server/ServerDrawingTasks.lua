@@ -108,7 +108,7 @@ function ServerDrawingTasks.Line.new(player, board)
 	local update = function(state, pos)
 		local lineInfo = LineInfo.new(state.Start, pos, state.ThicknessYScale, state.Color)
 		LineInfo.StoreInfo(state.Line, lineInfo)
-		MetaBoard.UpdateWorldLineHandle(state.Line, state.Board, lineInfo, state.Curve:GetAttribute("ZIndex"))
+		MetaBoard.UpdateWorldLineHandle(state.Line, state.Board.Canvas, lineInfo, state.ZIndex)
 	end
 
 	local finish = function(state) return end
