@@ -8,7 +8,6 @@ local LineInfo = require(Common.LineInfo)
 local GuiPositioning = require(Common.GuiPositioning)
 local Cache = require(Common.Cache)
 local BoardGui
-local CursorsGui
 local Canvas
 local Curves
 local Buttons
@@ -26,17 +25,18 @@ local CanvasState = {
 	SurfaceGuiConnections = {}
 }
 
-function CanvasState.Init(boardGui, cursorsGui)
+function CanvasState.Init(boardGui)
 	BoardGui = boardGui
-	CursorsGui = cursorsGui
 	Canvas = boardGui.Canvas
 	Curves = boardGui.Curves
-
+	
 	Buttons = require(script.Parent.Buttons)
 	Drawing = require(script.Parent.Drawing)
 
+	
+	
+
 	BoardGui.Enabled = false
-	CursorsGui.Enabled = false
 
 	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 		CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
@@ -177,7 +177,6 @@ function CanvasState.OpenBoard(board)
 
 	Canvas.BackgroundColor3 = board.Color
 	BoardGui.Enabled = true
-	CursorsGui.Enabled = true
 
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
 		local curve = CanvasState.CreateCurve(board, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
@@ -195,7 +194,8 @@ end
 function CanvasState.CloseBoard(board)
 	
 	BoardGui.Enabled = false
-	CursorsGui.Enabled = false
+
+	Drawing.OnBoardClose(board)
 
 	CanvasState.EquippedBoardDescendantAddedConnection:Disconnect()
 	CanvasState.EquippedBoardDescendantRemovingConnection:Disconnect()
@@ -299,70 +299,6 @@ function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	lineFrame.BackgroundColor3 = lineInfo.Color
 	lineFrame.BackgroundTransparency = 0
 	lineFrame.BorderSizePixel = 0
-end
-
--- Draw/update the cursor for a player's tool on the Gui
-function CanvasState.DrawToolCursor(player, tool, x, y)
-	-- Find existing cursor
-	local cursor = CursorsGui:FindFirstChild(player.Name)
-
-	if cursor == nil then
-		-- Setup a new cursor
-		cursor = Cache.Get("Frame")
-		cursor.Name = player.Name
-		cursor.Rotation = 0
-		cursor.SizeConstraint = Enum.SizeConstraint.RelativeYY
-		cursor.AnchorPoint = Vector2.new(0.5,0.5)
-		cursor.BorderSizePixel = 1
-		
-		-- Make cursor circular
-		local UICorner = Cache.Get("UICorner")
-		UICorner.CornerRadius = UDim.new(0.5,0)
-		UICorner.Parent = cursor
-
-		-- Add outline
-		local UIStroke = Cache.Get("UIStroke")
-		UIStroke.Thickness = 1
-		UIStroke.Color = Color3.new(0,0,0)
-		UIStroke.Parent = cursor
-
-		-- Put the player name at the bottom right of the cursor
-		local textLabel = Cache.Get("TextLabel")
-		textLabel.Name = "PlayerName"
-		textLabel.Text = player.Name
-		textLabel.TextXAlignment = Enum.TextXAlignment.Left
-		textLabel.Position = UDim2.new(1,5,1,5)
-		textLabel.BackgroundTransparency = 1
-		textLabel.Parent = cursor
-
-		cursor.Parent = CursorsGui
-	end
-
-	-- Reposition cursor to new position (should be given with Scale values)
-	cursor.Position = GuiPositioning.PositionFromPixel(x,y, CursorsGui.IgnoreGuiInset)
-
-	-- Configure cursor appearance based on tool type
-	if tool.ToolType == "Pen" then
-		cursor.Size = UDim2.new(0, tool.ThicknessYScale * Canvas.AbsoluteSize.Y,
-														0, tool.ThicknessYScale * Canvas.AbsoluteSize.Y)
-		cursor.BackgroundColor3 = tool.Color
-		cursor.BackgroundTransparency = 0.5
-	elseif tool.ToolType == "Eraser" then
-		cursor.Size = UDim2.new(0, tool.ThicknessYScale * Canvas.AbsoluteSize.Y,
-														0, tool.ThicknessYScale * Canvas.AbsoluteSize.Y)
-		cursor.BackgroundColor3 = Color3.new(1, 1, 1)
-		cursor.BackgroundTransparency = 0.5
-	end
-
-	if player == LocalPlayer then
-		cursor.PlayerName.Visible = false
-	end
-
-end
-
-function CanvasState.DestroyToolCursor(player)
-	local cursor = CursorsGui:FindFirstChild(player.Name)
-	if cursor then cursor:Destroy() end
 end
 
 function CanvasState.Intersects(pos, radius, lineInfo)

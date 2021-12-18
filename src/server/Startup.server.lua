@@ -15,11 +15,6 @@ do
 	if boardGui then
 		boardGui.Parent = game:GetService("StarterGui")
 	end
-
-	local cursorsGui = script.Parent:FindFirstChild("CursorsGui")
-	if cursorsGui then
-		cursorsGui.Parent = game:GetService("StarterGui")
-	end
 end
 
 local MetaBoard = require(script.Parent.MetaBoard)

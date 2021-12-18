@@ -1,6 +1,9 @@
 # Project place file
 /metauni-whiteboard.rbxlx
 
+# Release file
+/metaboard.rbxmx
+
 # Roblox Studio lock files
 /*.rbxlx.lock
 /*.rbxl.lock

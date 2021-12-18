@@ -3,6 +3,7 @@ local Config = require(Common.Config)
 local Drawing = require(script.Parent.Drawing)
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local CanvasState
+local Curves
 local Toolbar
 
 local UserInputService = game:GetService("UserInputService")
@@ -12,8 +13,10 @@ local Buttons = {}
 Buttons.__index = Buttons
 
 
-function Buttons.Init(toolbar)
-	Toolbar = toolbar
+function Buttons.Init(boardGui)
+
+	Toolbar = boardGui.Toolbar
+	Curves = boardGui.Curves
 	CanvasState = require(script.Parent.CanvasState)
 
 	for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
@@ -243,15 +246,25 @@ end
 function Buttons.ConnectUndoButton(undoButton)
 	undoButton.Activated:Connect(function()
 		local board = CanvasState.EquippedBoard
+		local curveName
+		local curve
+
+		-- Look for the most recent curve that hasn't be erased
+		while Drawing.CurveIndexOf[board] ~= 0 do
+			curveName = Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[board])
+			curve = Curves:FindFirstChild(curveName)
+			if curve then break end
+
+			Drawing.CurveIndexOf[board] -= 1
+		end
 		
 		-- nothing to undo
 		if Drawing.CurveIndexOf[board] == 0 then return end
-
-		local curveName = Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[board])
-		Drawing.CurveIndexOf[board] -= 1
-
-		CanvasState.DeleteCurve(curveName)
+		
+		CanvasState.DiscardCurve(curve)
 		UndoCurveRemoteEvent:FireServer(board, curveName)
+
+		Drawing.CurveIndexOf[board] -= 1
 	end)
 end
 

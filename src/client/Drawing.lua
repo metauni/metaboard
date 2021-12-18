@@ -2,8 +2,7 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
-local LineInfo = require(Common.LineInfo)
-local DrawingTask = require(Common.DrawingTask)
+local GuiPositioning = require(Common.GuiPositioning)
 local ClientDrawingTasks
 local DrawingTool = require(Common.DrawingTool)
 local CanvasState
@@ -12,7 +11,6 @@ local Eraser = DrawingTool.Eraser
 
 local BoardGui
 local Canvas
-local Curves
 
 local Drawing = {
 	-- mouse state
@@ -20,6 +18,9 @@ local Drawing = {
 	MouseHeld = false,
 	-- pixel coordinates of mouse
 	MousePixelPos = nil,
+
+	-- the cursor that follows the mouse position
+	Cursor = nil,
 
 	-- drawing pen state
 	---------------------
@@ -52,7 +53,6 @@ function Drawing.Init(boardGui)
 	BoardGui = boardGui
 
 	Canvas = BoardGui.Canvas
-	Curves = BoardGui.Curves
 
 	CanvasState = require(script.Parent.CanvasState)
 
@@ -68,24 +68,47 @@ function Drawing.Init(boardGui)
 	Drawing.EquippedTool = Drawing.PenA
 	Drawing.ReservedTool = Drawing.Eraser
 
-	Canvas.MouseButton1Down:Connect(Drawing.ToolDown)
+	Drawing.CursorGui = Instance.new("ScreenGui")
+	Drawing.CursorGui.Name = "CursorGui"
+	Drawing.CursorGui.DisplayOrder = 2147483647
+	Drawing.CursorGui.IgnoreGuiInset = true
+	Drawing.CursorGui.ResetOnSpawn = false
+	
+	Drawing.CursorGui.Enabled = false
+	Drawing.CursorGui.Parent = BoardGui
+
+	Drawing.InitCursor(Drawing.CursorGui)
+
+	Canvas.MouseButton1Down:Connect(function(x,y)
+		Drawing.UpdateCursor(x,y)
+		Drawing.Cursor.Visible = true
+		Drawing.ToolDown(x,y)
+	end)
 
 	Canvas.MouseMoved:Connect(function(x,y)
-		CanvasState.DrawToolCursor(LocalPlayer, Drawing.EquippedTool, x, y)
+		Drawing.UpdateCursor(x,y)
 		Drawing.ToolMoved(x,y)
 	end)
 
-	UserInputService.InputEnded:Connect(function(input, gp)
-		if Drawing.MouseHeld then
-			Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
-		end
+	Canvas.MouseEnter:Connect(function(x,y)
+		Drawing.UpdateCursor(x,y)
+		Drawing.Cursor.Visible = true
 	end)
 	
 	Canvas.MouseLeave:Connect(function(x,y)
-		-- TODO: this seems to run before InputEnded on touch screens
-		-- Drawing.MouseHeld = false
-		CanvasState.DestroyToolCursor(LocalPlayer)
+		if Drawing.MouseHeld then
+			Drawing.ToolLift(x, y)
+		end
+		Drawing.MouseHeld = false
+		Drawing.Cursor.Visible = false
 	end)
+	
+		UserInputService.InputEnded:Connect(function(input, gp)
+			if Drawing.MouseHeld then
+				Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
+			end
+			Drawing.MouseHeld = false
+		end)
 
 end
 
@@ -93,6 +116,12 @@ function Drawing.OnBoardOpen(board)
 	if Drawing.CurveIndexOf[board] == nil then
 		Drawing.CurveIndexOf[board] = 0
 	end
+
+	Drawing.CursorGui.Enabled = true
+end
+
+function Drawing.OnBoardClose(board)
+	Drawing.CursorGui.Enabled = false
 end
 
 function Drawing.WithinBounds(x,y, thicknessYScale)
@@ -130,7 +159,6 @@ function Drawing.ToolDown(x,y)
 	end
 
 	Drawing.MousePixelPos = Vector2.new(x, y)
-
 end
 
 function Drawing.ToolMoved(x,y)
@@ -153,7 +181,6 @@ function Drawing.ToolMoved(x,y)
 		end
 
 		Drawing.MousePixelPos = Vector2.new(x, y)
-
 	end
 end
 
@@ -164,6 +191,48 @@ function Drawing.ToolLift(x,y)
 	Drawing.MousePixelPos = Vector2.new(x,y)
 	
 	Drawing.CurrentTask.Finish(Drawing.CurrentTask.State, newCanvasPos)
+end
+
+
+-- Draw/update the cursor for a player's tool on the Gui
+function Drawing.InitCursor(cursorGui)
+	Drawing.Cursor = Instance.new("Frame")
+	Drawing.Cursor.Name = LocalPlayer.Name.."Cursor"
+	Drawing.Cursor.Rotation = 0
+	Drawing.Cursor.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	Drawing.Cursor.AnchorPoint = Vector2.new(0.5,0.5)
+	
+	-- Make cursor circular
+	local UICorner = Instance.new("UICorner")
+	UICorner.CornerRadius = UDim.new(0.5,0)
+	UICorner.Parent = Drawing.Cursor
+
+	-- Add outline
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Thickness = 1
+	UIStroke.Color = Color3.new(0,0,0)
+	UIStroke.Parent = Drawing.Cursor
+
+	Drawing.Cursor.Parent = cursorGui
+end
+
+function Drawing.UpdateCursor(x,y)
+	-- Reposition cursor to new position (should be given with Scale values)
+	Drawing.Cursor.Position = GuiPositioning.PositionFromPixel(x, y, Drawing.CursorGui.IgnoreGuiInset)
+	
+	-- Configure Drawing.Cursor appearance based on tool type
+	if Drawing.EquippedTool.ToolType == "Pen" then
+		Drawing.Cursor.Size =
+			UDim2.new(0, Drawing.EquippedTool.ThicknessYScale * Canvas.AbsoluteSize.Y,
+								0, Drawing.EquippedTool.ThicknessYScale * Canvas.AbsoluteSize.Y)
+		Drawing.Cursor.BackgroundColor3 = Drawing.EquippedTool.Color
+		Drawing.Cursor.BackgroundTransparency = 0.5
+	elseif Drawing.EquippedTool.ToolType == "Eraser" then
+		Drawing.Cursor.Size = UDim2.new(0, Drawing.EquippedTool.ThicknessYScale * Canvas.AbsoluteSize.Y,
+														0, Drawing.EquippedTool.ThicknessYScale * Canvas.AbsoluteSize.Y)
+		Drawing.Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+		Drawing.Cursor.BackgroundTransparency = 0.5
+	end
 end
 
 -- Perform the Douglas-Peucker algorithm on a polyline given as an array
