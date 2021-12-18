@@ -7,7 +7,7 @@
 			<BinaryString name="AttributesSerialize"></BinaryString>
 			<bool name="AutoLocalize">true</bool>
 			<int name="DisplayOrder">0</int>
-			<bool name="Enabled">true</bool>
+			<bool name="Enabled">false</bool>
 			<bool name="IgnoreGuiInset">true</bool>
 			<string name="Name">BoardGui</string>
 			<bool name="ResetOnSpawn">false</bool>
@@ -3368,7 +3368,7 @@
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
 			</Item>
-			<Item class="ImageButton" referent="RBX797cd1219f2448b192642daf65259507">
+			<Item class="ImageButton" referent="118">
 				<Properties>
 					<bool name="Active">true</bool>
 					<Vector2 name="AnchorPoint">
@@ -3463,7 +3463,7 @@
 				</Properties>
 			</Item>
 		</Item>
-		<Item class="TextButton" referent="118">
+		<Item class="TextButton" referent="119">
 			<Properties>
 				<bool name="Active">true</bool>
 				<Vector2 name="AnchorPoint">
@@ -3543,7 +3543,7 @@
 				<bool name="Visible">true</bool>
 				<int name="ZIndex">1</int>
 			</Properties>
-			<Item class="UIAspectRatioConstraint" referent="119">
+			<Item class="UIAspectRatioConstraint" referent="120">
 				<Properties>
 					<float name="AspectRatio">1.33333337</float>
 					<token name="AspectType">0</token>
@@ -3554,7 +3554,7 @@
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
 			</Item>
-			<Item class="UICorner" referent="120">
+			<Item class="UICorner" referent="121">
 				<Properties>
 					<BinaryString name="AttributesSerialize"></BinaryString>
 					<UDim name="CornerRadius">
@@ -3566,7 +3566,7 @@
 					<BinaryString name="Tags"></BinaryString>
 				</Properties>
 			</Item>
-			<Item class="UIStroke" referent="121">
+			<Item class="UIStroke" referent="122">
 				<Properties>
 					<token name="ApplyStrokeMode">0</token>
 					<BinaryString name="AttributesSerialize"></BinaryString>
@@ -3585,7 +3585,7 @@
 				</Properties>
 			</Item>
 		</Item>
-		<Item class="Folder" referent="122">
+		<Item class="Folder" referent="123">
 			<Properties>
 				<BinaryString name="AttributesSerialize"></BinaryString>
 				<string name="Name">Curves</string>

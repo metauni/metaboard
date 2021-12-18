@@ -1,41 +1,41 @@
 {
-  "name": "metauni-whiteboard",
-  "tree": {
-    "$className": "DataModel",
+	"name": "metauni-whiteboard",
+	"tree": {
+		"$className": "DataModel",
 
-    "ReplicatedStorage": {
-      "$ignoreUnknownInstances": true,
-      "$className": "ReplicatedStorage",
-      "MetaBoardCommon": {
-        "$path": "src/common"
-      }
-    },
+		"ReplicatedStorage": {
+			"$ignoreUnknownInstances": true,
+			"$className": "ReplicatedStorage",
+			"MetaBoardCommon": {
+				"$path": "src/common"
+			}
+		},
 
-    "ServerScriptService": {
-      "$ignoreUnknownInstances": true,
-      "$className": "ServerScriptService",
-      "MetaBoardServer": {
-        "$className": "Folder",
-        "$path": "src/server"
-      }
-    },
+		"ServerScriptService": {
+			"$ignoreUnknownInstances": true,
+			"$className": "ServerScriptService",
+			"MetaBoardServer": {
+				"$className": "Folder",
+				"$path": "src/server"
+			}
+		},
 
-    "StarterPlayer": {
-      "$ignoreUnknownInstances": true,
-      "$className": "StarterPlayer",
-      "StarterPlayerScripts": {
-        "$ignoreUnknownInstances": true,
-        "$className": "StarterPlayerScripts",
-        "MetaBoardPlayer" : {
-          "$path": "src/client"
-        }
-      }
-    },
+		"StarterPlayer": {
+			"$ignoreUnknownInstances": true,
+			"$className": "StarterPlayer",
+			"StarterPlayerScripts": {
+				"$ignoreUnknownInstances": true,
+				"$className": "StarterPlayerScripts",
+				"MetaBoardPlayer" : {
+					"$path": "src/client"
+				}
+			}
+		},
 
-    "StarterGui": {
-      "$className": "StarterGui",
-      "$ignoreUnknownInstances": true,
-      "$path": "src/StarterGui"
-    }
-  }
+		"StarterGui": {
+			"$className": "StarterGui",
+			"$ignoreUnknownInstances": true,
+			"$path": "src/StarterGui"
+		}
+	}
 }

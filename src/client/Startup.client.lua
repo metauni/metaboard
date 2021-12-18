@@ -16,9 +16,9 @@ ClientDrawingTasks.Init(BoardGui.Curves)
 local localCharacter = Players.LocalPlayer.Character
 
 if localCharacter then
-  PersonalBoardTool.Init(localCharacter)
+	PersonalBoardTool.Init(localCharacter)
 end
 
 Players.LocalPlayer.CharacterAdded:Connect(function(character)
-  PersonalBoardTool.Init(character)
+	PersonalBoardTool.Init(character)
 end)
