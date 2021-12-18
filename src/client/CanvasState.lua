@@ -204,7 +204,9 @@ function CanvasState.CloseBoard(board)
 
 	CanvasState.EquippedBoard = nil
 
-	Curves:ClearAllChildren()
+	for _, curve in ipairs(Curves:GetChildren()) do
+		CanvasState.DiscardCurve(curve)
+	end
 end
 
 function CanvasState.GetCanvasPixelPosition()
@@ -269,6 +271,7 @@ end
 
 function CanvasState.CreateLineFrame(lineInfo)
 	local lineFrame = Cache.Get("Frame")
+	lineFrame.Name = "Line"
 
 	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	
@@ -294,6 +297,7 @@ function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	lineFrame.Rotation = lineInfo.RotationDegrees
 	lineFrame.AnchorPoint = Vector2.new(0.5,0.5)
 	lineFrame.BackgroundColor3 = lineInfo.Color
+	lineFrame.BackgroundTransparency = 0
 	lineFrame.BorderSizePixel = 0
 end
 
@@ -309,6 +313,7 @@ function CanvasState.DrawToolCursor(player, tool, x, y)
 		cursor.Rotation = 0
 		cursor.SizeConstraint = Enum.SizeConstraint.RelativeYY
 		cursor.AnchorPoint = Vector2.new(0.5,0.5)
+		cursor.BorderSizePixel = 1
 		
 		-- Make cursor circular
 		local UICorner = Cache.Get("UICorner")
@@ -388,6 +393,8 @@ function CanvasState.DiscardCurve(curve)
 
 	Cache.Release(curve.CanvasGhost.CoordinateFrame)
 	curve.CanvasGhost.CoordinateFrame.Parent = nil
+	Cache.Release(curve.CanvasGhost.UIAspectRatioConstraint)
+	curve.CanvasGhost.UIAspectRatioConstraint.Parent = nil
 	Cache.Release(curve.CanvasGhost)
 	curve.CanvasGhost.Parent = nil
 	Cache.Release(curve)

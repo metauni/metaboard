@@ -93,7 +93,10 @@ function ClientDrawingTasks.FreeHand.new()
 			
 			local chain = CatRom.Chain.new(state.Points)
 
-			CanvasState.GetLinesContainer(state.Curve):ClearAllChildren()
+			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
+				Cache.Release(lineFrame)
+				lineFrame.Parent = nil
+			end
 
 			local smoothPoints = {chain:SolvePosition(0)}
 
@@ -121,7 +124,10 @@ function ClientDrawingTasks.FreeHand.new()
 
 			Drawing.DouglasPeucker(state.Points, 1, #state.Points, Config.DouglasPeuckerEpsilon)
 
-			CanvasState.GetLinesContainer(state.Curve):ClearAllChildren()
+			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
+				Cache.Release(lineFrame)
+				lineFrame.Parent = nil
+			end
 
 			local smoothPoints = {}
 

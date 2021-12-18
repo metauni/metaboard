@@ -58,7 +58,9 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 
 	local finish = function(state, doSmoothing, smoothedCurvePoints)
 		if doSmoothing then
-			state.Curve:ClearAllChildren()
+			for _, worldLine in ipairs(state.Curve:GetChildren()) do
+				MetaBoard.DiscardLineHandle(worldLine)
+			end
 			state.Points = smoothedCurvePoints
 			state.Lines = {}
 			
