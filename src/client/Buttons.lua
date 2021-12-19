@@ -60,19 +60,30 @@ function Buttons.ConnectSlider(rail, knob)
 	
 	local function updateAt(xScale)
 		-- slider inactive unless a Pen is selected
-		if Drawing.EquippedTool.ToolType == "Pen" then
+		if Drawing.EquippedTool.ToolType ~= "Pen" then
+			-- switched to reserved pen and reserve the eraser
+			local tmp = Drawing.EquippedTool
+			Drawing.EquippedTool = Drawing.ReservedTool
+			Drawing.ReservedTool = tmp
 
-			-- Put the Knob there
-			knob.Position =  UDim2.new(xScale, 0, 0.5, 0)
-
-			-- Cube it for more fine-tuned control at thin end
-			local xScaleCubed = math.pow(xScale, 3)
-
-			-- Configure the size of the currently equipped pen
-			local thicknessYScale = (Config.MaxThicknessYScale - Config.MinThicknessYScale)*xScaleCubed + Config.MinThicknessYScale
-			Drawing.EquippedTool:SetThicknessYScale(thicknessYScale)
-			Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
+			-- Unhighlight all erasers
+			Buttons.HighlightJustEraserButton()
+			-- highlight the right color
+			Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
+			-- Highlight the equipped pen
+			Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
 		end
+
+		-- Put the Knob there
+		knob.Position =  UDim2.new(xScale, 0, 0.5, 0)
+
+		-- Cube it for more fine-tuned control at thin end
+		local xScaleCubed = math.pow(xScale, 3)
+
+		-- Configure the size of the currently equipped pen
+		local thicknessYScale = (Config.MaxThicknessYScale - Config.MinThicknessYScale)*xScaleCubed + Config.MinThicknessYScale
+		Drawing.EquippedTool:SetThicknessYScale(thicknessYScale)
+		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
 	end
 	
 	rail.MouseButton1Down:Connect(function(x,y)
@@ -89,8 +100,8 @@ function Buttons.ConnectSlider(rail, knob)
 	
 	Toolbar.MouseMoved:Connect(function(x,y)
 		if Buttons.SliderActive then
-			local xScale = math.clamp((x - rail.AbsolutePosition.X) / rail.AbsoluteSize.X, 0, 1)
-			updateAt(xScale - Buttons.KnobGrabOffset)
+			local xScale = math.clamp((x - rail.AbsolutePosition.X) / rail.AbsoluteSize.X - Buttons.KnobGrabOffset, 0, 1)
+			updateAt(xScale)
 		end
 	end)
 	
@@ -170,7 +181,7 @@ function Buttons.ConnectPenButton(penButton, penTool)
 		
 		Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
 		Buttons.HighlightJustPenButton(penButton)
-		
+		Buttons.HighlightJustEraserButton()
 	end)
 
 end
@@ -276,14 +287,30 @@ end
 
 function Buttons.ConnectPenModeButton(penModeButton)
 	penModeButton.Activated:Connect(function()
-		if Drawing.EquippedTool.ToolType == "Pen" then
-			if Drawing.PenMode == "FreeHand" then
-				Buttons.SyncPenModeButton(penModeButton, "Line")
-				Drawing.PenMode = "Line"
-			else
-				Buttons.SyncPenModeButton(penModeButton, "FreeHand")
-				Drawing.PenMode = "FreeHand"
-			end
+		if Drawing.PenMode == "FreeHand" then
+			Buttons.SyncPenModeButton(penModeButton, "Line")
+			Drawing.PenMode = "Line"
+		else
+			Buttons.SyncPenModeButton(penModeButton, "FreeHand")
+			Drawing.PenMode = "FreeHand"
+		end
+
+		if Drawing.EquippedTool.ToolType ~= "Pen" then
+			-- Pressed pen mode button while using Eraser
+			assert(Drawing.EquippedTool.ToolType == "Eraser")
+			assert(Drawing.ReservedTool.ToolType == "Pen")
+			
+			-- switched to reserved pen and reserve the eraser
+			local tmp = Drawing.EquippedTool
+			Drawing.EquippedTool = Drawing.ReservedTool
+			Drawing.ReservedTool = tmp
+
+				-- Unhighlight all erasers
+			Buttons.HighlightJustEraserButton()
+			-- highlight the right color
+			Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
+			-- Highlight the equipped pen
+			Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
 		end
 	end)
 end
