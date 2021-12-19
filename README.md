@@ -55,7 +55,7 @@ values as children.
 For more customised positioning of the board, make an invisible part for the board and size/position on your model however you like.
 
 ## TODO
-- [ ] Fix line intersection algorithm (tends to not recognise intersection with long lines)
+- [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
 	- Check for numerical errors (or just bad logic)
 	- Make a test Gui that highlights a line when it is intersected?
 	- Check intersection with Frame properties instead of lineInfo?
@@ -69,8 +69,6 @@ For more customised positioning of the board, make an invisible part for the boa
 		- Or use images
 	- WorldBoard
 		- Ideally make out of handle adornments
-
-- [ ] Make smart/robust machine for detecting kinds of changes to the world board and updating the board gui
 
 - [ ] Subscriber boards
 	- Make a collection service tag for subscriber boards
@@ -90,7 +88,7 @@ For more customised positioning of the board, make an invisible part for the boa
 - [ ] Line smoothing
 	- Apply CatRom smoothing just to long lines above some threshold
 
-- [ ] Cache gui lines
+- [x] Cache gui lines
 
 - [ ] Google docs style indicators in GUI to show which player is currently drawing
 
