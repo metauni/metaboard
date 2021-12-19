@@ -103,12 +103,12 @@ function Drawing.Init(boardGui)
 		Drawing.Cursor.Visible = false
 	end)
 	
-		UserInputService.InputEnded:Connect(function(input, gp)
-			if Drawing.MouseHeld then
-				Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
-			end
-			Drawing.MouseHeld = false
-		end)
+	UserInputService.InputEnded:Connect(function(input, gp)
+		if Drawing.MouseHeld then
+			Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
+		end
+		Drawing.MouseHeld = false
+	end)
 
 end
 

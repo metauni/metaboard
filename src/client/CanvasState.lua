@@ -148,9 +148,7 @@ function CanvasState.ConnectWorldBoardSync()
 							 descendantLineInfo.Stop == lineInfo.Stop and
 							 descendantLineInfo.ThicknessYScale == lineInfo.ThicknessYScale
 						then
-							LineInfo.ClearInfo(lineFrame)
-							Cache.Release(lineFrame)
-							lineFrame.Parent = nil
+							CanvasState.DiscardLineFrame(lineFrame)
 							return
 						end
 					end
@@ -302,29 +300,29 @@ function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 end
 
 function CanvasState.Intersects(pos, radius, lineInfo)
+	-- Vector from the start of the line to pos
 	local u = pos - lineInfo.Start
+	-- Vector from the start of the line to the end of the line
 	local v = lineInfo.Stop - lineInfo.Start
-
-	if v.Magnitude <= Config.IntersectionResolution then
-		return u.Magnitude <= radius + lineInfo.ThicknessYScale
-	end
-
-	local vhat = v / v.Magnitude
 	
-	-- Check if the tip of the projection of u onto v is within the radius of the thick line around v
-	if -lineInfo.ThicknessYScale <= u:Dot(vhat) + radius and u:Dot(vhat) - radius <= v.Magnitude + lineInfo.ThicknessYScale then
-		-- Check if the tip of the 'rejection' of u onto v (i.e. u minus the projection)
-		-- is within the radius of the thick line around v
-		return (u - ((u:Dot(vhat) * v))).Magnitude <= radius + lineInfo.ThicknessYScale
-	end
+	-- the magnitude (with sign) of the projection of u onto v
+	local m = u:Dot(v.Unit)
 
-	return false
+	if m <= 0 or lineInfo.Start == lineInfo.Stop then
+		-- The closest point on the line to pos is lineInfo.Start
+		return u.Magnitude <= radius + lineInfo.ThicknessYScale/2
+	elseif m >= v.Magnitude then
+		-- The closest point on the line to pos is lineInfo.Stop
+		return (pos - lineInfo.Stop).Magnitude <= radius + lineInfo.ThicknessYScale/2
+	else
+		-- The vector from pos to it's closest point on the line makes a perpendicular with the line
+		return math.abs(u:Cross(v.Unit)) <= radius + lineInfo.ThicknessYScale/2
+	end
 end
 
 function CanvasState.DiscardCurve(curve)
 	for _, lineFrame in ipairs(curve.CanvasGhost.CoordinateFrame:GetChildren()) do
-		Cache.Release(lineFrame)
-		lineFrame.Parent = nil
+		CanvasState.DiscardLineFrame(lineFrame)
 	end
 
 	Cache.Release(curve.CanvasGhost.CoordinateFrame)
@@ -335,6 +333,17 @@ function CanvasState.DiscardCurve(curve)
 	curve.CanvasGhost.Parent = nil
 	Cache.Release(curve)
 	curve.Parent = nil
+end
+
+function CanvasState.DiscardLineFrame(lineFrame)
+	local UICorner = lineFrame:FindFirstChild("UICorner")
+	if UICorner then
+		Cache.Release(UICorner)
+		lineFrame.UICorner.Parent = nil
+	end
+	LineInfo.ClearInfo(lineFrame)
+	Cache.Release(lineFrame)
+	lineFrame.Parent = nil
 end
 
 return CanvasState

@@ -71,31 +71,30 @@ function ClientDrawingTasks.FreeHand.new()
 			Drawing.EquippedTool.Color
 		)
 		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-		
+
 		table.insert(state.Points, pos)
-		
+
 		LineInfo.StoreInfo(lineFrame, lineInfo)
-		
+
 		CanvasState.AttachLine(lineFrame, state.Curve)
 
 		state.LastLine = lineFrame
 		state.LastLineInfo = lineInfo
 		state.CurveLength += lineInfo.Length
-		
+
 		DrawingTask.UpdateRemoteEvent:FireServer(pos)
 	end
 
 	local finish = function(state)
-		
+
 		if Config.SmoothingAlgorithm == "CatRom" then
-			
+
 			if #state.Points <= 2 then return end
-			
+
 			local chain = CatRom.Chain.new(state.Points)
 
 			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
-				Cache.Release(lineFrame)
-				lineFrame.Parent = nil
+				CanvasState.DiscardLineFrame(lineFrame)
 			end
 
 			local smoothPoints = {chain:SolvePosition(0)}
@@ -119,14 +118,13 @@ function ClientDrawingTasks.FreeHand.new()
 			DrawingTask.FinishRemoteEvent:FireServer(true, smoothPoints)
 
 		elseif Config.SmoothingAlgorithm == "DouglasPeucker" then
-	
+
 			if #state.Points <= 2 then return end
 
 			Drawing.DouglasPeucker(state.Points, 1, #state.Points, Config.DouglasPeuckerEpsilon)
 
 			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
-				Cache.Release(lineFrame)
-				lineFrame.Parent = nil
+				CanvasState.DiscardLineFrame(lineFrame)
 			end
 
 			local smoothPoints = {}
@@ -224,7 +222,7 @@ ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 
 function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 	local curveLineInfoBundles = {}
-	
+
 	for _, curve in ipairs(Curves:GetChildren()) do
 		local lineInfos = {}
 		for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
@@ -233,10 +231,8 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 					pos,
 					Drawing.EquippedTool.ThicknessYScale/2,
 					lineInfo) then
-				
-				LineInfo.ClearInfo(lineFrame)
-				Cache.Release(lineFrame)
-				lineFrame.Parent = nil
+
+				CanvasState.DiscardLineFrame(lineFrame)
 				table.insert(lineInfos, lineInfo)
 			end
 		end
@@ -245,7 +241,6 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 		end
 		if #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
 			CanvasState.DiscardCurve(curve)
-			curve.Parent = nil
 		end
 	end
 
@@ -257,10 +252,6 @@ function ClientDrawingTasks.Erase.new()
 
 	local init = function(state, pos)
 		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-
-		if #curveLineInfoBundles > 0 then
-			DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
-		end
 		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", curveLineInfoBundles)
 	end
 
@@ -275,10 +266,6 @@ function ClientDrawingTasks.Erase.new()
 
 	local finish = function(state, pos)
 		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-
-		if #curveLineInfoBundles > 0 then
-			DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
-		end
 		DrawingTask.FinishRemoteEvent:FireServer(curveLineInfoBundles)
 	end
 
