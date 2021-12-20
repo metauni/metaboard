@@ -90,6 +90,9 @@ function CanvasState.ConnectWorldBoardSync()
 			local isCurve = descendant.Parent == CanvasState.EquippedBoard.Canvas.Curves
 
 			if isCurve then
+				-- Ignore lines drawn by this player
+				if descendant:GetAttribute("AuthorUserId") == LocalPlayer.UserId then return end
+
 				local curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, descendant.Name, descendant:GetAttribute("ZIndex"))
 				curve.Parent = Curves
 				return
@@ -114,7 +117,9 @@ function CanvasState.ConnectWorldBoardSync()
 
 					if worldCurve:GetAttribute("CurveType") == "Line" then
 						descendant:GetAttributeChangedSignal("Stop"):Connect(function()
+							local lineInfo = LineInfo.ReadInfo(descendant)
 							CanvasState.UpdateLineFrame(lineFrame, LineInfo.ReadInfo(descendant))
+							LineInfo.StoreInfo(lineFrame, lineInfo)
 						end)
 					end
 				end

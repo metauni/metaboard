@@ -258,10 +258,10 @@ function ClientDrawingTasks.Erase.new()
 	local update = function(state, pos)
 		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 
-		if #curveLineInfoBundles > 0 then
+		-- Check if the tabel is non-empty
+		if next(curveLineInfoBundles) then
 			DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
 		end
-		DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
 	end
 
 	local finish = function(state, pos)
