@@ -54,6 +54,17 @@ values as children.
 
 For more customised positioning of the board, make an invisible part for the board and size/position on your model however you like.
 
+## Subscriber Boards
+
+Any metaboard can be a subscriber of another board (the broadcaster), meaning anything that appears on the broadcaster board is replicated onto the subscriber board.
+
+There are two ways of setting up this link
+1. Create a folder called "Subscribers" as a child of the broadcaster, then make an `ObjectValue` called "Subscriber" and set its `Value` to the subscriber. You can make any number of subscribers in this folder.
+2. Create an `ObjectValue` under the subscriber called "SubscribedTo" and set its `Value` to the broadcaster.
+	You can make any number of these to subscribe to multiple boards (they must all be called "SubscribedTo").
+
+When you start your world, any links made with the second method will be converted according to use the first method.
+
 ## TODO
 - [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
 	- Check for numerical errors (or just bad logic)
