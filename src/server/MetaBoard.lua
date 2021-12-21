@@ -42,10 +42,13 @@ function MetaBoard.Init()
 	end)
 
 	UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
-		local curve = board.Canvas.Curves:FindFirstChild(curveName)
-		if curve then
-			Cache.Release(curve)
-			curve.Parent = nil
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+		for _, subscriber in ipairs(subscriberFamily) do
+			local curve = subscriber.Canvas.Curves:FindFirstChild(curveName)
+			if curve then
+				MetaBoard.DiscardCurve(curve)
+			end
 		end
 	end)
 
@@ -303,6 +306,14 @@ function MetaBoard.DiscardLineHandle(lineHandle)
 
 	Cache.Release(lineHandle)
 	lineHandle.Parent = nil
+end
+
+function MetaBoard.DiscardCurve(curve)
+	for _, lineHandle in ipairs(curve:GetChildren()) do
+		MetaBoard.DiscardLineHandle(lineHandle)
+	end
+	Cache.Release(curve)
+	curve.Parent = nil
 end
 
 return MetaBoard
