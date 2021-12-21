@@ -15,11 +15,31 @@ function MetaBoard.Init()
 
 	ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
 
-	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+	-- maps boards to the subscribers of that board
+	MetaBoard.SubscribersOf = {}
+
+	local boards = CollectionService:GetTagged(Config.BoardTag)
+
+	for _, board in ipairs(boards) do
 		MetaBoard.InitBoard(board)
 	end
 
-	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(MetaBoard.InitBoard)
+	local function subscribeToBroadcasters(board)
+		for _, child in ipairs(board:GetChildren()) do
+			if child:IsA("ObjectValue") and child.Name == "SubscribedTo" and CollectionService:HasTag(child.Value, Config.BoardTag) then
+				MetaBoard.Subscribe(board, child.Value)
+			end
+		end
+	end
+
+	for _, board in ipairs(boards) do
+		subscribeToBroadcasters(board)
+	end
+	
+	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(board)
+		MetaBoard.InitBoard(board)
+		subscribeToBroadcasters(board)
+	end)
 
 	UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
 		local curve = board.Canvas.Curves:FindFirstChild(curveName)
@@ -29,31 +49,31 @@ function MetaBoard.Init()
 		end
 	end)
 
-	MetaBoard.DrawingTaskOf = {}
+	-- (player -> (board -> task))
+	MetaBoard.DrawingTasksTable = {}
 
 	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskKind, ...)
-		local drawingTask = ServerDrawingTasks.new(taskKind, player, board)
-		MetaBoard.DrawingTaskOf[player] = drawingTask
-		drawingTask.Init(drawingTask.State, ...)
+		local args = {...}
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+		MetaBoard.DrawingTasksTable[player] = {}
+		
+		for _, subscriber in ipairs(subscriberFamily) do
+			local drawingTask = ServerDrawingTasks.new(taskKind, player, subscriber)
+			MetaBoard.DrawingTasksTable[player][subscriber] = drawingTask
+			drawingTask.Init(drawingTask.State, ...)
+		end
 	end)
 
 	DrawingTask.UpdateRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		local drawingTask = MetaBoard.DrawingTaskOf[player]
-		if drawingTask then
+		for board, drawingTask in pairs(MetaBoard.DrawingTasksTable[player]) do
 			drawingTask.Update(drawingTask.State, ...)
-		else
-			error("No drawing task to update for "..player.Name)
 		end
 	end)
 
 	DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		local drawingTask = MetaBoard.DrawingTaskOf[player]
-		if drawingTask then
+		for board, drawingTask in pairs(MetaBoard.DrawingTasksTable[player]) do
 			drawingTask.Finish(drawingTask.State, ...)
-			-- TODO: Is this necessary? Think about garbage collection
-			MetaBoard.DrawingTaskOf[player] = nil
-		else
-			error("No drawing task to finish for "..player.Name)
 		end
 	end)
 
@@ -161,6 +181,42 @@ function MetaBoard.InitBoard(board)
 		currentZIndex.Name = "CurrentZIndex"
 		currentZIndex.Parent = board
 	end
+
+	local subscribers = board:FindFirstChild("Subscribers")
+
+	if subscribers == nil then
+		subscribers = Instance.new("Folder")
+		subscribers.Name = "Subscribers"
+		subscribers.Parent = board
+	end
+end
+
+function MetaBoard.Subscribe(subscriber, broadcaster)
+	for _, subscriberValue in ipairs(broadcaster.Subscribers:GetChildren()) do
+		if subscriberValue.Value == subscriber then return end
+	end
+
+	local newSubscriberValue = Instance.new("ObjectValue")
+	newSubscriberValue.Name = "SubscriberValue"
+	newSubscriberValue.Value = subscriber
+	newSubscriberValue.Parent = broadcaster.Subscribers
+end
+
+function MetaBoard.GatherSubscriberFamily(board)
+	local seen = {board = true}
+	local subscriberFamily = {board}
+	local function gather(_board)
+		for _, subscriberValue in ipairs(_board.Subscribers:GetChildren()) do
+			if not seen[subscriberValue.Value] then
+				table.insert(subscriberFamily, subscriberValue.Value)
+				seen[subscriberValue.Value] = true
+				gather(subscriberValue.Value)
+			end
+		end
+	end
+
+	gather(board)
+	return subscriberFamily
 end
 
 function MetaBoard.UpdateWorldLineHandle(lineHandle, canvas, lineInfo, zIndex)
