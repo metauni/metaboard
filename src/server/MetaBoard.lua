@@ -134,6 +134,15 @@ function MetaBoard.InitBoard(board)
 
 		canvasColor.Parent = board
 	end
+
+	local clickable = board:FindFirstChild("Clickable")
+	if clickable == nil then
+		clickable = Instance.new("BoolValue")
+		clickable.Name = "Clickable"
+		clickable.Value = true
+
+		clickable.Parent = board
+	end
 	
 	local canvas = board:FindFirstChild("Canvas")
 
@@ -157,22 +166,24 @@ function MetaBoard.InitBoard(board)
 		curves.Name = "Curves"
 		curves.Parent = canvas
 
-		local surfaceGui = Instance.new("SurfaceGui")
-		surfaceGui.Name = "SurfaceGui"
-		surfaceGui.Adornee = canvas
-		surfaceGui.Parent = canvas
-
-		local clickDetector = Instance.new("ClickDetector")
-		clickDetector.Name = "ClickDetector"
-		clickDetector.Parent = board
-
-		local button = Instance.new("TextButton")
-		button.Name = "Button"
-		button.Text = ""
-		button.BackgroundTransparency = 1
-		button.Size = UDim2.new(1,0,1,0)
-		button.Parent = surfaceGui
-
+		if clickable.Value then
+			local surfaceGui = Instance.new("SurfaceGui")
+			surfaceGui.Name = "SurfaceGui"
+			surfaceGui.Adornee = canvas
+			surfaceGui.Parent = canvas
+			
+			local clickDetector = Instance.new("ClickDetector")
+			clickDetector.Name = "ClickDetector"
+			clickDetector.Parent = board
+			
+			local button = Instance.new("TextButton")
+			button.Name = "Button"
+			button.Text = ""
+			button.BackgroundTransparency = 1
+			button.Size = UDim2.new(1,0,1,0)
+			button.Parent = surfaceGui
+		end
+			
 		canvas.Parent = board
 	end
 	

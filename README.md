@@ -52,6 +52,7 @@ values as children.
 | ----------- | ----------- | ----------- | ----- |
 | ColorValue  | Color       | `Color3`| The colour of the canvas Gui when a player clicks on this board |
 | StringValue | Face        | `String` (one of "Front", "Back", "Left", "Right", "Top", "Bottom") | The surface of the part that should be used as the board |
+| BoolValue   | Clickable   | `Bool` | Set to false to prevent opening this board in the gui |
 
 For more customised positioning of the board, make an invisible part for the board and size/position on your model however you like.
 

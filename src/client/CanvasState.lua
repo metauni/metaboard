@@ -39,7 +39,11 @@ function CanvasState.Init(boardGui)
 	BoardGui.Enabled = false
 
 	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-		CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
+		local clickable = board:WaitForChild("Clickable")
+		if clickable.Value == true then
+			local canvas = board:WaitForChild("Canvas")
+			CanvasState.ConnectOpenBoardButton(board, canvas.SurfaceGui.Button)
+		end
 	end
 
 	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(board)
