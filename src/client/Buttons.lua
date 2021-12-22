@@ -260,7 +260,7 @@ function Buttons.ConnectUndoButton(undoButton)
 		local curveName
 		local curve
 
-		-- Look for the most recent curve that hasn't be erased
+		-- Look for the most recent curve that hasn't been erased
 		while Drawing.CurveIndexOf[board] ~= 0 do
 			curveName = Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[board])
 			curve = Curves:FindFirstChild(curveName)
