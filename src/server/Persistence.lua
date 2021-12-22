@@ -28,9 +28,9 @@ function Persistence.Init()
 
     -- Store all boards on shutdown
     game:BindToClose(function()
-        local boards = CollectionService:GetTagged(Config.BoardTag)
+        local boardsClose = CollectionService:GetTagged(Config.BoardTag)
 
-        for _, board in ipairs(boards) do
+        for _, board in ipairs(boardsClose) do
             local persistId = board:FindFirstChild("PersistId")
             if persistId and persistId:IsA("StringValue") then
                 Persistence.Store(board, persistId.Value)
