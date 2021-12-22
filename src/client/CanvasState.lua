@@ -329,26 +329,19 @@ function CanvasState.DiscardCurve(curve)
 	for _, lineFrame in ipairs(curve.CanvasGhost.CoordinateFrame:GetChildren()) do
 		CanvasState.DiscardLineFrame(lineFrame)
 	end
-
 	Cache.Release(curve.CanvasGhost.CoordinateFrame)
-	curve.CanvasGhost.CoordinateFrame.Parent = nil
 	Cache.Release(curve.CanvasGhost.UIAspectRatioConstraint)
-	curve.CanvasGhost.UIAspectRatioConstraint.Parent = nil
 	Cache.Release(curve.CanvasGhost)
-	curve.CanvasGhost.Parent = nil
 	Cache.Release(curve)
-	curve.Parent = nil
 end
 
 function CanvasState.DiscardLineFrame(lineFrame)
 	local UICorner = lineFrame:FindFirstChild("UICorner")
 	if UICorner then
 		Cache.Release(UICorner)
-		lineFrame.UICorner.Parent = nil
 	end
 	LineInfo.ClearInfo(lineFrame)
 	Cache.Release(lineFrame)
-	lineFrame.Parent = nil
 end
 
 return CanvasState

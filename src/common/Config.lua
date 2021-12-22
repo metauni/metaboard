@@ -28,6 +28,8 @@ local Config = {
 	-- many curves before the curves appear above the SurfaceGui button
 	-- e.g. (0.5 - 0.1)/0.001 = 400
 	CanvasThickness = 0.5,
+
+	UseCache = false,
 }
 
 Config.Defaults = {

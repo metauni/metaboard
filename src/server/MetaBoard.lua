@@ -301,11 +301,9 @@ end
 function MetaBoard.DiscardLineHandle(lineHandle)
 	for _, cylinderHandleAdornment in ipairs(lineHandle:GetChildren()) do
 		Cache.Release(cylinderHandleAdornment)
-		cylinderHandleAdornment.Parent = nil
 	end
 
 	Cache.Release(lineHandle)
-	lineHandle.Parent = nil
 end
 
 function MetaBoard.DiscardCurve(curve)
@@ -313,7 +311,6 @@ function MetaBoard.DiscardCurve(curve)
 		MetaBoard.DiscardLineHandle(lineHandle)
 	end
 	Cache.Release(curve)
-	curve.Parent = nil
 end
 
 return MetaBoard

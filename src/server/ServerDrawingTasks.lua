@@ -141,7 +141,6 @@ function ServerDrawingTasks.Erase.RemoveLines(board, curveLineInfoBundles)
 
 			if #curve:GetChildren() == 0 then
 				Cache.Release(curve)
-				curve.Parent = nil
 			end
 		end
 	end
