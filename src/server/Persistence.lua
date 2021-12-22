@@ -13,16 +13,32 @@ local MetaBoard
 local Persistence = {}
 Persistence.__index = Persistence
 
+local function isPrivateServer()
+	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
+end
+
 function Persistence.Init()
     MetaBoard = require(script.Parent.MetaBoard)
+
+    local function keyForBoard(board)
+        local boardKey = "metaboard" .. tostring(board.PersistId.Value)
+
+        -- If we are in a private server the key is prefixed by the 
+        -- private server's ID
+        if isPrivateServer() then
+            boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+        end
+
+        return boardKey
+    end
 
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
 
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
-        if persistId and persistId:IsA("StringValue") then
-            Persistence.Restore(board, persistId.Value)
+        if persistId and persistId:IsA("IntValue") then
+            Persistence.Restore(board, keyForBoard(board))
         end
 	end
 
@@ -32,8 +48,8 @@ function Persistence.Init()
 
         for _, board in ipairs(boardsClose) do
             local persistId = board:FindFirstChild("PersistId")
-            if persistId and persistId:IsA("StringValue") then
-                Persistence.Store(board, persistId.Value)
+            if persistId and persistId:IsA("IntValue") then
+                Persistence.Store(board, keyForBoard(board))
             end
         end
     end)
@@ -120,7 +136,7 @@ end
 
 -- Restores an empty board to the contents stored in the DataStore
 -- with the given persistence ID string
-function Persistence.Restore(board, persistId)
+function Persistence.Restore(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
@@ -133,13 +149,18 @@ function Persistence.Restore(board, persistId)
         return
     end
 
+    if string.len(boardKey) >= 50 then
+        print("Persistence: board key is too long")
+        return
+    end
+
     -- Get the value stored for the given persistId. Note that this may not
     -- have been set, which is fine
     local success, boardJSON = pcall(function()
-        return DataStore:GetAsync(persistId)
+        return DataStore:GetAsync(boardKey)
     end)
     if not success then
-        print("Persistence: Failed to read from DataStore for ID " .. persistId)
+        print("Persistence: Failed to read from DataStore for ID " .. boardKey)
         return
     end
 
@@ -163,15 +184,20 @@ function Persistence.Restore(board, persistId)
         curve.Parent = board.Canvas.Curves
     end
 
-    print("Persistence: Successfully restored board " .. persistId)
+    print("Persistence: Successfully restored board " .. boardKey)
 end
 
 -- Stores a given board to the DataStore with the given ID
-function Persistence.Store(board, persistId)
+function Persistence.Store(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
         print("Persistence: DataStore not loaded")
+        return
+    end
+
+    if string.len(boardKey) >= 50 then
+        print("Persistence: board key is too long")
         return
     end
 
@@ -192,15 +218,15 @@ function Persistence.Store(board, persistId)
     -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
 
     local success, errormessage = pcall(function()
-        return DataStore:SetAsync(persistId, boardJSON)
+        return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
-        print("Persistence: Failed to store to DataStore for ID " .. persistId)
+        print("Persistence: Failed to store to DataStore for ID " .. boardKey)
         print(errormessage)
         return
     end
 
-    print("Persistence: Successfully stored board " .. persistId)
+    print("Persistence: Successfully stored board " .. boardKey)
 end
 
 return Persistence
