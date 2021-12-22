@@ -141,4 +141,16 @@ Any metaboard can be synced to a DataStore so that it retains its contents acros
 	- Creates personal board clones for each player when they join, and responds to
 		requests to show/hide a players personal board.
 
+## Generating a Release
 
+The `metaboard.rbxmx` file is generated like this
+```bash
+rojo build --output "build.rbxlx"
+remodel run metaboard_packager.lua
+```
+
+The first command builds a place file according to `default.project.json`.
+The second command uses [remodel]() to extract all of the components of metaboard,
+and packages them all within the `MetaBoardServer` folder, and exports this 
+as a `metaboard.rbxmx` file. The startup server script then redistributes these
+components on world boot..
