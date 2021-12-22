@@ -68,7 +68,7 @@ When you start your world, any links made with the second method will be convert
 
 ## Persistent Boards
 
-Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create a `StringValue` under the board called "PersistId" and set it it to the subkey used to store the board contents (the DataStore key will be something like "metaboard.subkey").
+Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set it it to the subkey used to store the board contents.
 
 ## TODO
 - [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
