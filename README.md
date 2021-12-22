@@ -23,6 +23,7 @@ run
 ```bash
 foreman install
 ```
+You may get an error if you are running Mac OS X, in which case check Security & Privacy under System Preferences and click `Allow Anyway` for foreman.
 
 To build and sync the demo world:
 ```bash
