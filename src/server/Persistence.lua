@@ -15,6 +15,28 @@ Persistence.__index = Persistence
 
 function Persistence.Init()
     MetaBoard = require(script.Parent.MetaBoard)
+
+    -- Restore all boards
+    local boards = CollectionService:GetTagged(Config.BoardTag)
+
+    for _, board in ipairs(boards) do
+		local persistId = board:FindFirstChild("PersistId")
+        if persistId and persistId:IsA("StringValue") then
+            Persistence.Restore(board, persistId.Value)
+        end
+	end
+
+    -- Store all boards on shutdown
+    game:BindToClose(function()
+        local boards = CollectionService:GetTagged(Config.BoardTag)
+
+        for _, board in ipairs(boards) do
+            local persistId = board:FindFirstChild("PersistId")
+            if persistId and persistId:IsA("StringValue") then
+                Persistence.Store(board, persistId.Value)
+            end
+        end
+    end)
 end
 
 local function serialiseVector2(v)
@@ -127,7 +149,7 @@ function Persistence.Restore(board, persistId)
         return
     end
 
-	boardData = HTTPService:JSONDecode(boardJSON)
+	local boardData = HTTPService:JSONDecode(boardJSON)
 
     if not boardData then
         print("Persistence: failed to decode JSON")
