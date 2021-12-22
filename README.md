@@ -150,7 +150,7 @@ remodel run metaboard_packager.lua
 ```
 
 The first command builds a place file according to `default.project.json`.
-The second command uses [remodel]() to extract all of the components of metaboard,
+The second command uses [remodel](https://github.com/rojo-rbx/remodel) to extract all of the components of metaboard,
 and packages them all within the `MetaBoardServer` folder, and exports this 
 as a `metaboard.rbxmx` file. The startup server script then redistributes these
 components on world boot..
