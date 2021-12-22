@@ -5,8 +5,6 @@ local DataStoreService = game:GetService("DataStoreService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
-local DrawingTask = require(Common.DrawingTask)
-local Cache = require(Common.Cache)
 
 local MetaBoard
 
