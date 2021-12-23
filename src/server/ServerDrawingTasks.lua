@@ -38,7 +38,7 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 		
 		state.Points = {pos}
 		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
 		LineInfo.StoreInfo(worldLine, lineInfo)
 		state.Curve.Parent = board.Canvas.Curves
 		state.Lines = {worldLine}
@@ -48,7 +48,7 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 
 	local update = function(state, pos)
 		local lineInfo = LineInfo.new(state.Points[#state.Points], pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
 		LineInfo.StoreInfo(worldLine, lineInfo)
 		worldLine.Parent = state.Curve
 
@@ -59,14 +59,14 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 	local finish = function(state, doSmoothing, smoothedCurvePoints)
 		if doSmoothing then
 			for _, worldLine in ipairs(state.Curve:GetChildren()) do
-				MetaBoard.DiscardLineHandle(worldLine)
+				MetaBoard.DiscardLine(worldLine)
 			end
 			state.Points = smoothedCurvePoints
 			state.Lines = {}
 			
 			for i=1, #smoothedCurvePoints-1 do
 				local lineInfo = LineInfo.new(smoothedCurvePoints[i], smoothedCurvePoints[i+1], state.ThicknessYScale, state.Color)
-				local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+				local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
 				LineInfo.StoreInfo(worldLine, lineInfo)
 				worldLine.Parent = state.Curve
 			end
@@ -99,7 +99,7 @@ function ServerDrawingTasks.Line.new(player, board)
 		
 		state.Start = pos
 		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine("HandleAdornments", state.Board.Canvas, lineInfo, state.ZIndex)
+		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
 		LineInfo.StoreInfo(worldLine, lineInfo)
 		state.Curve.Parent = board.Canvas.Curves
 		state.Line = worldLine
@@ -110,7 +110,7 @@ function ServerDrawingTasks.Line.new(player, board)
 	local update = function(state, pos)
 		local lineInfo = LineInfo.new(state.Start, pos, state.ThicknessYScale, state.Color)
 		LineInfo.StoreInfo(state.Line, lineInfo)
-		MetaBoard.UpdateWorldLineHandle(state.Line, state.Board.Canvas, lineInfo, state.ZIndex)
+		MetaBoard.UpdateWorldLine(Config.WorldLineType, state.Line, state.Board.Canvas, lineInfo, state.ZIndex)
 	end
 
 	local finish = function(state) return end
@@ -134,7 +134,7 @@ function ServerDrawingTasks.Erase.RemoveLines(board, curveLineInfoBundles)
 						lineHandleInfo.Stop == lineInfo.Stop and
 						lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
 					then
-						MetaBoard.DiscardLineHandle(lineHandle)
+						MetaBoard.DiscardLine(lineHandle)
 					end
 				end
 			end

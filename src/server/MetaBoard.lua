@@ -233,7 +233,7 @@ function MetaBoard.GatherSubscriberFamily(board)
 	return subscriberFamily
 end
 
-function MetaBoard.UpdateWorldLineHandle(lineHandle, canvas, lineInfo, zIndex)
+function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
 
 	local function lerp(a, b, c)
 		return a + (b - a) * c
@@ -244,48 +244,77 @@ function MetaBoard.UpdateWorldLineHandle(lineHandle, canvas, lineInfo, zIndex)
 	local aspectRatio = canvas.Size.X / canvas.Size.Y
 	local yStuds = canvas.Size.Y
 
-	local boxHandle = lineHandle
-	local startHandle = boxHandle.StartHandle
-	local stopHandle = boxHandle.StopHandle
-
-	boxHandle.SizeRelativeOffset =
-		Vector3.new(
-			lerp(1,-1,lineInfo.Centre.X/aspectRatio),
-			lerp(1,-1,lineInfo.Centre.Y),
-			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-	boxHandle.Size =
+	line.Size =
 		Vector3.new(
 			lineInfo.Length * yStuds,
 			lineInfo.ThicknessYScale * yStuds,
 			Config.WorldLine.ZThicknessStuds)
-	boxHandle.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
-	boxHandle.Color3 = lineInfo.Color
 
-	startHandle.SizeRelativeOffset =
-		Vector3.new(
-			lerp(1,-1,lineInfo.Start.X/aspectRatio),
-			lerp(1,-1,lineInfo.Start.Y),
-			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-	startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-	startHandle.Height = Config.WorldLine.ZThicknessStuds
-	startHandle.Color3 = lineInfo.Color
+	if worldLineType == "Parts" then
+		line.Color = lineInfo.Color
 
-	stopHandle.SizeRelativeOffset =
-		Vector3.new(
-			lerp(1,-1,lineInfo.Stop.X/aspectRatio),
-			lerp(1,-1,lineInfo.Stop.Y),
-			1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
-	stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-	stopHandle.Height = Config.WorldLine.ZThicknessStuds
-	stopHandle.Color3 = lineInfo.Color
+		local surface = canvas.Parent
+		local coords = Vector2.new(
+			lerp(1,-1,lineInfo.Centre.X/aspectRatio),
+			lerp(1,-1,lineInfo.Centre.Y))
+		
+		local initialCFrame = surface.CFrame * CFrame.new(
+			coords.X * surface.Size.X/2, 
+			coords.Y * surface.Size.Y/2,
+			-surface.Size.Z/2 - Config.WorldLine.StudsPerZIndex * zIndex)
 
-	return boxHandle
+		line.CFrame = initialCFrame * CFrame.Angles(0,0,lineInfo.RotationRadians)
+		line.Anchored = true
+		line.CanCollide = false
+		line.CastShadow = false
+		line.CanTouch = false -- Do not trigger Touch events
+		line.CanQuery = false -- Does not take part in e.g. GetPartsInPart
+	end
+
+	if worldLineType == "HandleAdornments" then
+		line.Color3 = lineInfo.Color
+		line.SizeRelativeOffset =
+			Vector3.new(
+				lerp(1,-1,lineInfo.Centre.X/aspectRatio),
+				lerp(1,-1,lineInfo.Centre.Y),
+				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+		
+		line.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
+
+		local startHandle = line.StartHandle
+		local stopHandle = line.StopHandle
+
+		startHandle.SizeRelativeOffset =
+			Vector3.new(
+				lerp(1,-1,lineInfo.Start.X/aspectRatio),
+				lerp(1,-1,lineInfo.Start.Y),
+				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+		startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
+		startHandle.Height = Config.WorldLine.ZThicknessStuds
+		startHandle.Color3 = lineInfo.Color
+
+		stopHandle.SizeRelativeOffset =
+			Vector3.new(
+				lerp(1,-1,lineInfo.Stop.X/aspectRatio),
+				lerp(1,-1,lineInfo.Stop.Y),
+				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+		stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
+		stopHandle.Height = Config.WorldLine.ZThicknessStuds
+		stopHandle.Color3 = lineInfo.Color
+	end
+
+	return line
 end
 
 function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 
-	if worldLineType == "HandleAdornments" then
+	if worldLineType == "Parts" then
+		local line = Cache.Get("Part")
+		MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
+		return line
+	end
 
+	if worldLineType == "HandleAdornments" then
 		local boxHandle = Cache.Get("BoxHandleAdornment")
 
 		local startHandle = Cache.Get("CylinderHandleAdornment")
@@ -297,7 +326,7 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 		startHandle.Parent = boxHandle
 		stopHandle.Parent = boxHandle
 		
-		MetaBoard.UpdateWorldLineHandle(boxHandle, canvas, lineInfo, zIndex)
+		MetaBoard.UpdateWorldLine(worldLineType, boxHandle, canvas, lineInfo, zIndex)
 		
 		startHandle.Adornee = canvas
 		stopHandle.Adornee = canvas
@@ -309,7 +338,7 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 	error(worldLineType.." world line type not implemented")
 end
 
-function MetaBoard.DiscardLineHandle(lineHandle)
+function MetaBoard.DiscardLine(lineHandle)
 	for _, cylinderHandleAdornment in ipairs(lineHandle:GetChildren()) do
 		Cache.Release(cylinderHandleAdornment)
 	end
@@ -319,7 +348,7 @@ end
 
 function MetaBoard.DiscardCurve(curve)
 	for _, lineHandle in ipairs(curve:GetChildren()) do
-		MetaBoard.DiscardLineHandle(lineHandle)
+		MetaBoard.DiscardLine(lineHandle)
 	end
 	Cache.Release(curve)
 end
