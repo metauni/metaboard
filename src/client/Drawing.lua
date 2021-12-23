@@ -114,7 +114,19 @@ end
 
 function Drawing.OnBoardOpen(board)
 	if Drawing.CurveIndexOf[board] == nil then
-		Drawing.CurveIndexOf[board] = 0
+		-- Search for curves already written by this user (possibly restored to a persistent board)
+		local curveIndexMax = 0
+
+		-- Note that we can't just search from curveIndex = 1 because curves
+		-- may be erased, leaving us e.g. with a Curves folder only containing ID#4
+		for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
+			-- Names are PlayerID#curveIndex
+			local curveIndex = tonumber(string.sub(curve.Name, string.find(curve.Name, "#")+1,string.len(curve.Name)))
+			curveIndexMax = if curveIndex > curveIndexMax then curveIndex else curveIndexMax
+		end
+
+		print("Set CurveIndex to "..curveIndexMax)
+		Drawing.CurveIndexOf[board] = curveIndexMax -- Note it should be 0 if there are no lines
 	end
 
 	Drawing.CursorGui.Enabled = true

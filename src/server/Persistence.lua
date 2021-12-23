@@ -17,7 +17,7 @@ end
 
 function Persistence.Init()
     MetaBoard = require(script.Parent.MetaBoard)
-
+    
     local function keyForBoard(board)
         local boardKey = "metaboard" .. tostring(board.PersistId.Value)
 
@@ -76,11 +76,11 @@ local function deserialiseColor3(cData)
     return Color3.new(cData.R, cData.G, cData.B)
 end
 
-local function deserialiseLine(canvas, lineHandleData, zIndex)
-    local start = deserialiseVector2(lineHandleData.Start)
-    local stop = deserialiseVector2(lineHandleData.Stop)
-    local color = deserialiseColor3(lineHandleData.Color)
-    local thicknessYScale = lineHandleData.ThicknessYScale
+local function deserialiseLine(canvas, lineData, zIndex)
+    local start = deserialiseVector2(lineData.Start)
+    local stop = deserialiseVector2(lineData.Stop)
+    local color = deserialiseColor3(lineData.Color)
+    local thicknessYScale = lineData.ThicknessYScale
 
     local lineInfo = LineInfo.new(start, stop, thicknessYScale, color)
     
@@ -90,13 +90,13 @@ local function deserialiseLine(canvas, lineHandleData, zIndex)
     return worldLine
 end
 
-local function serialiseLine(lineHandle)
-    local lineHandleData = {}
-    lineHandleData.Start = serialiseVector2(lineHandle:GetAttribute("Start"))
-	lineHandleData.Stop = serialiseVector2(lineHandle:GetAttribute("Stop"))
-	lineHandleData.Color = serialiseColor3(lineHandle:GetAttribute("Color"))
-	lineHandleData.ThicknessYScale = lineHandle:GetAttribute("ThicknessYScale")
-    return lineHandleData
+local function serialiseLine(line)
+    local lineData = {}
+    lineData.Start = serialiseVector2(line:GetAttribute("Start"))
+	lineData.Stop = serialiseVector2(line:GetAttribute("Stop"))
+	lineData.Color = serialiseColor3(line:GetAttribute("Color"))
+	lineData.ThicknessYScale = line:GetAttribute("ThicknessYScale")
+    return lineData
 end
 
 local function deserialiseCurve(canvas, curveData)
@@ -106,9 +106,9 @@ local function deserialiseCurve(canvas, curveData)
     curve:SetAttribute("ZIndex", curveData.ZIndex)
     curve:SetAttribute("CurveType", curveData.CurveType)
     
-    for _, lineHandleData in ipairs(curveData.LineHandles) do
-        local lineHandle = deserialiseLine(canvas, lineHandleData, curveData.ZIndex)
-        lineHandle.Parent = curve
+    for _, lineData in ipairs(curveData.Lines) do
+        local line = deserialiseLine(canvas, lineData, curveData.ZIndex)
+        line.Parent = curve
     end
 
     return curve
@@ -121,13 +121,13 @@ local function serialiseCurve(curve)
     curveData.ZIndex = curve:GetAttribute("ZIndex")
     curveData.CurveType = curve:GetAttribute("CurveType")
 
-    local lineHandles = {}
+    local lines = {}
 
-    for _, lineHandle in ipairs(curve:GetChildren()) do
-        table.insert(lineHandles, serialiseLine(lineHandle))
+    for _, line in ipairs(curve:GetChildren()) do
+        table.insert(lines, serialiseLine(line))
     end
 
-    curveData.LineHandles = lineHandles
+    curveData.Lines = lines
 
     return curveData
 end
@@ -175,9 +175,20 @@ function Persistence.Restore(board, boardKey)
         return
     end
 
+    local curves = boardData.Curves
+
+    if not curves then
+        print("Persistance: failed to get curve data")
+        return
+    end
+
+    if boardData.CurrentZIndex and board.CurrentZIndex then
+        board.CurrentZIndex.Value = boardData.CurrentZIndex
+    end
+
     -- The board data is a table, each entry of which is a dictionary
     -- defining a curve
-    for _, curveData in ipairs(boardData) do
+    for _, curveData in ipairs(curves) do
         local curve = deserialiseCurve(board.Canvas, curveData)
         curve.Parent = board.Canvas.Curves
     end
@@ -200,9 +211,16 @@ function Persistence.Store(board, boardKey)
     end
 
     local boardData = {}
+    local curves = {}
     for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
         local curveData = serialiseCurve(curve)
-        table.insert(boardData, curveData)
+        table.insert(curves, curveData)
+    end
+
+    boardData.Curves = curves
+
+    if board:FindFirstChild("CurrentZIndex") then
+        boardData.CurrentZIndex = board.CurrentZIndex.Value
     end
 
     local boardJSON = HTTPService:JSONEncode(boardData)

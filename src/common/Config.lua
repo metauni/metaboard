@@ -1,6 +1,6 @@
 local Config = {
 	BoardTag = "metaboard",
-	DataStoreTag = "metaboard",
+	DataStoreTag = "metaboardv2.",
 
 	MinThicknessYScale = 1.5/1000,
 	MaxThicknessYScale = 40/1000,
