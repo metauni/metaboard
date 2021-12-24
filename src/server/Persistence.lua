@@ -36,7 +36,14 @@ function Persistence.Init()
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
         if persistId and persistId:IsA("IntValue") then
-            Persistence.Restore(board, keyForBoard(board))
+            -- Restore this board and all its subscribers
+            local boardKey = keyForBoard(board)
+
+            local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+            for _, subscriber in ipairs(subscriberFamily) do
+                Persistence.Restore(subscriber, boardKey)
+            end
         end
 	end
 
