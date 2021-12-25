@@ -84,28 +84,14 @@ Any metaboard can be synced to a DataStore so that it retains its contents acros
 	- Guis
 		- Make everything out of lines? (circles can be squares with UICorners)
 		- Or use images
-	- WorldBoard
-		- Ideally make out of handle adornments
-
-- [ ] Subscriber boards
-	- Make a collection service tag for subscriber boards
-	- ObjectValue which links to the board its subscribed
-	- Account for cycles
-	- BoolValue for whether a subscriber board can be opened in Gui
 
 - [ ] VR support
 
 - [ ] Select lines and move them tool.
 	- What happens while being moved. Can those lines be erased by other players?
 
-- [ ] Board persistence
-	- Board pages (players store page in backpack and apply it to a board later)
-	- Save boards to datastore before server closes
-
 - [ ] Line smoothing
 	- Apply CatRom smoothing just to long lines above some threshold
-
-- [x] Cache gui lines
 
 - [ ] Google docs style indicators in GUI to show which player is currently drawing
 
