@@ -85,6 +85,8 @@ Any metaboard can be synced to a DataStore so that it retains its contents acros
 		- Make everything out of lines? (circles can be squares with UICorners)
 		- Or use images
 
+- [ ] Undo and erase tool
+
 - [ ] VR support
 
 - [ ] Select lines and move them tool.
