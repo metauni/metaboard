@@ -30,8 +30,8 @@ local Config = {
 	-- e.g. (0.5 - 0.1)/0.001 = 400
 	CanvasThickness = 0.5,
 
-	-- "HandleAdornments" or "Parts"
-	WorldLineType = "Parts",
+	-- "HandleAdornments" or "Parts" or "RoundedParts"
+	WorldLineType = "RoundedParts",
 
 	UseCache = false,
 }
