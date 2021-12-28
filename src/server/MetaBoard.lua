@@ -239,39 +239,84 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 		return a + (b - a) * c
 	end
 
-	-- TODO dealing with aspect ratio is gross, figure out square coordinates, similar to GUI
-
 	local aspectRatio = canvas.Size.X / canvas.Size.Y
 	local yStuds = canvas.Size.Y
 
-	line.Size =
-		Vector3.new(
-			lineInfo.Length * yStuds,
-			lineInfo.ThicknessYScale * yStuds,
-			Config.WorldLine.ZThicknessStuds)
-
 	if worldLineType == "Parts" then
+		line.Size =
+			Vector3.new(
+				(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				Config.WorldLine.ZThicknessStuds)
+
 		line.Color = lineInfo.Color
 
-		local surface = canvas.Parent
-		local coords = Vector2.new(
-			lerp(1,-1,lineInfo.Centre.X/aspectRatio),
-			lerp(1,-1,lineInfo.Centre.Y))
-		
-		local initialCFrame = surface.CFrame * CFrame.new(
-			coords.X * surface.Size.X/2, 
-			coords.Y * surface.Size.Y/2,
-			-surface.Size.Z/2 - Config.WorldLine.StudsPerZIndex * zIndex)
+		line.CFrame =
+			canvas.CFrame *
+			CFrame.new(
+				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
+				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+			CFrame.Angles(0,0,lineInfo.RotationRadians)
+	end
 
-		line.CFrame = initialCFrame * CFrame.Angles(0,0,lineInfo.RotationRadians)
-		line.Anchored = true
-		line.CanCollide = false
-		line.CastShadow = false
-		line.CanTouch = false -- Do not trigger Touch events
-		line.CanQuery = false -- Does not take part in e.g. GetPartsInPart
+	if worldLineType == "RoundedParts" then
+		line.Color = lineInfo.Color
+		
+		line.Size =
+			Vector3.new(
+				lineInfo.Length * yStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				Config.WorldLine.ZThicknessStuds)
+
+		line.CFrame =
+			canvas.CFrame *
+			CFrame.new(
+				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
+				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+			CFrame.Angles(0,0,lineInfo.RotationRadians)
+
+		line.StartCylinder.Color = lineInfo.Color
+
+		line.StartCylinder.Size =
+			Vector3.new(
+				Config.WorldLine.ZThicknessStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				lineInfo.ThicknessYScale * yStuds)
+
+		line.StartCylinder.CFrame =
+			canvas.CFrame *
+			CFrame.new(
+				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
+				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				CFrame.Angles(0,math.pi/2,0)
+
+		line.StopCylinder.Color = lineInfo.Color
+
+		line.StopCylinder.Size =
+			Vector3.new(
+				Config.WorldLine.ZThicknessStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				lineInfo.ThicknessYScale * yStuds)
+
+		line.StopCylinder.CFrame =
+			canvas.CFrame *
+			CFrame.new(
+				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
+				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				CFrame.Angles(0,math.pi/2,0)
 	end
 
 	if worldLineType == "HandleAdornments" then
+		line.Size =
+			Vector3.new(
+				lineInfo.Length * yStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				Config.WorldLine.ZThicknessStuds)
+
 		line.Color3 = lineInfo.Color
 		line.SizeRelativeOffset =
 			Vector3.new(
@@ -307,9 +352,43 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 end
 
 function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
+	local function newSmoothNonPhysicalPart()
+		local part = Cache.Get("Part")
+		part.Material = Enum.Material.SmoothPlastic
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		part.Anchored = true
+		part.CanCollide = false
+		part.CastShadow = false
+		part.CanTouch = false -- Do not trigger Touch events
+		part.CanQuery = false -- Does not take part in e.g. GetPartsInPart
+
+		return part
+	end
+
 
 	if worldLineType == "Parts" then
-		local line = Cache.Get("Part")
+		local line = newSmoothNonPhysicalPart()
+		line.Name = "Line"
+		MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
+		return line
+	end
+
+	if worldLineType == "RoundedParts" then
+		local line = newSmoothNonPhysicalPart()
+		line.Name = "Line"
+
+		local startCylinder = newSmoothNonPhysicalPart()
+		startCylinder.Shape = Enum.PartType.Cylinder
+		startCylinder.Name = "StartCylinder"
+
+		local stopCylinder = newSmoothNonPhysicalPart()
+		stopCylinder.Shape = Enum.PartType.Cylinder
+		stopCylinder.Name = "StopCylinder"
+
+		startCylinder.Parent = line
+		stopCylinder.Parent = line
+
 		MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
 		return line
 	end

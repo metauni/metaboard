@@ -293,11 +293,7 @@ function CanvasState.CreateLineFrame(lineInfo)
 end
 
 function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
-	if lineInfo.Start == lineInfo.Stop then
-		lineFrame.Size = UDim2.new(lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
-	else
-		lineFrame.Size = UDim2.new(lineInfo.Length + lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
-	end
+	lineFrame.Size = UDim2.new(lineInfo.Length + lineInfo.ThicknessYScale, 0, lineInfo.ThicknessYScale, 0)
 
 	lineFrame.Position = UDim2.new(lineInfo.Centre.X, 0, lineInfo.Centre.Y, 0)
 	lineFrame.SizeConstraint = Enum.SizeConstraint.RelativeXY
