@@ -188,7 +188,7 @@ function ClientDrawingTasks.Line.new()
 		state.LineInfo = lineInfo
 		DrawingTask.InitRemoteEvent:FireServer(
 			CanvasState.EquippedBoard,
-			"Line",
+			"StraightLine",
 			pos,
 			Drawing.EquippedTool.ThicknessYScale,
 			Drawing.EquippedTool.Color,
@@ -258,15 +258,35 @@ function ClientDrawingTasks.Erase.new()
 	local update = function(state, pos)
 		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 
-		-- Check if the tabel is non-empty
+		-- Check if the table is non-empty
 		if next(curveLineInfoBundles) then
 			DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
 		end
 	end
 
 	local finish = function(state, pos)
-		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-		DrawingTask.FinishRemoteEvent:FireServer(curveLineInfoBundles)
+		DrawingTask.FinishRemoteEvent:FireServer()
+	end
+
+	return DrawingTask.new(init, update, finish)
+end
+
+ClientDrawingTasks.Clear = {}
+ClientDrawingTasks.Clear.__index = ClientDrawingTasks.Clear
+
+function ClientDrawingTasks.Clear.new()
+	local init = function(state)
+
+		for _, curve in ipairs(Curves:GetChildren()) do
+			CanvasState.DiscardCurve(curve)
+		end
+		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Clear")
+	end
+
+	local update = function(state) end
+
+	local finish = function(state)
+		DrawingTask.FinishRemoteEvent:FireServer()
 	end
 
 	return DrawingTask.new(init, update, finish)

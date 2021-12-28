@@ -2,6 +2,8 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Drawing = require(script.Parent.Drawing)
 local LocalPlayer = game:GetService("Players").LocalPlayer
+local ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
+local ModalGui
 local CanvasState
 local Curves
 local Toolbar
@@ -18,6 +20,7 @@ function Buttons.Init(boardGui)
 	Toolbar = boardGui.Toolbar
 	Curves = boardGui.Curves
 	CanvasState = require(script.Parent.CanvasState)
+	ModalGui = boardGui.ModalGui
 
 	for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
 		if colorButton:IsA("TextButton") then
@@ -40,6 +43,8 @@ function Buttons.Init(boardGui)
 	Buttons.SyncPenButton(Toolbar.Pens.PenAButton, Drawing.PenA)
 	Buttons.SyncPenButton(Toolbar.Pens.PenBButton, Drawing.PenB)
 	Buttons.SyncPenModeButton(Toolbar.PenModeButton, Drawing.PenMode)
+
+	Buttons.ConnectClearButton(Toolbar.ClearButton, ModalGui.ConfirmClearModal)
 	
 	print("Buttons initialized")
 end
@@ -288,8 +293,8 @@ end
 function Buttons.ConnectPenModeButton(penModeButton)
 	penModeButton.Activated:Connect(function()
 		if Drawing.PenMode == "FreeHand" then
-			Buttons.SyncPenModeButton(penModeButton, "Line")
-			Drawing.PenMode = "Line"
+			Buttons.SyncPenModeButton(penModeButton, "StraightLine")
+			Drawing.PenMode = "StraightLine"
 		else
 			Buttons.SyncPenModeButton(penModeButton, "FreeHand")
 			Drawing.PenMode = "FreeHand"
@@ -318,9 +323,26 @@ end
 function Buttons.SyncPenModeButton(penModeButton, mode)
 	if mode == "FreeHand" then
 		penModeButton.Image = "rbxassetid://8260808744"
-	elseif mode == "Line" then
+	elseif mode == "StraightLine" then
 		penModeButton.Image = "rbxassetid://8260809648"
 	end
+end
+
+function Buttons.ConnectClearButton(clearButton, confirmClearModal)
+	clearButton.Activated:Connect(function()
+		confirmClearModal.Visible = true
+	end)
+
+	confirmClearModal.ConfirmClearButton.Activated:Connect(function()
+		confirmClearModal.Visible = false
+		Drawing.CurrentTask = ClientDrawingTasks.new("Clear")
+		Drawing.CurrentTask.Init(Drawing.CurrentTask.State)
+		Drawing.CurrentTask.Finish(Drawing.CurrentTask.State)
+	end)
+
+	confirmClearModal.CancelButton.Activated:Connect(function()
+		confirmClearModal.Visible = false
+	end)
 end
 
 return Buttons

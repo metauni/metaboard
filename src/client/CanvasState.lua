@@ -37,6 +37,7 @@ function CanvasState.Init(boardGui)
 	
 
 	BoardGui.Enabled = false
+	BoardGui.ModalGui.Enabled = false
 
 	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 		local clickable = board:WaitForChild("Clickable")
@@ -119,7 +120,7 @@ function CanvasState.ConnectWorldBoardSync()
 					LineInfo.StoreInfo(lineFrame, descendantLineInfo)
 					CanvasState.AttachLine(lineFrame, curve)
 
-					if worldCurve:GetAttribute("CurveType") == "Line" then
+					if worldCurve:GetAttribute("CurveType") == "StraightLine" then
 						descendant:GetAttributeChangedSignal("Stop"):Connect(function()
 							local lineInfo = LineInfo.ReadInfo(descendant)
 							CanvasState.UpdateLineFrame(lineFrame, LineInfo.ReadInfo(descendant))
@@ -184,6 +185,7 @@ function CanvasState.OpenBoard(board)
 
 	Canvas.BackgroundColor3 = board.Color
 	BoardGui.Enabled = true
+	BoardGui.ModalGui.Enabled = true
 
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
 		local curve = CanvasState.CreateCurve(board, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
@@ -201,6 +203,7 @@ end
 function CanvasState.CloseBoard(board)
 	
 	BoardGui.Enabled = false
+	BoardGui.ModalGui.Enabled = false
 
 	Drawing.OnBoardClose(board)
 

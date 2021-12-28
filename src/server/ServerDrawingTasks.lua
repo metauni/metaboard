@@ -77,10 +77,10 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 	return DrawingTask.new(init, update, finish)
 end
 
-ServerDrawingTasks.Line = {}
-ServerDrawingTasks.Line.__index = ServerDrawingTasks.Line
+ServerDrawingTasks.StraightLine = {}
+ServerDrawingTasks.StraightLine.__index = ServerDrawingTasks.StraightLine
 
-function ServerDrawingTasks.Line.new(player, board)
+function ServerDrawingTasks.StraightLine.new(player, board)
 	local init = function(state, pos, thicknessYScale, color, curveName)
 		state.Author = player
 		state.Board = board
@@ -95,7 +95,7 @@ function ServerDrawingTasks.Line.new(player, board)
 		state.Curve.Name = curveName
 		state.Curve:SetAttribute("AuthorUserId", state.Author.UserId)
 		state.Curve:SetAttribute("ZIndex", state.ZIndex)
-		state.Curve:SetAttribute("CurveType", "Line")
+		state.Curve:SetAttribute("CurveType", "StraightLine")
 		
 		state.Start = pos
 		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
@@ -158,7 +158,28 @@ function ServerDrawingTasks.Erase.new(player, board)
 		ServerDrawingTasks.Erase.RemoveLines(state.Board, curveLineInfoBundles)
 	end
 
-	local finish = update
+	local finish = function(state) end
+
+	return DrawingTask.new(init, update, finish)
+end
+
+ServerDrawingTasks.Clear = {}
+ServerDrawingTasks.Clear.__index = ServerDrawingTasks.Clear
+
+function ServerDrawingTasks.Clear.new(player, board)
+	local init = function(state)
+		state.Author = player
+		state.Board = board
+
+		for _, curve in ipairs(state.Board.Canvas.Curves:GetChildren()) do
+			MetaBoard.DiscardCurve(curve)
+		end
+	end
+
+	local update = function(state) end
+	
+	local finish = function(state)
+	end
 
 	return DrawingTask.new(init, update, finish)
 end
