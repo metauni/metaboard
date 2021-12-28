@@ -243,19 +243,11 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 	local yStuds = canvas.Size.Y
 
 	if worldLineType == "Parts" then
-		if lineInfo.Start == lineInfo.Stop then
-			line.Size =
+		line.Size =
 			Vector3.new(
-				lineInfo.ThicknessYScale * yStuds,
+				(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
 				lineInfo.ThicknessYScale * yStuds,
 				Config.WorldLine.ZThicknessStuds)
-		else
-			line.Size =
-				Vector3.new(
-					(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
-					lineInfo.ThicknessYScale * yStuds,
-					Config.WorldLine.ZThicknessStuds)
-		end
 
 		line.Color = lineInfo.Color
 
