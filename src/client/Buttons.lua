@@ -46,7 +46,7 @@ function Buttons.Init(boardGui)
 
 	Buttons.ConnectClearButton(Toolbar.ClearButton, ModalGui.ConfirmClearModal)
 	
-	print("Buttons initialized")
+	--print("Buttons initialized")
 end
 
 function Buttons.OnBoardOpen(board)

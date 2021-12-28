@@ -59,7 +59,7 @@ function CanvasState.Init(boardGui)
 		end
 	end)
 
-	print("CanvasState initialized")
+	--print("CanvasState initialized")
 
 end
 

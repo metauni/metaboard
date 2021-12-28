@@ -124,8 +124,7 @@ function Drawing.OnBoardOpen(board)
 			local curveIndex = tonumber(string.sub(curve.Name, string.find(curve.Name, "#")+1,string.len(curve.Name)))
 			curveIndexMax = if curveIndex > curveIndexMax then curveIndex else curveIndexMax
 		end
-
-		print("Set CurveIndex to "..curveIndexMax)
+		
 		Drawing.CurveIndexOf[board] = curveIndexMax -- Note it should be 0 if there are no lines
 	end
 
