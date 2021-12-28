@@ -244,13 +244,21 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 	local aspectRatio = canvas.Size.X / canvas.Size.Y
 	local yStuds = canvas.Size.Y
 
-	line.Size =
-		Vector3.new(
-			lineInfo.Length * yStuds,
-			lineInfo.ThicknessYScale * yStuds,
-			Config.WorldLine.ZThicknessStuds)
-
 	if worldLineType == "Parts" then
+		if lineInfo.Start == lineInfo.Stop then
+			line.Size =
+			Vector3.new(
+				lineInfo.ThicknessYScale * yStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				Config.WorldLine.ZThicknessStuds)
+		else
+			line.Size =
+				Vector3.new(
+					(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
+					lineInfo.ThicknessYScale * yStuds,
+					Config.WorldLine.ZThicknessStuds)
+		end
+
 		line.Color = lineInfo.Color
 
 		local surface = canvas.Parent
@@ -272,6 +280,12 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 	end
 
 	if worldLineType == "HandleAdornments" then
+		line.Size =
+			Vector3.new(
+				lineInfo.Length * yStuds,
+				lineInfo.ThicknessYScale * yStuds,
+				Config.WorldLine.ZThicknessStuds)
+
 		line.Color3 = lineInfo.Color
 		line.SizeRelativeOffset =
 			Vector3.new(
