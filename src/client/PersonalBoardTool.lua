@@ -22,7 +22,7 @@ function PersonalBoardTool.Init(localCharacter)
 
 	PersonalBoardTool.Tool.Parent = LocalPlayer.Backpack
 
-	print("Personal Board Tool Initialised")
+	--print("Personal Board Tool Initialised")
 end
 
 function PersonalBoardTool.SpawnBoard()

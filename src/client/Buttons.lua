@@ -41,7 +41,7 @@ function Buttons.Init(boardGui)
 	Buttons.SyncPenButton(Toolbar.Pens.PenBButton, Drawing.PenB)
 	Buttons.SyncPenModeButton(Toolbar.PenModeButton, Drawing.PenMode)
 	
-	print("Buttons initialized")
+	--print("Buttons initialized")
 end
 
 function Buttons.OnBoardOpen(board)

@@ -200,7 +200,7 @@ function Persistence.Restore(board, boardKey)
         curve.Parent = board.Canvas.Curves
     end
 
-    print("Persistence: Successfully restored board " .. boardKey)
+    --print("Persistence: Successfully restored board " .. boardKey)
 end
 
 -- Stores a given board to the DataStore with the given ID
