@@ -80,22 +80,30 @@ function Drawing.Init(boardGui)
 	Drawing.InitCursor(Drawing.CursorGui)
 
 	Canvas.MouseButton1Down:Connect(function(x,y)
+		if not CanvasState.HasWritePermission then return end
+
 		Drawing.UpdateCursor(x,y)
 		Drawing.Cursor.Visible = true
 		Drawing.ToolDown(x,y)
 	end)
 
 	Canvas.MouseMoved:Connect(function(x,y)
+		if not CanvasState.HasWritePermission then return end
+
 		Drawing.UpdateCursor(x,y)
 		Drawing.ToolMoved(x,y)
 	end)
 
 	Canvas.MouseEnter:Connect(function(x,y)
+		if not CanvasState.HasWritePermission then return end
+
 		Drawing.UpdateCursor(x,y)
 		Drawing.Cursor.Visible = true
 	end)
 	
 	Canvas.MouseLeave:Connect(function(x,y)
+		if not CanvasState.HasWritePermission then return end
+
 		if Drawing.MouseHeld then
 			Drawing.ToolLift(x, y)
 		end
@@ -104,6 +112,8 @@ function Drawing.Init(boardGui)
 	end)
 	
 	UserInputService.InputEnded:Connect(function(input, gp)
+		if not CanvasState.HasWritePermission then return end
+		
 		if Drawing.MouseHeld then
 			Drawing.ToolLift(input.Position.X, input.Position.Y + 36)
 		end

@@ -15,14 +15,16 @@ local Drawing
 
 
 local CanvasState = {
-
 	-- the board that is currently displayed on the canvas
 	EquippedBoard = nil,
 
 	EquippedBoardDescendantAddedConnection = nil,
 	EquippedBoardDescendantRemovingConnection = nil,
 
-	SurfaceGuiConnections = {}
+	SurfaceGuiConnections = {},
+
+	-- permission to draw
+	HasWritePermission = true
 }
 
 function CanvasState.Init(boardGui)
@@ -32,9 +34,6 @@ function CanvasState.Init(boardGui)
 	
 	Buttons = require(script.Parent.Buttons)
 	Drawing = require(script.Parent.Drawing)
-
-	
-	
 
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
@@ -59,8 +58,27 @@ function CanvasState.Init(boardGui)
 		end
 	end)
 
-	--print("CanvasState initialized")
+	-- If the Admin system is installed, the permission specified there
+	-- overwrites the default "true" state of HasWritePermission
+	local adminEvents = game:GetService("ReplicatedStorage"):FindFirstChild("MetaAdmin")
+	if adminEvents then
+		local canWriteRF = adminEvents:FindFirstChild("CanWrite")
 
+		if canWriteRF then
+			CanvasState.HasWritePermission = canWriteRF:InvokeServer()
+		end
+
+		-- Listen for updates to the permissions
+		local permissionUpdateRE = adminEvents:FindFirstChild("PermissionsUpdate")
+		permissionUpdateRE.OnClientEvent:Connect(function()
+			-- Request the new permission
+			if canWriteRF then
+				CanvasState.HasWritePermission = canWriteRF:InvokeServer()
+			end
+		end)
+	end
+
+	--print("CanvasState initialized")
 end
 
 function CanvasState.ConnectOpenBoardButton(board, button)
