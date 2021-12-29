@@ -249,7 +249,7 @@ function Persistence.Store(board, boardKey)
         return
     end
 
-    print("Persistence: Successfully stored board " .. boardKey)
+    --print("Persistence: Successfully stored board " .. boardKey)
 end
 
 return Persistence
