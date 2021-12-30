@@ -1,4 +1,5 @@
 local Config = {
+	Version = "v0.3.4",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
@@ -31,7 +32,7 @@ local Config = {
 	CanvasThickness = 0.5,
 
 	-- "HandleAdornments" or "Parts" or "RoundedParts"
-	WorldLineType = "RoundedParts",
+	WorldLineType = "Parts",
 
 	UseCache = false,
 }
