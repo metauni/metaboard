@@ -54,7 +54,7 @@ function Persistence.Init()
         for _, board in ipairs(boardsClose) do
             local persistId = board:FindFirstChild("PersistId")
             if persistId and persistId:IsA("IntValue") then
-                Persistence.Store(board, keyForBoard(board))
+                task.spawn(Persistence.Store, board, keyForBoard(board))
             end
         end
     end)
