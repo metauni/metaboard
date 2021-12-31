@@ -69,6 +69,7 @@ function MetaBoard.Init()
 		end
 		
 		if board.HasLoaded.Value then
+			-- Mark this persistent board as changed
 			board.ChangeUid.Value = HttpService:GenerateGUID(false)
 		end
 	end)
@@ -78,6 +79,7 @@ function MetaBoard.Init()
 			drawingTask.Update(drawingTask.State, ...)
 			
 			if board.HasLoaded.Value then
+				-- Mark this persistent board as changed
 				board.ChangeUid.Value = HttpService:GenerateGUID(false)
 			end
 		end

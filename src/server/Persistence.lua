@@ -35,6 +35,9 @@ local function storeAll()
 
 	for _, board in ipairs(boardsClose) do
 		local persistId = board:FindFirstChild("PersistId")
+
+        -- Find persistent boards which have been changed since the last save
+        -- to the DataStore
 		if persistId and persistId:IsA("IntValue") and board.ChangeUid.Value ~= "" then
 			toComplete += 1
 		end
@@ -205,6 +208,7 @@ function Persistence.Restore(board, boardKey)
     -- Return if this board has not been stored
     if not boardJSON then
         print("No data for this persistId")
+        board.HasLoaded.Value = true
         return
     end
 
@@ -240,6 +244,7 @@ end
 
 -- Stores a given board to the DataStore with the given ID
 function Persistence.Store(board, boardKey)
+    -- Do not store boards that have not changed
 	if board.ChangeUid.Value == "" then
 		return
 	end
@@ -279,6 +284,8 @@ function Persistence.Store(board, boardKey)
     -- TODO pre-empt "value too big" error
     -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
 	
+    -- Since SetAsync yields we compare preSaveUid and board.ChangeUid
+    -- to assess whether the board was changed during the save process
 	local preSaveUid = board.ChangeUid.Value
     local success, errormessage = pcall(function()
         return DataStore:SetAsync(boardKey, boardJSON)
@@ -289,6 +296,8 @@ function Persistence.Store(board, boardKey)
         return
 	end
 	
+    -- If the board did not change during the save process,
+    -- then it is safe to mark it as saved
 	if preSaveUid == board.ChangeUid.Value then
 		board.ChangeUid.Value = ""
 	end
