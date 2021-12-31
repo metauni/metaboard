@@ -186,8 +186,9 @@ function CanvasState.ConnectWorldBoardSync()
 end
 
 function CanvasState.OpenBoard(board)
-	
-	if not board.HasLoaded.Value then return end
+	-- If this is a persistent board and it hasn't finished loading from the
+	-- DataStore, don't allow it to be opened
+	if board:FindFirstChild("PersistId") and not board.HasLoaded.Value then return end
 
 	-- We do not open the BoardGui if we are in VR
 	if VRService.VREnabled then return end
