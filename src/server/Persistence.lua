@@ -243,7 +243,6 @@ function Persistence.Store(board, boardKey)
 	if board.ChangeUid.Value == "" then
 		return
 	end
-	print("A")
 	
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
