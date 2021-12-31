@@ -48,12 +48,18 @@ function ServerDrawingTasks.FreeHand.new(player, board)
 
 	local update = function(state, pos)
 		local lineInfo = LineInfo.new(state.Points[#state.Points], pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
-		LineInfo.StoreInfo(worldLine, lineInfo)
-		worldLine.Parent = state.Curve
 
-		state.Points[#state.Points+1] = pos
-		state.Lines[#state.Lines+1] = worldLine
+		if #state.Points == 1 then
+			MetaBoard.UpdateWorldLine(Config.WorldLineType, state.Lines[#state.Lines], state.Board.Canvas, lineInfo, state.ZIndex)
+			LineInfo.StoreInfo(state.Lines[#state.Lines], lineInfo)
+		else
+			local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
+			LineInfo.StoreInfo(worldLine, lineInfo)
+			worldLine.Parent = state.Curve
+			table.insert(state.Lines, worldLine)
+		end
+		
+		table.insert(state.Points, pos)
 	end
 
 	local finish = function(state, doSmoothing, smoothedCurvePoints)

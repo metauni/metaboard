@@ -8,6 +8,7 @@ local Config = {
 	MinLineLengthScale = 0,
 	MaxLineLengthTouchScale = 200/1000,
 
+	-- Pixel width of line before adding UICorner
 	UICornerThreshold = 4,
 
 	EraserSmallRadiusYScale = 10/1000,
@@ -48,6 +49,7 @@ Config.Defaults = {
 Config.WorldLine = {
 	ZThicknessStuds = 0.01,
 	StudsPerZIndex = 0.001,
+	RoundThresholdStuds = 0.05
 }
 
 Config.PersonalBoard = {

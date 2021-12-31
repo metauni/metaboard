@@ -263,11 +263,19 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 	if worldLineType == "RoundedParts" then
 		line.Color = lineInfo.Color
 		
-		line.Size =
-			Vector3.new(
-				lineInfo.Length * yStuds,
-				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
+		if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
+			line.Size =
+				Vector3.new(
+					lineInfo.Length * yStuds,
+					lineInfo.ThicknessYScale * yStuds,
+					Config.WorldLine.ZThicknessStuds)
+		else
+			line.Size =
+				Vector3.new(
+					(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
+					lineInfo.ThicknessYScale * yStuds,
+					Config.WorldLine.ZThicknessStuds)
+		end
 
 		line.CFrame =
 			canvas.CFrame *
@@ -277,37 +285,39 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 
-		line.StartCylinder.Color = lineInfo.Color
-
-		line.StartCylinder.Size =
-			Vector3.new(
-				Config.WorldLine.ZThicknessStuds,
-				lineInfo.ThicknessYScale * yStuds,
-				lineInfo.ThicknessYScale * yStuds)
-
-		line.StartCylinder.CFrame =
-			canvas.CFrame *
-			CFrame.new(
-				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
-				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
-				CFrame.Angles(0,math.pi/2,0)
-
-		line.StopCylinder.Color = lineInfo.Color
-
-		line.StopCylinder.Size =
-			Vector3.new(
-				Config.WorldLine.ZThicknessStuds,
-				lineInfo.ThicknessYScale * yStuds,
-				lineInfo.ThicknessYScale * yStuds)
-
-		line.StopCylinder.CFrame =
-			canvas.CFrame *
-			CFrame.new(
-				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
-				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
-				CFrame.Angles(0,math.pi/2,0)
+			if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
+				line.StartCylinder.Color = lineInfo.Color
+		
+				line.StartCylinder.Size =
+					Vector3.new(
+						Config.WorldLine.ZThicknessStuds,
+						lineInfo.ThicknessYScale * yStuds,
+						lineInfo.ThicknessYScale * yStuds)
+		
+				line.StartCylinder.CFrame =
+					canvas.CFrame *
+					CFrame.new(
+						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
+						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
+						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+						CFrame.Angles(0,math.pi/2,0)
+		
+				line.StopCylinder.Color = lineInfo.Color
+		
+				line.StopCylinder.Size =
+					Vector3.new(
+						Config.WorldLine.ZThicknessStuds,
+						lineInfo.ThicknessYScale * yStuds,
+						lineInfo.ThicknessYScale * yStuds)
+		
+				line.StopCylinder.CFrame =
+					canvas.CFrame *
+					CFrame.new(
+						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
+						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
+						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+						CFrame.Angles(0,math.pi/2,0)
+		end
 	end
 
 	if worldLineType == "HandleAdornments" then
@@ -378,16 +388,18 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 		local line = newSmoothNonPhysicalPart()
 		line.Name = "Line"
 
-		local startCylinder = newSmoothNonPhysicalPart()
-		startCylinder.Shape = Enum.PartType.Cylinder
-		startCylinder.Name = "StartCylinder"
-
-		local stopCylinder = newSmoothNonPhysicalPart()
-		stopCylinder.Shape = Enum.PartType.Cylinder
-		stopCylinder.Name = "StopCylinder"
-
-		startCylinder.Parent = line
-		stopCylinder.Parent = line
+		if lineInfo.ThicknessYScale * canvas.Size.Y >= Config.WorldLine.RoundThresholdStuds then
+			local startCylinder = newSmoothNonPhysicalPart()
+			startCylinder.Shape = Enum.PartType.Cylinder
+			startCylinder.Name = "StartCylinder"
+			
+			local stopCylinder = newSmoothNonPhysicalPart()
+			stopCylinder.Shape = Enum.PartType.Cylinder
+			stopCylinder.Name = "StopCylinder"
+			
+			startCylinder.Parent = line
+			stopCylinder.Parent = line
+		end
 
 		MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
 		return line
