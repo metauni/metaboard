@@ -36,6 +36,8 @@ local Config = {
 	WorldLineType = "Parts",
 
 	UseCache = false,
+	
+	AutoSaveInterval = 30, -- Interval in seconds between board persistence saves
 }
 
 Config.Defaults = {
@@ -49,7 +51,7 @@ Config.Defaults = {
 Config.WorldLine = {
 	ZThicknessStuds = 0.01,
 	StudsPerZIndex = 0.001,
-	RoundThresholdStuds = 0.05
+	RoundThresholdStuds = 0.05,
 }
 
 Config.PersonalBoard = {

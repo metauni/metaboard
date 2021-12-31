@@ -186,6 +186,8 @@ function CanvasState.ConnectWorldBoardSync()
 end
 
 function CanvasState.OpenBoard(board)
+	
+	if not board.HasLoaded.Value then return end
 
 	-- We do not open the BoardGui if we are in VR
 	if VRService.VREnabled then return end
