@@ -80,7 +80,7 @@ function MetaBoard.Init()
 		end
 	end)
 
-	print("MetaBoard Server initialized")
+	print("MetaBoard Server "..Config.Version.." initialized")
 end
 
 function MetaBoard.GetSurfaceCFrame(part, face)

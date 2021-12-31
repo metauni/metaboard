@@ -261,6 +261,8 @@ end
 
 function Buttons.ConnectUndoButton(undoButton)
 	undoButton.Activated:Connect(function()
+		if not CanvasState.HasWritePermission then return end
+
 		local board = CanvasState.EquippedBoard
 		local curveName
 		local curve
@@ -330,10 +332,14 @@ end
 
 function Buttons.ConnectClearButton(clearButton, confirmClearModal)
 	clearButton.Activated:Connect(function()
+		if not CanvasState.HasWritePermission then return end
+
 		confirmClearModal.Visible = true
 	end)
 
 	confirmClearModal.ConfirmClearButton.Activated:Connect(function()
+		if not CanvasState.HasWritePermission then return end
+		
 		confirmClearModal.Visible = false
 		Drawing.CurrentTask = ClientDrawingTasks.new("Clear")
 		Drawing.CurrentTask.Init(Drawing.CurrentTask.State)
