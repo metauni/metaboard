@@ -63,6 +63,7 @@ function ClientDrawingTasks.FreeHand.new()
 	end
 
 	local update = function(state, pos)
+
 		local lineInfo =
 		LineInfo.new(
 			state.LastLineInfo.Stop,
@@ -70,18 +71,20 @@ function ClientDrawingTasks.FreeHand.new()
 			Drawing.EquippedTool.ThicknessYScale,
 			Drawing.EquippedTool.Color
 		)
-		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+		
+		if #state.Points == 1 then
+			CanvasState.UpdateLineFrame(state.LastLine, lineInfo)
+		else
+			local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+			LineInfo.StoreInfo(lineFrame, lineInfo)
+			CanvasState.AttachLine(lineFrame, state.Curve)
+			state.LastLine = lineFrame
+		end
 
-		table.insert(state.Points, pos)
-
-		LineInfo.StoreInfo(lineFrame, lineInfo)
-
-		CanvasState.AttachLine(lineFrame, state.Curve)
-
-		state.LastLine = lineFrame
 		state.LastLineInfo = lineInfo
 		state.CurveLength += lineInfo.Length
-
+		
+		table.insert(state.Points, pos)
 		DrawingTask.UpdateRemoteEvent:FireServer(pos)
 	end
 
@@ -160,10 +163,10 @@ function ClientDrawingTasks.FreeHand.new()
 end
 
 
-ClientDrawingTasks.Line = {}
-ClientDrawingTasks.Line.__index = ClientDrawingTasks.Line
+ClientDrawingTasks.StraightLine = {}
+ClientDrawingTasks.StraightLine.__index = ClientDrawingTasks.StraightLine
 
-function ClientDrawingTasks.Line.new()
+function ClientDrawingTasks.StraightLine.new()
 
 	local init = function(state, pos)
 		local zIndex = CanvasState.EquippedBoard.CurrentZIndex.Value + 1
