@@ -15,20 +15,55 @@ local function isPrivateServer()
 	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
 end
 
+local function keyForBoard(board)
+	local boardKey = "metaboard" .. tostring(board.PersistId.Value)
+
+	-- If we are in a private server the key is prefixed by the 
+	-- private server's ID
+	if isPrivateServer() then
+		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+	end
+
+	return boardKey
+end
+
+local function storeAll()
+	local boardsClose = CollectionService:GetTagged(Config.BoardTag)
+	local toComplete = 0
+	local thread = coroutine.running()
+	local shouldSpawn = false
+
+	for _, board in ipairs(boardsClose) do
+		local persistId = board:FindFirstChild("PersistId")
+		if persistId and persistId:IsA("IntValue") and board.ChangeUid.Value ~= "" then
+			toComplete += 1
+		end
+	end
+
+	for _, board in ipairs(boardsClose) do
+		local persistId = board:FindFirstChild("PersistId")
+		if persistId and persistId:IsA("IntValue") and board.ChangeUid.Value ~= "" then
+			task.spawn(function()
+				Persistence.Store(board, keyForBoard(board))
+				toComplete -= 1
+				-- The shouldSpawn check is necessary since all Store calls
+				-- could return immediately, meaning the thread would be
+				-- spawned while it's still running.
+				if toComplete == 0 and shouldSpawn then
+					task.spawn(thread)
+				end
+			end)
+		end
+	end
+
+	if toComplete ~= 0 then
+		shouldSpawn = true
+		coroutine.yield()
+	end
+end
+
 function Persistence.Init()
     MetaBoard = require(script.Parent.MetaBoard)
-    
-    local function keyForBoard(board)
-        local boardKey = "metaboard" .. tostring(board.PersistId.Value)
-
-        -- If we are in a private server the key is prefixed by the 
-        -- private server's ID
-        if isPrivateServer() then
-            boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
-        end
-
-        return boardKey
-    end
 
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
@@ -41,23 +76,21 @@ function Persistence.Init()
 
             local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
-            for _, subscriber in ipairs(subscriberFamily) do
-                Persistence.Restore(subscriber, boardKey)
-            end
+			for _, subscriber in ipairs(subscriberFamily) do
+				task.spawn(Persistence.Restore, subscriber, boardKey)
+			end
         end
 	end
 
     -- Store all boards on shutdown
-    game:BindToClose(function()
-        local boardsClose = CollectionService:GetTagged(Config.BoardTag)
-
-        for _, board in ipairs(boardsClose) do
-            local persistId = board:FindFirstChild("PersistId")
-            if persistId and persistId:IsA("IntValue") then
-                task.spawn(Persistence.Store, board, keyForBoard(board))
-            end
-        end
-    end)
+	game:BindToClose(storeAll)
+	
+	task.spawn(function()
+		while true do
+			task.wait(Config.AutoSaveInterval)
+			storeAll()
+		end
+	end)
 end
 
 local function serialiseVector2(v)
@@ -198,13 +231,20 @@ function Persistence.Restore(board, boardKey)
     for _, curveData in ipairs(curves) do
         local curve = deserialiseCurve(board.Canvas, curveData)
         curve.Parent = board.Canvas.Curves
-    end
+	end
+	
+	board.HasLoaded.Value = true
 
     --print("Persistence: Successfully restored board " .. boardKey)
 end
 
 -- Stores a given board to the DataStore with the given ID
 function Persistence.Store(board, boardKey)
+	if board.ChangeUid.Value == "" then
+		return
+	end
+	print("A")
+	
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
@@ -239,7 +279,8 @@ function Persistence.Store(board, boardKey)
 
     -- TODO pre-empt "value too big" error
     -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
-
+	
+	local preSaveUid = board.ChangeUid.Value
     local success, errormessage = pcall(function()
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
@@ -247,7 +288,11 @@ function Persistence.Store(board, boardKey)
         print("Persistence: Failed to store to DataStore for ID " .. boardKey)
         print(errormessage)
         return
-    end
+	end
+	
+	if preSaveUid == board.ChangeUid.Value then
+		board.ChangeUid.Value = ""
+	end
 
     --print("Persistence: Successfully stored board " .. boardKey)
 end
