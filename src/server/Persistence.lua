@@ -194,8 +194,6 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 
     -- Get the value stored for the given persistId. Note that this may not
     -- have been set, which is fine
-    print("[metaboard/Persistence] Accessing DataStore for ".. boardKey)
-
     local success, boardJSON = pcall(function()
         return DataStore:GetAsync(boardKey)
     end)
@@ -223,8 +221,6 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 
 	local boardData = HTTPService:JSONDecode(boardJSON)
-
-    print("[metaboard/Persistence] Decoding complete for ".. boardKey)
 
     if not boardData then
         print("Persistence: failed to decode JSON")
@@ -276,7 +272,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         lineCount += #curveData.Lines
     end
 
-    print("[metaboard/Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines.")
+    print("[Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines.")
 end
 
 -- Stores a given board to the DataStore with the given ID
@@ -339,7 +335,7 @@ function Persistence.Store(board, boardKey)
 		board.ChangeUid.Value = ""
 	end
 
-    print("[metaboard/Persistence] Successfully stored board " .. boardKey)
+    print("[Persistence] Successfully stored board " .. boardKey)
 end
 
 return Persistence
