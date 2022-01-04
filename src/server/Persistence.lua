@@ -204,8 +204,6 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return
     end
 
-    print("[metaboard/Persistence] Processing ".. boardKey)
-
     -- If restoreSubscribers is false, we just count the board
     -- itself as a subscriber
     local subscriberFamily = {board}
