@@ -37,8 +37,13 @@ local Config = {
 
 	UseCache = false,
 	
-	AutoSaveInterval = 30, -- Interval in seconds between board persistence saves
+	-- Interval in seconds between board persistence saves
+	-- Note that there is a 6s cooldown on writing to the same DataStore
+	-- key, so that AutoSaveInterval is lower bounded by 6
+	AutoSaveInterval = 30, 
+
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
+	PersistenceDelayOnStartup = 5, -- Time to delay before running Persistence.Init
 }
 
 Config.Defaults = {
