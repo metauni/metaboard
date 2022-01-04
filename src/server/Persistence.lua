@@ -77,11 +77,7 @@ function Persistence.Init()
             -- Restore this board and all its subscribers
             local boardKey = keyForBoard(board)
 
-            local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		
-			for _, subscriber in ipairs(subscriberFamily) do
-				task.spawn(Persistence.Restore, subscriber, boardKey)
-			end
+            task.spawn(Persistence.Restore, board, boardKey, true)
         end
 	end
 
@@ -176,8 +172,9 @@ local function serialiseCurve(curve)
 end
 
 -- Restores an empty board to the contents stored in the DataStore
--- with the given persistence ID string
-function Persistence.Restore(board, boardKey)
+-- with the given persistence ID string. Optionally, it restores the
+-- contents to all subscribers of the given board
+function Persistence.Restore(board, boardKey, restoreSubscribers)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
@@ -197,6 +194,8 @@ function Persistence.Restore(board, boardKey)
 
     -- Get the value stored for the given persistId. Note that this may not
     -- have been set, which is fine
+    print("[metaboard/Persistence] Accessing DataStore for ".. boardKey)
+
     local success, boardJSON = pcall(function()
         return DataStore:GetAsync(boardKey)
     end)
@@ -205,14 +204,29 @@ function Persistence.Restore(board, boardKey)
         return
     end
 
+    print("[metaboard/Persistence] Processing ".. boardKey)
+
+    -- If restoreSubscribers is false, we just count the board
+    -- itself as a subscriber
+    local subscriberFamily = {board}
+    if restoreSubscribers then
+        subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+    end
+
     -- Return if this board has not been stored
     if not boardJSON then
         print("No data for this persistId")
-        board.HasLoaded.Value = true
+
+        for _, subscriber in ipairs(subscriberFamily) do
+            subscriber.HasLoaded.Value = true
+        end
+
         return
     end
 
 	local boardData = HTTPService:JSONDecode(boardJSON)
+
+    print("[metaboard/Persistence] Decoding complete for ".. boardKey)
 
     if not boardData then
         print("Persistence: failed to decode JSON")
@@ -226,20 +240,45 @@ function Persistence.Restore(board, boardKey)
         return
     end
 
-    if boardData.CurrentZIndex and board.CurrentZIndex then
-        board.CurrentZIndex.Value = boardData.CurrentZIndex
+    if boardData.CurrentZIndex then
+        for _, subscriber in ipairs(subscriberFamily) do
+            if subscriber.CurrentZIndex then
+                subscriber.CurrentZIndex.Value = boardData.CurrentZIndex
+            end
+        end
     end
 
     -- The board data is a table, each entry of which is a dictionary
     -- defining a curve
-    for _, curveData in ipairs(curves) do
-        local curve = deserialiseCurve(board.Canvas, curveData)
-        curve.Parent = board.Canvas.Curves
+    for subIndex, subscriber in ipairs(subscriberFamily) do
+        local lineCount = 0
+
+        for curIndex, curveData in ipairs(curves) do
+            local curve = deserialiseCurve(subscriber.Canvas, curveData)
+			curve.Parent = subscriber.Canvas.Curves
+            lineCount += #curveData.Lines
+
+            if lineCount > Config.LinesLoadedBeforeWait then
+                lineCount = 0
+                -- Give control back to the engine until the next frame,
+                -- then continue loading, to prevent low frame rates on
+                -- server startup with many persistent boards
+                task.wait()
+            end
+		end
 	end
 	
-	board.HasLoaded.Value = true
+    for _, subscriber in ipairs(subscriberFamily) do
+        subscriber.HasLoaded.Value = true
+    end
 
-    --print("Persistence: Successfully restored board " .. boardKey)
+    -- Count number of lines
+    local lineCount = 0
+    for curIndex, curveData in ipairs(curves) do
+        lineCount += #curveData.Lines
+    end
+
+    print("[metaboard/Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines.")
 end
 
 -- Stores a given board to the DataStore with the given ID
@@ -302,7 +341,7 @@ function Persistence.Store(board, boardKey)
 		board.ChangeUid.Value = ""
 	end
 
-    --print("Persistence: Successfully stored board " .. boardKey)
+    print("[metaboard/Persistence] Successfully stored board " .. boardKey)
 end
 
 return Persistence

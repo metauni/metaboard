@@ -38,6 +38,7 @@ local Config = {
 	UseCache = false,
 	
 	AutoSaveInterval = 30, -- Interval in seconds between board persistence saves
+	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
 }
 
 Config.Defaults = {
