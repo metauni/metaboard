@@ -1,5 +1,6 @@
 local CollectionService = game:GetService("CollectionService")
 local HTTPService = game:GetService("HttpService")
+local PlayersService = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
@@ -32,41 +33,34 @@ local function keyForBoard(board)
 end
 
 local function storeAll()
-	local boardsClose = CollectionService:GetTagged(Config.BoardTag)
-	local toComplete = 0
-	local thread = coroutine.running()
-	local shouldSpawn = false
-
-	for _, board in ipairs(boardsClose) do
-		local persistId = board:FindFirstChild("PersistId")
-
-        -- Find persistent boards which have been changed since the last save
-        -- to the DataStore
-		if persistId and persistId:IsA("IntValue") and board.ChangeUid.Value ~= "" then
-			toComplete += 1
+    local startTime = tick()
+    table.clear(perfStoreTimes)
+	local boards = CollectionService:GetTagged(Config.BoardTag)
+	
+    -- Find persistent boards which have been changed since the last save
+    local changedBoards = {}
+	for _, board in ipairs(boards) do
+		if board:FindFirstChild("PersistId") and board.ChangeUid.Value ~= "" then
+			table.insert(changedBoards, board)
 		end
 	end
 
-	for _, board in ipairs(boardsClose) do
-		local persistId = board:FindFirstChild("PersistId")
-		if persistId and persistId:IsA("IntValue") and board.ChangeUid.Value ~= "" then
-			task.spawn(function()
-				Persistence.Store(board, keyForBoard(board))
-				toComplete -= 1
-				-- The shouldSpawn check is necessary since all Store calls
-				-- could return immediately, meaning the thread would be
-				-- spawned while it's still running.
-				if toComplete == 0 and shouldSpawn then
-					task.spawn(thread)
-				end
-			end)
-		end
+    -- SetAsync has a rate limit of 60 + numPlayers * 10 calls per minute
+    -- (see https://developer.roblox.com/en-us/articles/Data-store)
+    -- 60/waitTime < 60 + numPlayers * 10 => waitTime > 60/( 60 + numPlayers * 10 )
+    -- In an experiment with 124 full persistent boards, all updated, we averaged
+    -- 1.13 seconds per board (i.e. 124 boards stored in 140sec)
+    local waitTime = 60/( 60 + 10 * #PlayersService:GetPlayers() )
+    
+	for _, board in ipairs(changedBoards) do
+        local boardKey = keyForBoard(board)
+		task.spawn(Persistence.Store, board, boardKey)
+        task.wait(waitTime)
 	end
 
-	if toComplete ~= 0 then
-		shouldSpawn = true
-		coroutine.yield()
-	end
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
+    
+    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
 end
 
 function Persistence.Init()
@@ -75,13 +69,24 @@ function Persistence.Init()
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
 
+    local numPersistentBoards = 0
+    for _, board in ipairs(boards) do
+		if board:FindFirstChild("PersistId") then
+			numPersistentBoards += 1
+		end
+	end
+
+    -- GetAsync has a limit of 60 + numPlayers × 10 requests per minute.
+    -- (see https://developer.roblox.com/en-us/articles/Data-store)
+    local waitTime = 60/( 60 + 10 * #PlayersService:GetPlayers() )
+
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
-        if persistId and persistId:IsA("IntValue") then
+        if persistId then
             -- Restore this board and all its subscribers
             local boardKey = keyForBoard(board)
-
             task.spawn(Persistence.Restore, board, boardKey, true)
+            task.wait(waitTime)
         end
 	end
 
@@ -180,6 +185,7 @@ end
 -- contents to all subscribers of the given board
 function Persistence.Restore(board, boardKey, restoreSubscribers)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local startTime = tick()
 
     if not DataStore then
         print("[Persistence] DataStore not loaded")
@@ -187,7 +193,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 
     if #board.Canvas.Curves:GetChildren() > 0 then
-        print("[Persistence] Called Restore on a nonempty board")
+        print("[Persistence] Called Restore on a nonempty board ".. boardKey)
         return
     end
 
@@ -213,7 +219,15 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     -- itself as a subscriber
     local subscriberFamily = {board}
     if restoreSubscribers then
-        subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+        for _, subscriber in ipairs(MetaBoard.GatherSubscriberFamily(board)) do
+            -- If we have a subscriber which is itself persistent, we do not
+            -- restore it using the curves on this board
+            if subscriber ~= board and subscriber:FindFirstChild("PersistId") then
+                continue
+            end
+
+            table.insert(subscriberFamily, subscriber)
+        end
     end
 
     -- Return if this board has not been stored
@@ -247,8 +261,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         end
     end
 
-    -- The board data is a table, each entry of which is a dictionary
-    -- defining a curve
+    -- The board data is a table, each entry of which is a dictionary defining a curve
     for subIndex, subscriber in ipairs(subscriberFamily) do
         local lineCount = 0
 
@@ -278,7 +291,8 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         lineCount += #curveData.Lines
     end
 
-    print("[Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines using " .. string.len(boardJSON) .. " bytes.")
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
+    print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
 
     if string.len(boardJSON) > Config.BoardFullThreshold then
         print("[Persistence] board ".. boardKey .." is full.")
@@ -291,6 +305,7 @@ function Persistence.Store(board, boardKey)
 	if board.ChangeUid.Value == "" then return end
 	
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local startTime = tick()
 
     if not DataStore then
         print("[Persistence] DataStore not loaded")
@@ -342,8 +357,9 @@ function Persistence.Store(board, boardKey)
 	end
 
     board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-    print("[Persistence] Successfully stored board " .. boardKey .. " using " .. string.len(boardJSON) .. " bytes.")
+    print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
 
     if string.len(boardJSON) > Config.BoardFullThreshold then
         print("[Persistence] board ".. boardKey .." is full.")

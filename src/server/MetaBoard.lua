@@ -46,10 +46,14 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
-			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then
-				continue
+			if subscriber:FindFirstChild("PersistId") then
+				-- Persistent subscriber boards should not receive undo
+				-- until they have finished loading
+				if not subscriber.HasLoaded.Value then continue end
 			end
 
+			if subscriber.IsFull.Value then continue end
+			
 			local curve = subscriber.Canvas.Curves:FindFirstChild(curveName)
 			if curve then
 				MetaBoard.DiscardCurve(curve)
@@ -63,19 +67,20 @@ function MetaBoard.Init()
 	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskKind, ...)
 		local args = {...}
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		
+		local persistId
+
 		MetaBoard.DrawingTasksTable[player] = {}
 		
 		for _, subscriber in ipairs(subscriberFamily) do
-			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then
-				continue
-			end
+			persistId = subscriber:FindFirstChild("PersistId")
+			if persistId and not subscriber.HasLoaded.Value then continue end
+			if subscriber.IsFull.Value and taskKind ~= "Clear" then continue end
 
 			local drawingTask = ServerDrawingTasks.new(taskKind, player, subscriber)
 			MetaBoard.DrawingTasksTable[player][subscriber] = drawingTask
 			drawingTask.Init(drawingTask.State, ...)
 
-			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+			if persistId and subscriber.HasLoaded.Value then
 				-- Mark this persistent board as changed
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
 			end

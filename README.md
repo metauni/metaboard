@@ -71,9 +71,19 @@ When you start your world, any links made with the second method will be convert
 
 Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set it it to the subkey used to store the board contents.
 
-Note that in private servers the DataStore key for the board contents is of the form "ps<ownerId>:metaboard<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less.
+Since persistent boards use the Roblox DataStore API there are several limitations you should be aware of:
 
-**WARNING**: the DataStore keys for persistent boards are the same in any live server, and `SetAsync` is currently used rather than `UpdateAsync`, so there is a risk of data corruption if two players in different servers attempt to the use the "same" persistent board. We strongly recommend therefore that you reserve use of persistent boards to *private servers*.
+* In private servers the DataStore key for a board is of the form "ps<ownerId>:metaboard<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less.
+
+* The DataStore keys for persistent boards are the same in any live server, and `SetAsync` is currently used rather than `UpdateAsync`, so there is a risk of data corruption if two players in different servers attempt to the use the "same" persistent board. We strongly recommend therefore that you reserve use of persistent boards to *private servers*.
+
+* Persistent boards will be locked and only Clear allowed if the board reaches a threshold where it would exceed the storage requirement for the DataStore.
+
+* The `GetAsync` [rate limit](https://developer.roblox.com/en-us/articles/Data-store) on DataStores has been handled by throttling the loading of persistent boards so that they never hit this limit (the throttling is conservative).
+
+* Changed persistent boards are autosaved by default every `30sec`.
+
+* On server shutdown there is a `30sec` hard limit, within which all boards which have changed after the last autosave must be saved if we are to avoid dataloss. Given that `SetAsync` has a rate limit of `60 + numPlayers * 10` calls per minute, and assuming we can spend at most `20sec` on boards, that means we can support at most `20 + numPlayers * 3` changed boards since the last autosave if we are to avoid dataloss, purely due to rate limits. A full board costs about `1.2sec` to save under adversarial conditions (i.e. many other full boards). So to be safe we can afford at most `16` changed boards per autosave period.
 
 ## TODO
 - [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
