@@ -46,6 +46,10 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
+			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then
+				continue
+			end
+
 			local curve = subscriber.Canvas.Curves:FindFirstChild(curveName)
 			if curve then
 				MetaBoard.DiscardCurve(curve)
@@ -63,14 +67,18 @@ function MetaBoard.Init()
 		MetaBoard.DrawingTasksTable[player] = {}
 		
 		for _, subscriber in ipairs(subscriberFamily) do
+			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then
+				continue
+			end
+
 			local drawingTask = ServerDrawingTasks.new(taskKind, player, subscriber)
 			MetaBoard.DrawingTasksTable[player][subscriber] = drawingTask
 			drawingTask.Init(drawingTask.State, ...)
-		end
-		
-		if board.HasLoaded.Value then
-			-- Mark this persistent board as changed
-			board.ChangeUid.Value = HttpService:GenerateGUID(false)
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -224,6 +232,7 @@ function MetaBoard.InitBoard(board)
 	changeUid.Name = "ChangeUid"
 	changeUid.Parent = board
 	
+	-- Meaningful only for persistent boards
 	local hasLoaded = board:FindFirstChild("HasLoaded")
 	if hasLoaded ~= nil then
 		hasLoaded:Destroy()
