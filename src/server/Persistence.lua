@@ -64,7 +64,9 @@ local function storeAll()
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
     
-    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
+    if #changedBoards > 0 then
+        print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
+    end
 end
 
 function Persistence.Init()
