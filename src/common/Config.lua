@@ -1,5 +1,5 @@
 local Config = {
-	Version = "v0.4.3",
+	Version = "v0.4.4",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 

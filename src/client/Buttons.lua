@@ -263,12 +263,10 @@ function Buttons.ConnectUndoButton(undoButton)
 	undoButton.Activated:Connect(function()
 		if not CanvasState.HasWritePermission then return end
 		
-		if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
-			CanvasState.EquippedBoard.IsFull.Value then
-			return
-		end
-
 		local board = CanvasState.EquippedBoard
+
+		if board:FindFirstChild("PersistId") and board.IsFull.Value then return end
+		
 		local curveName
 		local curve
 

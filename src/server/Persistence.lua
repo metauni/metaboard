@@ -350,7 +350,7 @@ function Persistence.Store(board, boardKey)
     board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-    -- print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
+    print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
 
     if string.len(boardJSON) > Config.BoardFullThreshold then
         print("[Persistence] board ".. boardKey .." is full.")
