@@ -71,6 +71,10 @@ When you start your world, any links made with the second method will be convert
 
 Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set it it to the subkey used to store the board contents.
 
+Note that in private servers the DataStore key for the board contents is of the form "ps<ownerId>:metaboard<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less.
+
+**WARNING**: the DataStore keys for persistent boards are the same in any live server, and `SetAsync` is currently used rather than `UpdateAsync`, so there is a risk of data corruption if two players in different servers attempt to the use the "same" persistent board. We strongly recommend therefore that you reserve use of persistent boards to *private servers*.
+
 ## TODO
 - [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
 	- Check for numerical errors (or just bad logic)
