@@ -16,6 +16,16 @@ local function isPrivateServer()
 	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
 end
 
+-- GetAsync and SetAsync have a rate limit of 60 + numPlayers * 10 calls per minute
+-- (see https://developer.roblox.com/en-us/articles/Data-store)
+-- 60/waitTime < 60 + numPlayers * 10 => waitTime > 60/( 60 + numPlayers * 10 )
+
+-- In an experiment with 124 full persistent boards, all updated, we averaged
+-- 1.13 seconds per board to store (i.e. 124 boards stored in 140sec)
+local function asyncWaitTime()
+    return 60/( 60 + 10 * #PlayersService:GetPlayers() )
+end
+
 local function keyForBoard(board)
 	local boardKey = "metaboard" .. tostring(board.PersistId.Value)
 
@@ -34,7 +44,6 @@ end
 
 local function storeAll()
     local startTime = tick()
-    table.clear(perfStoreTimes)
 	local boards = CollectionService:GetTagged(Config.BoardTag)
 	
     -- Find persistent boards which have been changed since the last save
@@ -45,12 +54,7 @@ local function storeAll()
 		end
 	end
 
-    -- SetAsync has a rate limit of 60 + numPlayers * 10 calls per minute
-    -- (see https://developer.roblox.com/en-us/articles/Data-store)
-    -- 60/waitTime < 60 + numPlayers * 10 => waitTime > 60/( 60 + numPlayers * 10 )
-    -- In an experiment with 124 full persistent boards, all updated, we averaged
-    -- 1.13 seconds per board (i.e. 124 boards stored in 140sec)
-    local waitTime = 60/( 60 + 10 * #PlayersService:GetPlayers() )
+    local waitTime = asyncWaitTime()
     
 	for _, board in ipairs(changedBoards) do
         local boardKey = keyForBoard(board)
@@ -76,9 +80,7 @@ function Persistence.Init()
 		end
 	end
 
-    -- GetAsync has a limit of 60 + numPlayers × 10 requests per minute.
-    -- (see https://developer.roblox.com/en-us/articles/Data-store)
-    local waitTime = 60/( 60 + 10 * #PlayersService:GetPlayers() )
+    local waitTime = asyncWaitTime()
 
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
@@ -203,15 +205,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return DataStore:GetAsync(boardKey)
     end)
     if not success then
-        print("[Persistence] Failed to read from DataStore for ID " .. boardKey)
-
-        -- pcall will return the error as boardJSON
-        if typeof(boardJSON) == "string" then
-            print("[Persistence] ".. boardJSON)
-        elseif typeof(boardJSON) == "table" and boardJSON.code then
-            print("[Persistence] Error code: ".. boardJSON.code)
-        end
-
+        print("[Persistence] GetAsync fail for " .. boardKey .. " " .. boardJSON)
         return
     end
 
@@ -292,7 +286,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
-    print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
+    -- print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
 
     if string.len(boardJSON) > Config.BoardFullThreshold then
         print("[Persistence] board ".. boardKey .." is full.")
@@ -342,11 +336,8 @@ function Persistence.Store(board, boardKey)
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
-        print("[Persistence] Failed to store to DataStore for ID " .. boardKey)
-        if errormessage then
-            print("[Persistence] ".. errormessage)
-        end
-
+        print("[Persistence] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
+        board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
         return
 	end
 	
@@ -359,7 +350,7 @@ function Persistence.Store(board, boardKey)
     board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-    print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
+    -- print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
 
     if string.len(boardJSON) > Config.BoardFullThreshold then
         print("[Persistence] board ".. boardKey .." is full.")
