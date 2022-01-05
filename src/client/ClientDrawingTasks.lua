@@ -245,7 +245,7 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 					lineCount = 0
 					-- Give control back to the engine until the next frame,
 					-- then continue loading, to prevent low frame rates
-					task.wait()
+					-- task.wait() BUGGED
 				end
 			end
 		end
@@ -300,7 +300,7 @@ function ClientDrawingTasks.Clear.new()
 				lineCount = 0
 				-- Give control back to the engine until the next frame,
 				-- then continue loading, to prevent low frame rates
-				task.wait()
+				-- task.wait() BUGGED
 			end
 		end
 		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Clear")
