@@ -24,6 +24,10 @@ local function keyForBoard(board)
 		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
 	end
 
+    if string.len(boardKey) > 50 then
+        print("[Persistence] Board key length exceeds DataStore limit.")
+    end
+
 	return boardKey
 end
 
@@ -178,17 +182,12 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
-        print("Persistence: DataStore not loaded")
+        print("[Persistence] DataStore not loaded")
         return
     end
 
     if #board.Canvas.Curves:GetChildren() > 0 then
-        print("Persistence: Called Restore on a nonempty board")
-        return
-    end
-
-    if string.len(boardKey) >= 50 then
-        print("Persistence: board key is too long")
+        print("[Persistence] Called Restore on a nonempty board")
         return
     end
 
@@ -198,7 +197,15 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return DataStore:GetAsync(boardKey)
     end)
     if not success then
-        print("Persistence: Failed to read from DataStore for ID " .. boardKey)
+        print("[Persistence] Failed to read from DataStore for ID " .. boardKey)
+
+        -- pcall will return the error as boardJSON
+        if typeof(boardJSON) == "string" then
+            print("[Persistence] ".. boardJSON)
+        elseif typeof(boardJSON) == "table" and boardJSON.code then
+            print("[Persistence] Error code: ".. boardJSON.code)
+        end
+
         return
     end
 
@@ -211,8 +218,6 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 
     -- Return if this board has not been stored
     if not boardJSON then
-        print("No data for this persistId")
-
         for _, subscriber in ipairs(subscriberFamily) do
             subscriber.HasLoaded.Value = true
         end
@@ -223,14 +228,14 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 	local boardData = HTTPService:JSONDecode(boardJSON)
 
     if not boardData then
-        print("Persistence: failed to decode JSON")
+        print("[Persistence] Failed to decode JSON")
         return
     end
 
     local curves = boardData.Curves
 
     if not curves then
-        print("Persistance: failed to get curve data")
+        print("[Persistence] Failed to get curve data")
         return
     end
 
@@ -272,7 +277,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         lineCount += #curveData.Lines
     end
 
-    print("[Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines.")
+    print("[Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines using " .. string.len(boardJSON) .. " bytes.")
 end
 
 -- Stores a given board to the DataStore with the given ID
@@ -285,12 +290,7 @@ function Persistence.Store(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
     if not DataStore then
-        print("Persistence: DataStore not loaded")
-        return
-    end
-
-    if string.len(boardKey) >= 50 then
-        print("Persistence: board key is too long")
+        print("[Persistence] DataStore not loaded")
         return
     end
 
@@ -310,7 +310,7 @@ function Persistence.Store(board, boardKey)
     local boardJSON = HTTPService:JSONEncode(boardData)
 
     if not boardJSON then
-        print("Persistence: Board JSON encoding failed")
+        print("[Persistence] Board JSON encoding failed")
         return
     end
 
@@ -324,8 +324,11 @@ function Persistence.Store(board, boardKey)
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
-        print("Persistence: Failed to store to DataStore for ID " .. boardKey)
-        print(errormessage)
+        print("[Persistence] Failed to store to DataStore for ID " .. boardKey)
+        if errormessage then
+            print("[Persistence] ".. errormessage)
+        end
+
         return
 	end
 	
@@ -335,7 +338,7 @@ function Persistence.Store(board, boardKey)
 		board.ChangeUid.Value = ""
 	end
 
-    print("[Persistence] Successfully stored board " .. boardKey)
+    print("[Persistence] Successfully stored board " .. boardKey .. " using " .. string.len(boardJSON) .. " bytes.")
 end
 
 return Persistence

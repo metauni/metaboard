@@ -27,4 +27,4 @@ PersonalBoardManager.Init()
 ServerDrawingTasks.Init()
 
 -- Delay loading persistent boards so as to avoid delaying server startup
-task.delay( Config.PersistenceDelayOnStartup, Persistence.Init )
+task.delay( 5, Persistence.Init )

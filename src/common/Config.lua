@@ -1,5 +1,5 @@
 local Config = {
-	Version = "v0.4.2",
+	Version = "v0.4.3",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
@@ -43,7 +43,6 @@ local Config = {
 	AutoSaveInterval = 30, 
 
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
-	PersistenceDelayOnStartup = 5, -- Time to delay before running Persistence.Init
 }
 
 Config.Defaults = {
