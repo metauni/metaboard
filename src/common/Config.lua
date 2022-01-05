@@ -43,6 +43,12 @@ local Config = {
 	AutoSaveInterval = 30, 
 
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
+
+	-- Number of chars of board Json before which we freeze persistent boards
+	-- The DataStore limit is 4M chars
+	BoardFullThreshold = 3500000,
+
+	LinesErasedBeforeWait = 10, -- Number of lines erased before waiting
 }
 
 Config.Defaults = {

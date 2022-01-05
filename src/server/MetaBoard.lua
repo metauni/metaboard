@@ -232,6 +232,15 @@ function MetaBoard.InitBoard(board)
 	hasLoaded.Value = false
 	hasLoaded.Name = "HasLoaded"
 	hasLoaded.Parent = board
+
+	local isFull = board:FindFirstChild("IsFull")
+	if isFull ~= nil then
+		isFull:Destroy()
+	end
+	isFull = Instance.new("BoolValue")
+	isFull.Value = false
+	isFull.Name = "IsFull"
+	isFull.Parent = board
 end
 
 function MetaBoard.Subscribe(subscriber, broadcaster)

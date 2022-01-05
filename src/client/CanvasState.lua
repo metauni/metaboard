@@ -190,7 +190,6 @@ function CanvasState.OpenBoard(board)
 	-- DataStore, don't allow it to be opened
 	if board:FindFirstChild("PersistId") and not board.HasLoaded.Value then return end
 
-	-- We do not open the BoardGui if we are in VR
 	if VRService.VREnabled then return end
 	
 	CanvasState.EquippedBoard = board
@@ -329,6 +328,8 @@ function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 end
 
 function CanvasState.Intersects(pos, radius, lineInfo)
+	if lineInfo == nil then return false end
+	
 	-- Vector from the start of the line to pos
 	local u = pos - lineInfo.Start
 	-- Vector from the start of the line to the end of the line

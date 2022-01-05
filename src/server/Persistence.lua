@@ -269,6 +269,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 	
     for _, subscriber in ipairs(subscriberFamily) do
         subscriber.HasLoaded.Value = true
+        subscriber.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     end
 
     -- Count number of lines
@@ -278,14 +279,16 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 
     print("[Persistence] Successfully restored board " .. boardKey .. " with " .. #curves .. " curves, " .. lineCount .. " lines using " .. string.len(boardJSON) .. " bytes.")
+
+    if string.len(boardJSON) > Config.BoardFullThreshold then
+        print("[Persistence] board ".. boardKey .." is full.")
+    end
 end
 
 -- Stores a given board to the DataStore with the given ID
 function Persistence.Store(board, boardKey)
     -- Do not store boards that have not changed
-	if board.ChangeUid.Value == "" then
-		return
-	end
+	if board.ChangeUid.Value == "" then return end
 	
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
@@ -338,7 +341,13 @@ function Persistence.Store(board, boardKey)
 		board.ChangeUid.Value = ""
 	end
 
+    board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
+
     print("[Persistence] Successfully stored board " .. boardKey .. " using " .. string.len(boardJSON) .. " bytes.")
+
+    if string.len(boardJSON) > Config.BoardFullThreshold then
+        print("[Persistence] board ".. boardKey .." is full.")
+    end
 end
 
 return Persistence

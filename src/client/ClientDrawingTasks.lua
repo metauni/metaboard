@@ -226,6 +226,8 @@ ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 	local curveLineInfoBundles = {}
 
+	local lineCount = 0
+
 	for _, curve in ipairs(Curves:GetChildren()) do
 		local lineInfos = {}
 		for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
@@ -237,6 +239,14 @@ function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
 
 				CanvasState.DiscardLineFrame(lineFrame)
 				table.insert(lineInfos, lineInfo)
+				lineCount += 1
+
+				if lineCount > Config.LinesErasedBeforeWait then
+					lineCount = 0
+					-- Give control back to the engine until the next frame,
+					-- then continue loading, to prevent low frame rates
+					task.wait()
+				end
 			end
 		end
 		if #lineInfos > 0 then
@@ -279,9 +289,19 @@ ClientDrawingTasks.Clear.__index = ClientDrawingTasks.Clear
 
 function ClientDrawingTasks.Clear.new()
 	local init = function(state)
+		local lineCount = 0
 
 		for _, curve in ipairs(Curves:GetChildren()) do
+			lineCount += #CanvasState.GetLinesContainer(curve):GetChildren()
+			
 			CanvasState.DiscardCurve(curve)
+
+			if lineCount > Config.LinesErasedBeforeWait then
+				lineCount = 0
+				-- Give control back to the engine until the next frame,
+				-- then continue loading, to prevent low frame rates
+				task.wait()
+			end
 		end
 		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Clear")
 	end
