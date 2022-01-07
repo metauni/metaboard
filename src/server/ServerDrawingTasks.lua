@@ -1,7 +1,6 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local DrawingTask = require(Common.DrawingTask)
 local Config = require(Common.Config)
-local Cache = require(Common.Cache)
 local LineInfo = require(Common.LineInfo)
 local MetaBoard
 
@@ -12,182 +11,168 @@ function ServerDrawingTasks.Init()
 	MetaBoard = require(script.Parent.MetaBoard)
 end
 
-function ServerDrawingTasks.new(taskKind, player, board)
-	return ServerDrawingTasks[taskKind].new(player, board)
-end
-
 ServerDrawingTasks.FreeHand = {}
 ServerDrawingTasks.FreeHand.__index = ServerDrawingTasks.FreeHand
 
-function ServerDrawingTasks.FreeHand.new(player, board)
-	local init = function(state, pos, thicknessYScale, color, curveName)
-		state.Author = player
-		state.Board = board
-		state.ThicknessYScale = thicknessYScale
-		state.Color = color
-		state.CurveName = curveName
-		
-		board.CurrentZIndex.Value += 1
-		state.ZIndex = board.CurrentZIndex.Value
-		
-		state.Curve = Cache.Get("Folder")
-		state.Curve.Name = curveName
-		state.Curve:SetAttribute("AuthorUserId", player.UserId)
-		state.Curve:SetAttribute("ZIndex", state.ZIndex)
-		state.Curve:SetAttribute("CurveType", "FreeHand")
-		
-		state.Points = {pos}
-		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
-		LineInfo.StoreInfo(worldLine, lineInfo)
-		state.Curve.Parent = board.Canvas.Curves
-		state.Lines = {worldLine}
-		
-		worldLine.Parent = state.Curve
-	end
+function ServerDrawingTasks.FreeHand.Init(board, curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "FreeHand")
 
-	local update = function(state, pos)
-		local lineInfo = LineInfo.new(state.Points[#state.Points], pos, state.ThicknessYScale, state.Color)
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	curve:SetAttribute("ZIndex", zIndex)
 
-		if #state.Points == 1 then
-			MetaBoard.UpdateWorldLine(Config.WorldLineType, state.Lines[#state.Lines], state.Board.Canvas, lineInfo, state.ZIndex)
-			LineInfo.StoreInfo(state.Lines[#state.Lines], lineInfo)
-		else
-			local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
-			LineInfo.StoreInfo(worldLine, lineInfo)
-			worldLine.Parent = state.Curve
-			table.insert(state.Lines, worldLine)
-		end
-		
-		table.insert(state.Points, pos)
-	end
+	curve:SetAttribute("CurveStop", pos)
 
-	local finish = function(state, doSmoothing, smoothedCurvePoints)
-		if doSmoothing then
-			for _, worldLine in ipairs(state.Curve:GetChildren()) do
-				MetaBoard.DiscardLine(worldLine)
-			end
-			state.Points = smoothedCurvePoints
-			state.Lines = {}
-			
-			for i=1, #smoothedCurvePoints-1 do
-				local lineInfo = LineInfo.new(smoothedCurvePoints[i], smoothedCurvePoints[i+1], state.ThicknessYScale, state.Color)
-				local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
-				LineInfo.StoreInfo(worldLine, lineInfo)
-				worldLine.Parent = state.Curve
-			end
-		end
-		return
-	end
-
-	return DrawingTask.new(init, update, finish)
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, zIndex)
+	worldLine.Name = "1"
+	worldLine.Parent = curve
+	
+	board.CurrentZIndex.Value += 1
 end
+
+function ServerDrawingTasks.FreeHand.Update(board, curve, pos)
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStop"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+	
+	curve:SetAttribute("CurveStop", pos)
+	
+	local numLines = #curve:GetChildren()
+
+	if numLines == 1 then
+		local onlyLine = curve:FindFirstChild("1")
+		if onlyLine:GetAttribute("Start") == pos then
+			MetaBoard.UpdateWorldLine(Config.WorldLineType, onlyLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+			-- TODO show line
+			return
+		end
+	end
+	
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+	worldLine.Parent = curve
+	worldLine.Name = tostring(numLines + 1)
+end
+
+function ServerDrawingTasks.FreeHand.Finish(board, curve) end
+function ServerDrawingTasks.FreeHand.Undo(board, curve) end
+function ServerDrawingTasks.FreeHand.Redo(board, curve) end
 
 ServerDrawingTasks.StraightLine = {}
 ServerDrawingTasks.StraightLine.__index = ServerDrawingTasks.StraightLine
 
-function ServerDrawingTasks.StraightLine.new(player, board)
-	local init = function(state, pos, thicknessYScale, color, curveName)
-		state.Author = player
-		state.Board = board
-		state.ThicknessYScale = thicknessYScale
-		state.Color = color
-		state.CurveName = curveName
-		
-		board.CurrentZIndex.Value += 1
-		state.ZIndex = board.CurrentZIndex.Value
-		
-		state.Curve = Cache.Get("Folder")
-		state.Curve.Name = curveName
-		state.Curve:SetAttribute("AuthorUserId", state.Author.UserId)
-		state.Curve:SetAttribute("ZIndex", state.ZIndex)
-		state.Curve:SetAttribute("CurveType", "StraightLine")
-		
-		state.Start = pos
-		local lineInfo = LineInfo.new(pos, pos, state.ThicknessYScale, state.Color)
-		local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, state.Board.Canvas, lineInfo, state.ZIndex)
-		LineInfo.StoreInfo(worldLine, lineInfo)
-		state.Curve.Parent = board.Canvas.Curves
-		state.Line = worldLine
-		
-		worldLine.Parent = state.Curve
-	end
 
-	local update = function(state, pos)
-		local lineInfo = LineInfo.new(state.Start, pos, state.ThicknessYScale, state.Color)
-		LineInfo.StoreInfo(state.Line, lineInfo)
-		MetaBoard.UpdateWorldLine(Config.WorldLineType, state.Line, state.Board.Canvas, lineInfo, state.ZIndex)
-	end
+function ServerDrawingTasks.StraightLine.Init(board, curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "StraightLine")
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	curve:SetAttribute("ZIndex", zIndex)
 
-	local finish = function(state) return end
+	curve:SetAttribute("CurveStart", pos)
 
-	return DrawingTask.new(init, update, finish)
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, zIndex)
+	worldLine.Name = "1"
+	worldLine.Parent = curve
 end
+
+function ServerDrawingTasks.StraightLine.Update(board, curve, pos)
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStart"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+	
+	local worldLine = curve:FindFirstChild("1")
+	MetaBoard.UpdateWorldLine(Config.WorldLineType, worldLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+end
+
+function ServerDrawingTasks.StraightLine.Finish(curve) end
+function ServerDrawingTasks.StraightLine.Undo(curve) end
+function ServerDrawingTasks.StraightLine.Redo(curve) end
 
 ServerDrawingTasks.Erase = {}
 ServerDrawingTasks.Erase.__index = ServerDrawingTasks.Erase
 
-function ServerDrawingTasks.Erase.RemoveLines(board, curveLineInfoBundles)
-	for curveName, lineInfos in pairs(curveLineInfoBundles) do
-		local curve = board.Canvas.Curves:FindFirstChild(curveName)
 
-		if curve then
-			for _, lineHandle in ipairs(curve:GetChildren()) do
-				local lineHandleInfo = LineInfo.ReadInfo(lineHandle)
-				for _, lineInfo in ipairs(lineInfos) do
-					if 
-						lineHandleInfo.Start == lineInfo.Start and
-						lineHandleInfo.Stop == lineInfo.Stop and
-						lineHandleInfo.ThicknessYScale == lineInfo.ThicknessYScale
-					then
-						MetaBoard.DiscardLine(lineHandle)
-					end
+function ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, radius)
+
+	for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
+		
+		local erasedLineNames = {}
+		
+		for _, worldLine in ipairs(curve:GetChildren()) do
+			if worldLine:GetAttribute("Hidden") then continue end
+
+			local lineInfo = LineInfo.ReadInfo(worldLine)
+			if LineInfo.Intersects(pos, radius, lineInfo) then
+				
+				MetaBoard.HideWorldLine(Config.WorldLineType, worldLine)
+
+				table.insert(erasedLineNames, worldLine.Name)
+			end
+		end
+
+		if #erasedLineNames > 0 then
+			local erasedCurve = erasedCurves:FindFirstChild(curve.Name)
+			if erasedCurve == nil then
+				erasedCurve = Instance.new("Folder")
+				erasedCurve.Name = curve.Name
+				erasedCurve.Parent = erasedCurves
+			end
+
+			for _, name in ipairs(erasedLineNames) do
+				if erasedCurve:FindFirstChild(name) == nil then
+					local nameVal = Instance.new("StringValue")
+					nameVal.Name = name
+					nameVal.Value = name
+					nameVal.Parent = erasedCurve
 				end
 			end
-
-			if #curve:GetChildren() == 0 then
-				Cache.Release(curve)
-			end
 		end
+
 	end
 end
 
 
-function ServerDrawingTasks.Erase.new(player, board)
-	local init = function(state, curveLineInfoBundles)
-		state.Author = player
-		state.Board = board
-		ServerDrawingTasks.Erase.RemoveLines(state.Board, curveLineInfoBundles)
-	end
+function ServerDrawingTasks.Erase.Init(board, erasedCurves, authorUserId, thicknessYScale, pos)
+	erasedCurves:SetAttribute("AuthorUserId", authorUserId)
+	erasedCurves:SetAttribute("ThicknessYScale", thicknessYScale)
+	erasedCurves:SetAttribute("TaskType", "Erase")
 
-	local update = function(state, curveLineInfoBundles)
-		ServerDrawingTasks.Erase.RemoveLines(state.Board, curveLineInfoBundles)
-	end
-
-	local finish = function(state) end
-
-	return DrawingTask.new(init, update, finish)
+	ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, thicknessYScale/2)
 end
 
-ServerDrawingTasks.Clear = {}
-ServerDrawingTasks.Clear.__index = ServerDrawingTasks.Clear
+function ServerDrawingTasks.Erase.Update(board, erasedCurves, pos)
+	ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, erasedCurves:GetAttribute("ThicknessYScale")/2)
+end
 
-function ServerDrawingTasks.Clear.new(player, board)
-	local init = function(state)
-		state.Author = player
-		state.Board = board
+function ServerDrawingTasks.Erase.Finish(board, erasedCurves) end
 
-		for _, curve in ipairs(state.Board.Canvas.Curves:GetChildren()) do
-			MetaBoard.DiscardCurve(curve)
+function ServerDrawingTasks.Erase.Undo(board, erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
+		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
+			MetaBoard.ShowWorldLine(Config.WorldLineType, worldLine)
 		end
 	end
+end
 
-	local update = function(state) end
-	
-	local finish = function(state)
+function ServerDrawingTasks.Erase.Redo(board, erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
+		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
+			MetaBoard.HideWorldLine(Config.WorldLineType, worldLine)
+		end
 	end
-
-	return DrawingTask.new(init, update, finish)
 end
 
 

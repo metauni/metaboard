@@ -1,7 +1,6 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local DrawingTask = require(Common.DrawingTask)
 local Config = require(Common.Config)
-local Cache = require(Common.Cache)
 local Drawing
 local CanvasState
 local Curves
@@ -13,286 +12,191 @@ local LocalPlayer = game:GetService("Players").LocalPlayer
 local ClientDrawingTasks = {}
 ClientDrawingTasks.__index = ClientDrawingTasks
 
-function ClientDrawingTasks.Init(curvesContainer)
+function ClientDrawingTasks.Init(boardGui)
 	Drawing = require(script.Parent.Drawing)
 	CanvasState = require(script.Parent.CanvasState)
-	Curves = curvesContainer
-end
-
-function ClientDrawingTasks.new(taskKind)
-	return ClientDrawingTasks[taskKind].new()
+	Curves = boardGui.Curves
 end
 
 ClientDrawingTasks.FreeHand = {}
 ClientDrawingTasks.FreeHand.__index = ClientDrawingTasks.FreeHand
 
-function ClientDrawingTasks.FreeHand.new()
+function ClientDrawingTasks.FreeHand.Init(curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "FreeHand")
 
-	local init = function(state, pos)
-		local zIndex = CanvasState.EquippedBoard.CurrentZIndex.Value + 1
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	CanvasState.SetZIndex(curve, zIndex)
 
-		state.Curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[CanvasState.EquippedBoard]), zIndex)
-		state.Curve.Parent = Curves
+	curve:SetAttribute("CurveStop", pos)
 
-		state.Points = {pos}
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+	lineFrame.Name = "1"
 
-		local lineInfo =
-			LineInfo.new(
-				pos,
-				pos,
-				Drawing.EquippedTool.ThicknessYScale,
-				Drawing.EquippedTool.Color
-			)
-		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+	CanvasState.AttachLine(lineFrame, curve)
 
-		LineInfo.StoreInfo(lineFrame, lineInfo)
-		CanvasState.AttachLine(lineFrame, state.Curve)
-
-		state.LastLine = lineFrame
-		state.LastLineInfo = lineInfo
-		state.CurveLength = 0
-
-		DrawingTask.InitRemoteEvent:FireServer(
-			CanvasState.EquippedBoard,
-			"FreeHand",
-			pos,
-			Drawing.EquippedTool.ThicknessYScale,
-			Drawing.EquippedTool.Color,
-			Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[CanvasState.EquippedBoard])
-		)
-	end
-
-	local update = function(state, pos)
-
-		local lineInfo =
-		LineInfo.new(
-			state.LastLineInfo.Stop,
-			pos,
-			Drawing.EquippedTool.ThicknessYScale,
-			Drawing.EquippedTool.Color
-		)
-		
-		if #state.Points == 1 then
-			CanvasState.UpdateLineFrame(state.LastLine, lineInfo)
-		else
-			local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-			LineInfo.StoreInfo(lineFrame, lineInfo)
-			CanvasState.AttachLine(lineFrame, state.Curve)
-			state.LastLine = lineFrame
-		end
-
-		state.LastLineInfo = lineInfo
-		state.CurveLength += lineInfo.Length
-		
-		table.insert(state.Points, pos)
-		DrawingTask.UpdateRemoteEvent:FireServer(pos)
-	end
-
-	local finish = function(state)
-
-		if Config.SmoothingAlgorithm == "CatRom" then
-
-			if #state.Points <= 2 then return end
-
-			local chain = CatRom.Chain.new(state.Points)
-
-			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
-				CanvasState.DiscardLineFrame(lineFrame)
-			end
-
-			local smoothPoints = {chain:SolvePosition(0)}
-
-			for i=1, state.CurveLength/Config.CatRomLength - 1 do
-					local lineInfo =
-						LineInfo.new(
-							chain:SolvePosition((i-1)/(state.CurveLength/Config.CatRomLength - 1)),
-							chain:SolvePosition(i/(state.CurveLength/Config.CatRomLength - 1)),
-							Drawing.EquippedTool.ThicknessYScale,
-							Drawing.EquippedTool.Color
-						)
-					local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-					LineInfo.StoreInfo(lineFrame, lineInfo)
-					CanvasState.AttachLine(lineFrame, state.Curve)
-
-					table.insert(smoothPoints, chain:SolvePosition(i/(state.CurveLength/Config.CatRomLength - 1)))
-			end
-
-			DrawingTask.FinishRemoteEvent:FireServer(true, smoothPoints)
-
-		elseif Config.SmoothingAlgorithm == "DouglasPeucker" then
-
-			if #state.Points <= 2 then return end
-
-			Drawing.DouglasPeucker(state.Points, 1, #state.Points, Config.DouglasPeuckerEpsilon)
-
-			for _, lineFrame in CanvasState.GetLinesContainer(state.Curve) do
-				CanvasState.DiscardLineFrame(lineFrame)
-			end
-
-			local smoothPoints = {}
-
-			local i = 1
-			while i <= #state.Points and state.Points[i] == nil do i += 1 end
-
-			while i <= #state.Points do
-				table.insert(smoothPoints, state.Points[i])
-				local j = i+1
-				while j <= #state.Points and state.Points[j] == nil do j += 1 end
-				if state.Points[j] then
-					local lineInfo =
-						LineInfo.new(
-							state.Points[i],
-							state.Points[j],
-							Drawing.EquippedTool.ThicknessYScale,
-							Drawing.EquippedTool.Color
-						)
-					local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-					LineInfo.StoreInfo(lineFrame, lineInfo)
-					CanvasState.AttachLine(lineFrame, state.Curve)
-				end
-				i = j
-			end
-
-			DrawingTask.FinishRemoteEvent:FireServer(true, smoothPoints)
-		end
-	end
-
-	return DrawingTask.new(init, update, finish)
 end
 
+function ClientDrawingTasks.FreeHand.Update(curve, pos)
+
+	local lines = CanvasState.GetLinesContainer(curve)
+
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStop"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+	
+	curve:SetAttribute("CurveStop", pos)
+	
+	local numLines = #lines:GetChildren()
+
+	if numLines == 1 then
+		local onlyLine = lines:FindFirstChild("1")
+		if onlyLine:GetAttribute("Start") == pos then
+			CanvasState.UpdateLineFrame(onlyLine, lineInfo)
+			onlyLine.Visible = true
+			return
+		end
+	end
+
+	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+	lineFrame.Name = tostring(numLines + 1)
+	CanvasState.AttachLine(lineFrame, curve)
+end
+
+function ClientDrawingTasks.FreeHand.Finish(curve) end
+
+function ClientDrawingTasks.FreeHand.Undo(curve)
+end
+
+function ClientDrawingTasks.FreeHand.Redo(curve)
+end
 
 ClientDrawingTasks.StraightLine = {}
 ClientDrawingTasks.StraightLine.__index = ClientDrawingTasks.StraightLine
 
-function ClientDrawingTasks.StraightLine.new()
+function ClientDrawingTasks.StraightLine.Init(curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "StraightLine")
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	CanvasState.SetZIndex(curve, zIndex)
 
-	local init = function(state, pos)
-		local zIndex = CanvasState.EquippedBoard.CurrentZIndex.Value + 1
+	curve:SetAttribute("CurveStart", pos)
 
-		state.Curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[CanvasState.EquippedBoard]), zIndex)
-		state.Curve.Parent = Curves
-
-		local lineInfo =
-			LineInfo.new(
-				pos,
-				pos,
-				Drawing.EquippedTool.ThicknessYScale,
-				Drawing.EquippedTool.Color
-			)
-		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-
-		LineInfo.StoreInfo(lineFrame, lineInfo)
-
-		CanvasState.AttachLine(lineFrame, state.Curve)
-
-		state.LineFrame = lineFrame
-		state.LineInfo = lineInfo
-		DrawingTask.InitRemoteEvent:FireServer(
-			CanvasState.EquippedBoard,
-			"StraightLine",
-			pos,
-			Drawing.EquippedTool.ThicknessYScale,
-			Drawing.EquippedTool.Color,
-			Config.CurveNamer(LocalPlayer, Drawing.CurveIndexOf[CanvasState.EquippedBoard])
-		)
-	end
-
-	local update = function(state, pos)
-		local lineInfo =
-		LineInfo.new(
-			state.LineInfo.Start,
-			pos,
-			Drawing.EquippedTool.ThicknessYScale,
-			Drawing.EquippedTool.Color
-		)
-		CanvasState.UpdateLineFrame(state.LineFrame, lineInfo)
-		state.LineInfo = lineInfo
-		LineInfo.StoreInfo(state.LineFrame, lineInfo)
-
-		DrawingTask.UpdateRemoteEvent:FireServer(pos)
-	end
-
-	local finish = function(state) end
-
-	return DrawingTask.new(init, update, finish)
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+	
+	lineFrame.Name = "1"
+	CanvasState.AttachLine(lineFrame, curve)
 end
 
+function ClientDrawingTasks.StraightLine.Update(curve, pos)
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStart"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+	
+	local lineFrame = CanvasState.GetLinesContainer(curve):FindFirstChild("1")
+	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
+end
+
+function ClientDrawingTasks.StraightLine.Finish(curve) end
+
+
+function ClientDrawingTasks.StraightLine.Undo(curve)
+end
+
+function ClientDrawingTasks.StraightLine.Redo(curve)
+end
 
 ClientDrawingTasks.Erase = {}
 ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 
-function ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-	local curveLineInfoBundles = {}
+function ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, radius)
 
 	for _, curve in ipairs(Curves:GetChildren()) do
-		local lineInfos = {}
+		
+		local erasedLineNames = {}
+		
 		for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
-			local lineInfo = LineInfo.ReadInfo(lineFrame)
-			if CanvasState.Intersects(
-					pos,
-					Drawing.EquippedTool.ThicknessYScale/2,
-					lineInfo) then
+			if lineFrame.Visible == false then continue end
 
-				CanvasState.DiscardLineFrame(lineFrame)
-				table.insert(lineInfos, lineInfo)
+			local lineInfo = LineInfo.ReadInfo(lineFrame)
+			if LineInfo.Intersects(pos, radius, lineInfo) then
+				
+				-- Hide the lineFrame
+				lineFrame.Visible = false
+
+				table.insert(erasedLineNames, lineFrame.Name)
 			end
 		end
-		if #lineInfos > 0 then
-			curveLineInfoBundles[curve.Name] = lineInfos
-		end
-		if #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
-			CanvasState.DiscardCurve(curve)
-		end
-	end
 
-	return curveLineInfoBundles
+		if #erasedLineNames > 0 then
+			local erasedCurve = erasedCurves:FindFirstChild(curve.Name)
+			if erasedCurve == nil then
+				erasedCurve = Instance.new("Folder")
+				erasedCurve.Name = curve.Name
+				erasedCurve.Parent = erasedCurves
+			end
+
+			for _, name in ipairs(erasedLineNames) do
+				if erasedCurve:FindFirstChild(name) == nil then
+					local nameVal = Instance.new("StringValue")
+					nameVal.Value = name
+					nameVal.Name = name
+					nameVal.Parent = erasedCurve
+				end
+			end
+		end
+
+	end
 end
 
+function ClientDrawingTasks.Erase.Init(erasedCurves, authorUserId, thicknessYScale, pos)
+	erasedCurves:SetAttribute("AuthorUserId", authorUserId)
+	erasedCurves:SetAttribute("ThicknessYScale", thicknessYScale)
+	erasedCurves:SetAttribute("TaskType", "Erase")
 
-function ClientDrawingTasks.Erase.new()
-
-	local init = function(state, pos)
-		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", curveLineInfoBundles)
-	end
-
-	local update = function(state, pos)
-		local curveLineInfoBundles = ClientDrawingTasks.Erase.RemoveIntersectingLines(pos)
-
-		-- Check if the table is non-empty
-		if next(curveLineInfoBundles) then
-			DrawingTask.UpdateRemoteEvent:FireServer(curveLineInfoBundles)
-		end
-	end
-
-	local finish = function(state, pos)
-		DrawingTask.FinishRemoteEvent:FireServer()
-	end
-
-	return DrawingTask.new(init, update, finish)
+	ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, thicknessYScale/2)
 end
 
-ClientDrawingTasks.Clear = {}
-ClientDrawingTasks.Clear.__index = ClientDrawingTasks.Clear
+function ClientDrawingTasks.Erase.Update(erasedCurves, pos)
+	ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, erasedCurves:GetAttribute("ThicknessYScale")/2)
+end
 
-function ClientDrawingTasks.Clear.new()
-	local init = function(state)
+function ClientDrawingTasks.Erase.Finish(erasedCurves) end
 
-		for _, curve in ipairs(Curves:GetChildren()) do
-			CanvasState.DiscardCurve(curve)
+function ClientDrawingTasks.Erase.Undo(erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = Curves:FindFirstChild(erasedCurve.Name)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local line = CanvasState.GetLinesContainer(curve):FindFirstChild(erasedLineIdValue.Value)
+				line.Visible = true
+			end
 		end
-		DrawingTask.InitRemoteEvent:FireServer(CanvasState.EquippedBoard, "Clear")
 	end
+end
 
-	local update = function(state) end
-
-	local finish = function(state)
-		DrawingTask.FinishRemoteEvent:FireServer()
+function ClientDrawingTasks.Erase.Redo(erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = Curves:FindFirstChild(erasedCurve.Name)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local line = CanvasState.GetLinesContainer(curve):FindFirstChild(erasedLineIdValue.Value)
+				line.Visible = false
+			end
+		end
 	end
-
-	return DrawingTask.new(init, update, finish)
 end
 
 

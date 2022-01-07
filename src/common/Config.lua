@@ -1,3 +1,5 @@
+local HttpService = game:GetService("HttpService")
+
 local Config = {
 	Version = "v0.3.4",
 	BoardTag = "metaboard",
@@ -36,6 +38,8 @@ local Config = {
 	WorldLineType = "Parts",
 
 	UseCache = false,
+
+	GenerateUUID = function() return HttpService:GenerateGUID(false) end
 }
 
 Config.Defaults = {

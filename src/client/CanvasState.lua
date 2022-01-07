@@ -3,10 +3,13 @@ local VRService = game:GetService("VRService")
 local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local DrawingTask = require(Common.DrawingTask)
+local History = require(Common.History)
+local ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
+local Remotes = Common.Remotes
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 local GuiPositioning = require(Common.GuiPositioning)
-local Cache = require(Common.Cache)
 local BoardGui
 local Canvas
 local Curves
@@ -17,9 +20,6 @@ local Drawing
 local CanvasState = {
 	-- the board that is currently displayed on the canvas
 	EquippedBoard = nil,
-
-	EquippedBoardDescendantAddedConnection = nil,
-	EquippedBoardDescendantRemovingConnection = nil,
 
 	SurfaceGuiConnections = {},
 
@@ -78,6 +78,8 @@ function CanvasState.Init(boardGui)
 		end)
 	end
 
+	CanvasState.ConnectDrawingTaskEvents()
+
 	--print("CanvasState initialized")
 end
 
@@ -89,114 +91,106 @@ function CanvasState.ConnectOpenBoardButton(board, button)
 		end)
 end
 
-function CanvasState.ConnectWorldBoardSync()
+function CanvasState.ConnectDrawingTaskEvents()
 
-	CanvasState.EquippedBoardDescendantAddedConnection =
-		CanvasState.EquippedBoard.Canvas.Curves.DescendantAdded:Connect(function(descendant)
-			-- The structure of the descendants of board.Canvas.Curves
-			-- looks like this
+	DrawingTask.InitRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
+		local taskObject
+		if taskType == "Erase" then
+			taskObject = Instance.new("Folder")
+			taskObject.Name = taskObjectId
+			taskObject.Parent = BoardGui.Erases
+		else
+			taskObject = CanvasState.CreateCurve(CanvasState.EquippedBoard, taskObjectId)
+			taskObject.Parent = Curves
+		end
 
-			-- Curves
-			-- 	- "1234#1": A curve folder (the first curve drawn by userId 1234)
-			--		- "BoxHandleAdornment": The main part of a line
-			--			- "CylinderHandleAdornment": Rounds of the ends of the line
-			--			- "CylinderHandleAdornment": Rounds of the ends of the line
-			--		- "BoxHandleAdornment": The main part of a line
-			--			- "CylinderHandleAdornment": Rounds of the ends of the line
-			--			- "CylinderHandleAdornment": Rounds of the ends of the line
-			--		- more lines...
-			--  - "1234#2": A curve folder (the second curve drawn by userId 1234)
-			-- 		- etc...
+		ClientDrawingTasks[taskType].Init(taskObject, ...)
 
-			-- This structure may vary, so modify this function to account for changes
+		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
+		if playerHistory == nil then
+			playerHistory = History.Init(player)
+			playerHistory.Parent = BoardGui.History
+		end
+		
+		History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+		History.RecordTaskToHistory(playerHistory, taskObject)
+	end)
 
-			local isCurve = descendant.Parent == CanvasState.EquippedBoard.Canvas.Curves
+	DrawingTask.UpdateRemoteEvent.OnClientEvent:Connect(function(taskType, taskObjectId, ...)
+		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
-			if isCurve then
-				-- Ignore lines drawn by this player
-				if descendant:GetAttribute("AuthorUserId") == LocalPlayer.UserId then return end
+		ClientDrawingTasks[taskType].Update(taskObject, ...)
+	end)
 
-				local curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, descendant.Name, descendant:GetAttribute("ZIndex"))
-				curve.Parent = Curves
-				return
-			end
+	DrawingTask.FinishRemoteEvent.OnClientEvent:Connect(function(taskType, taskObjectId, ...)
+		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
-			-- This will return nil if this object isn't a worldLine
-			local descendantLineInfo = LineInfo.ReadInfo(descendant)
+		ClientDrawingTasks[taskType].Finish(taskObject, ...)
+	end)
 
-			if descendantLineInfo then
-				local worldCurve = descendant.Parent
-				if worldCurve:GetAttribute("AuthorUserId") ~= LocalPlayer.UserId then
-					local curve = Curves:FindFirstChild(worldCurve.Name)
+	Remotes.Undo.OnClientEvent:Connect(function(player)
+		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
+		local taskObjectValue = playerHistory.MostRecent.Value
 
-					if curve == nil then
-						curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
-						curve.Parent = Curves
-					end
+		if taskObjectValue == nil then return end
 
-					local lineFrame = CanvasState.CreateLineFrame(descendantLineInfo)
-					LineInfo.StoreInfo(lineFrame, descendantLineInfo)
-					CanvasState.AttachLine(lineFrame, curve)
+		if taskObjectValue.Value then
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 
-					if worldCurve:GetAttribute("CurveType") == "StraightLine" then
-						descendant:GetAttributeChangedSignal("Stop"):Connect(function()
-							local lineInfo = LineInfo.ReadInfo(descendant)
-							CanvasState.UpdateLineFrame(lineFrame, LineInfo.ReadInfo(descendant))
-							LineInfo.StoreInfo(lineFrame, lineInfo)
-						end)
-					end
-				end
-			end
-		end)
-	
-	CanvasState.EquippedBoardDescendantRemovingConnection =
-		CanvasState.EquippedBoard.Canvas.Curves.DescendantRemoving:Connect(function(descendant)
-			local isCurve = descendant.Parent == CanvasState.EquippedBoard.Canvas.Curves
+			ClientDrawingTasks[taskType].Undo(taskObjectValue.Value)
 
-			if isCurve then
-				local curve = Curves:FindFirstChild(descendant.Name)
-				if curve then
-					CanvasState.DiscardCurve(curve)
-				end
-				return
-			end
+			taskObjectValue.Value.Parent = Common.HistoryStorage
+		else
+			-- This might happen, but shouldn't happen
+			print("taskObjectValue not linked to client side value")
+		end
 
-			local descendantLineInfo = LineInfo.ReadInfo(descendant)
+		if playerHistory.MostRecent.Value.Parent == playerHistory then
+			playerHistory.MostRecent.Value = nil
+		else
+			playerHistory.MostRecent.Value = playerHistory.MostRecent.Value.Parent
+		end
+		playerHistory.MostImminent.Value = taskObjectValue
+	end)
 
-			if descendantLineInfo then
-				local worldCurve = descendant.Parent
+	Remotes.Redo.OnClientEvent:Connect(function(player)
+		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
+		local taskObjectValue = playerHistory.MostImminent.Value
 
-				local curve = Curves:FindFirstChild(worldCurve.Name)
+		if taskObjectValue == nil then return end
+		
+		if taskObjectValue.Value then
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 
-				if curve then
-					for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
-						local lineInfo = LineInfo.ReadInfo(lineFrame)
-						if 
-							 descendantLineInfo.Start == lineInfo.Start and
-							 descendantLineInfo.Stop == lineInfo.Stop and
-							 descendantLineInfo.ThicknessYScale == lineInfo.ThicknessYScale
-						then
-							CanvasState.DiscardLineFrame(lineFrame)
-							return
-						end
-					end
-				end
-			end
-		end)
+			ClientDrawingTasks[taskType].Redo(taskObjectValue.Value)
+
+			taskObjectValue.Value.Parent = CanvasState.TaskObjectParent(taskType)
+		else
+			-- This might happen, but shouldn't happen
+			print("taskObjectValue not linked to client side value")
+		end
+
+		playerHistory.MostImminent.Value = playerHistory.MostImminent.Value:FindFirstChildOfClass("ObjectValue")
+		playerHistory.MostRecent.Value = taskObjectValue
+	end)
+
+	Remotes.Clear.OnClientEvent:Connect(function()
+		Drawing.MouseHeld = false
+		CanvasState.Clear()
+	end)
 end
 
 function CanvasState.OpenBoard(board)
 
 	-- We do not open the BoardGui if we are in VR
 	if VRService.VREnabled then return end
-	
+
 	CanvasState.EquippedBoard = board
 
-	CanvasState.ConnectWorldBoardSync()
+	Remotes.WatchingBoard:FireServer(board, true)
 
 	game.StarterGui:SetCore("TopbarEnabled", false)
 
-	Buttons.OnBoardOpen(board)
 	Drawing.OnBoardOpen(board)
 
 	Canvas.UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
@@ -205,16 +199,91 @@ function CanvasState.OpenBoard(board)
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
 
+	-- Replicate all of the curves currently on the board
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
-		local curve = CanvasState.CreateCurve(board, worldCurve.Name, worldCurve:GetAttribute("ZIndex"))
+		local curve = CanvasState.CreateCurve(board, worldCurve.Name)
+		-- TODO decide whether CreateCurve should write the ZIndex or not
+		CanvasState.SetZIndex(curve, worldCurve:GetAttribute("ZIndex"))
+		for attribute, value in pairs(worldCurve:GetAttributes()) do
+			curve:SetAttribute(attribute, value)
+		end
+
 		for _, worldLine in ipairs(worldCurve:GetChildren()) do
 			local lineInfo = LineInfo.ReadInfo(worldLine)
 			local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-			LineInfo.StoreInfo(lineFrame, lineInfo)
+			lineFrame.Name = worldLine.Name
+			if worldLine:GetAttribute("Hidden") then
+				lineFrame.Visible = false
+			end
 			CanvasState.AttachLine(lineFrame, curve)
 		end
 		curve.Parent = Curves
 	end
+
+	-- Replicate all of the erase objects currently in play
+	for _, eraseObject in ipairs(board.Canvas.Erases:GetChildren()) do
+		local cloneEraseObject = eraseObject:Clone()
+		cloneEraseObject.Parent = BoardGui.Erases
+	end
+
+	-- Replicate history of every player
+	for _, playerHistory in ipairs(board.Canvas.History:GetChildren()) do
+		local clonePlayerHistory = playerHistory:Clone()
+		clonePlayerHistory.Parent = BoardGui.History
+
+		-- Clone all of the future tasks
+		local taskObjectValue = clonePlayerHistory.MostImminent.Value
+		while taskObjectValue do
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+			if taskType == "Erase" then
+				taskObjectValue.Value = taskObjectValue.Value:Clone()
+			else
+				local worldCurve = taskObjectValue.Value
+				local curve = CanvasState.CreateCurve(board, worldCurve.Name)
+
+				CanvasState.SetZIndex(curve, worldCurve:GetAttribute("ZIndex"))
+				for attribute, value in pairs(worldCurve:GetAttributes()) do
+					curve:SetAttribute(attribute, value)
+				end
+
+				for _, worldLine in ipairs(worldCurve:GetChildren()) do
+					local lineInfo = LineInfo.ReadInfo(worldLine)
+					local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+					lineFrame.Name = worldLine.Name
+					if worldLine.Transparency == 1 then
+						lineFrame.Visible = false
+					end
+					CanvasState.AttachLine(lineFrame, curve)
+				end
+				taskObjectValue.Value = curve
+			end
+			
+			-- These are future tasks, so are not parented to anything for the client
+			taskObjectValue.Value.Parent = Common.HistoryStorage
+
+			-- Go to next one
+			taskObjectValue = taskObjectValue:FindFirstChildOfClass("ObjectValue")
+		end
+
+		-- Relink all of the past tasks
+		-- These are currently linked to workspace things, need to be linked
+		-- to their replicated counterparts
+		taskObjectValue = clonePlayerHistory.MostRecent.Value
+		while taskObjectValue do
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+			taskObjectValue.Value = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectValue.Value.Name)
+
+			if taskObjectValue.Parent == clonePlayerHistory then
+				taskObjectValue = nil
+			else
+				taskObjectValue = taskObjectValue.Parent
+			end
+		end
+
+	end
+
+	-- Sync the buttons with the state of the board and equipped tools
+	Buttons.OnBoardOpen(board, BoardGui.History:FindFirstChild(LocalPlayer.UserId))
 
 end
 
@@ -224,17 +293,16 @@ function CanvasState.CloseBoard(board)
 	BoardGui.ModalGui.Enabled = false
 
 	Drawing.OnBoardClose(board)
-
-	CanvasState.EquippedBoardDescendantAddedConnection:Disconnect()
-	CanvasState.EquippedBoardDescendantRemovingConnection:Disconnect()
 	
 	game.StarterGui:SetCore("TopbarEnabled", true)
 
+	Remotes.WatchingBoard:FireServer(board, false)
+
 	CanvasState.EquippedBoard = nil
 
-	for _, curve in ipairs(Curves:GetChildren()) do
-		CanvasState.DiscardCurve(curve)
-	end
+	BoardGui.Curves:ClearAllChildren()
+	BoardGui.Erases:ClearAllChildren()
+	BoardGui.History:ClearAllChildren()
 end
 
 function CanvasState.GetCanvasPixelPosition()
@@ -249,15 +317,13 @@ function CanvasState.CanvasYScaleToOffset(yScaleValue)
 	return yScaleValue * Canvas.AbsoluteSize.Y
 end
 
-function CanvasState.CreateCurve(board, curveName, zIndex)
-	local curveGui = Cache.Get("ScreenGui")
+function CanvasState.CreateCurve(board, curveName)
+	local curveGui = Instance.new("ScreenGui")
 	curveGui.Name = curveName
 	curveGui.IgnoreGuiInset = true
 	curveGui.Parent = Curves
-
-	curveGui.DisplayOrder = zIndex
 	
-	local canvasGhost = Cache.Get("Frame")
+	local canvasGhost = Instance.new("Frame")
 	canvasGhost.Name = "CanvasGhost"
 	canvasGhost.AnchorPoint = Vector2.new(0.5,0)
 	canvasGhost.Position = UDim2.new(0.5,0,0.125,0)
@@ -266,10 +332,10 @@ function CanvasState.CreateCurve(board, curveName, zIndex)
 	canvasGhost.SizeConstraint = Enum.SizeConstraint.RelativeXY
 	canvasGhost.BackgroundTransparency = 1
 
-	local UIAspectRatioConstraint = Cache.Get("UIAspectRatioConstraint")
+	local UIAspectRatioConstraint = Instance.new("UIAspectRatioConstraint")
 	UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
 
-	local coordinateFrame = Cache.Get("Frame")
+	local coordinateFrame = Instance.new("Frame")
 	coordinateFrame.Name = "CoordinateFrame"
 	coordinateFrame.AnchorPoint = Vector2.new(0,0)
 	coordinateFrame.Position = UDim2.new(0,0,0,0)
@@ -285,6 +351,10 @@ function CanvasState.CreateCurve(board, curveName, zIndex)
 	return curveGui
 end
 
+function CanvasState.SetZIndex(curve, zIndex)
+	curve.DisplayOrder = zIndex
+end
+
 function CanvasState.GetLinesContainer(curve)
 	return curve.CanvasGhost.CoordinateFrame
 end
@@ -298,14 +368,13 @@ function CanvasState.GetParentCurve(line)
 end
 
 function CanvasState.CreateLineFrame(lineInfo)
-	local lineFrame = Cache.Get("Frame")
-	lineFrame.Name = "Line"
+	local lineFrame = Instance.new("Frame")
 
 	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	
 	-- Round the corners
 	if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.UICornerThreshold then
-		local UICorner = Cache.Get("UICorner")
+		local UICorner = Instance.new("UICorner")
 		UICorner.CornerRadius = UDim.new(0.5,0)
 		UICorner.Parent = lineFrame
 	end
@@ -323,46 +392,26 @@ function CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	lineFrame.BackgroundColor3 = lineInfo.Color
 	lineFrame.BackgroundTransparency = 0
 	lineFrame.BorderSizePixel = 0
+
+	LineInfo.StoreInfo(lineFrame, lineInfo)
 end
 
-function CanvasState.Intersects(pos, radius, lineInfo)
-	-- Vector from the start of the line to pos
-	local u = pos - lineInfo.Start
-	-- Vector from the start of the line to the end of the line
-	local v = lineInfo.Stop - lineInfo.Start
-	
-	-- the magnitude (with sign) of the projection of u onto v
-	local m = u:Dot(v.Unit)
+function CanvasState.Clear()
 
-	if m <= 0 or lineInfo.Start == lineInfo.Stop then
-		-- The closest point on the line to pos is lineInfo.Start
-		return u.Magnitude <= radius + lineInfo.ThicknessYScale/2
-	elseif m >= v.Magnitude then
-		-- The closest point on the line to pos is lineInfo.Stop
-		return (pos - lineInfo.Stop).Magnitude <= radius + lineInfo.ThicknessYScale/2
+	BoardGui.Curves:ClearAllChildren()
+	BoardGui.Erases:ClearAllChildren()
+	BoardGui.History:ClearAllChildren()
+
+	Buttons.SyncUndoButton(nil)
+	Buttons.SyncRedoButton(nil)
+end
+
+function CanvasState.TaskObjectParent(taskType)
+	if taskType == "Erase" then
+		return BoardGui.Erases
 	else
-		-- The vector from pos to it's closest point on the line makes a perpendicular with the line
-		return math.abs(u:Cross(v.Unit)) <= radius + lineInfo.ThicknessYScale/2
+		return BoardGui.Curves
 	end
-end
-
-function CanvasState.DiscardCurve(curve)
-	for _, lineFrame in ipairs(curve.CanvasGhost.CoordinateFrame:GetChildren()) do
-		CanvasState.DiscardLineFrame(lineFrame)
-	end
-	Cache.Release(curve.CanvasGhost.CoordinateFrame)
-	Cache.Release(curve.CanvasGhost.UIAspectRatioConstraint)
-	Cache.Release(curve.CanvasGhost)
-	Cache.Release(curve)
-end
-
-function CanvasState.DiscardLineFrame(lineFrame)
-	local UICorner = lineFrame:FindFirstChild("UICorner")
-	if UICorner then
-		Cache.Release(UICorner)
-	end
-	LineInfo.ClearInfo(lineFrame)
-	Cache.Release(lineFrame)
 end
 
 return CanvasState
