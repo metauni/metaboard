@@ -107,7 +107,44 @@ function ClientDrawingTasks.StraightLine.Update(curve, pos)
 	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 end
 
-function ClientDrawingTasks.StraightLine.Finish(curve) end
+function ClientDrawingTasks.StraightLine.Finish(curve)
+	local wholeLine = CanvasState.GetLinesContainer(curve):FindFirstChild("1")
+	local wholeLineInfo = LineInfo.ReadInfo(wholeLine)
+	
+	if wholeLineInfo.Length > Config.Drawing.LineSubdivisionLength then
+		wholeLine:Destroy()
+
+		local start = wholeLineInfo.Start
+		local stop = wholeLineInfo.Stop
+		local lineVector = stop - start
+
+		local lineInfo
+		for i=0, wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength do
+			if i == wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength then
+				break
+			end
+
+			local lineStop =
+				if
+					i+1 >= wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength
+				then
+					wholeLineInfo.Stop
+				else
+					start + (i+1) * Config.Drawing.LineSubdivisionLength * lineVector.Unit
+
+			lineInfo =
+				LineInfo.new(
+					start + i * Config.Drawing.LineSubdivisionLength * lineVector.Unit,
+					lineStop,
+					wholeLineInfo.ThicknessYScale,
+					wholeLineInfo.Color)
+
+			local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+			lineFrame.Name = tostring(i+1)
+			CanvasState.AttachLine(lineFrame, curve)
+		end
+	end
+end
 
 
 function ClientDrawingTasks.StraightLine.Undo(curve)

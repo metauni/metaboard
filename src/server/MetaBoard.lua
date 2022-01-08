@@ -186,6 +186,8 @@ function MetaBoard.Init()
 			subscriber.Canvas.Curves:ClearAllChildren()
 			subscriber.Canvas.Erases:ClearAllChildren()
 			subscriber.Canvas.History:ClearAllChildren()
+
+			subscriber.CurrentZIndex.Value = 0
 		end
 	end)
 
@@ -263,7 +265,7 @@ function MetaBoard.InitBoard(board)
 		canvas.CanTouch = false
 
 		local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
-		canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.CanvasThickness)
+		canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.WorldBoard.CanvasThickness)
 		canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
 		canvas.Transparency = 1
 
@@ -373,7 +375,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
 				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
+				Config.WorldBoard.ZThicknessStuds)
 
 		worldLine.Color = lineInfo.Color
 
@@ -382,25 +384,25 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 	end
 
 	if worldLineType == "RoundedParts" then
 		worldLine.Color = lineInfo.Color
 		
-		if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
+		if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.StudsPerZIndex then
 			worldLine.Size =
 				Vector3.new(
 					lineInfo.Length * yStuds,
 					lineInfo.ThicknessYScale * yStuds,
-					Config.WorldLine.ZThicknessStuds)
+					Config.WorldBoard.ZThicknessStuds)
 		else
 			worldLine.Size =
 				Vector3.new(
 					(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
 					lineInfo.ThicknessYScale * yStuds,
-					Config.WorldLine.ZThicknessStuds)
+					Config.WorldBoard.ZThicknessStuds)
 		end
 
 		worldLine.CFrame =
@@ -408,15 +410,15 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 
-			if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
+			if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.StudsPerZIndex then
 				worldLine.StartCylinder.Color = lineInfo.Color
 		
 				worldLine.StartCylinder.Size =
 					Vector3.new(
-						Config.WorldLine.ZThicknessStuds,
+						Config.WorldBoard.ZThicknessStuds,
 						lineInfo.ThicknessYScale * yStuds,
 						lineInfo.ThicknessYScale * yStuds)
 		
@@ -425,14 +427,14 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 					CFrame.new(
 						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
 						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
-						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 						CFrame.Angles(0,math.pi/2,0)
 		
 				worldLine.StopCylinder.Color = lineInfo.Color
 		
 				worldLine.StopCylinder.Size =
 					Vector3.new(
-						Config.WorldLine.ZThicknessStuds,
+						Config.WorldBoard.ZThicknessStuds,
 						lineInfo.ThicknessYScale * yStuds,
 						lineInfo.ThicknessYScale * yStuds)
 		
@@ -441,7 +443,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 					CFrame.new(
 						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
 						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
-						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 						CFrame.Angles(0,math.pi/2,0)
 		end
 	end
@@ -451,14 +453,14 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				lineInfo.Length * yStuds,
 				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
+				Config.WorldBoard.ZThicknessStuds)
 
 		worldLine.Color3 = lineInfo.Color
 		worldLine.SizeRelativeOffset =
 			Vector3.new(
 				lerp(1,-1,lineInfo.Centre.X/aspectRatio),
 				lerp(1,-1,lineInfo.Centre.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		
 		worldLine.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
 
@@ -469,18 +471,18 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				lerp(1,-1,lineInfo.Start.X/aspectRatio),
 				lerp(1,-1,lineInfo.Start.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		startHandle.Height = Config.WorldLine.ZThicknessStuds
+		startHandle.Height = Config.WorldBoard.ZThicknessStuds
 		startHandle.Color3 = lineInfo.Color
 
 		stopHandle.SizeRelativeOffset =
 			Vector3.new(
 				lerp(1,-1,lineInfo.Stop.X/aspectRatio),
 				lerp(1,-1,lineInfo.Stop.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		stopHandle.Height = Config.WorldLine.ZThicknessStuds
+		stopHandle.Height = Config.WorldBoard.ZThicknessStuds
 		stopHandle.Color3 = lineInfo.Color
 	end
 
@@ -516,7 +518,7 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 		local line = newSmoothNonPhysicalPart()
 		line.Name = "Line"
 
-		if lineInfo.ThicknessYScale * canvas.Size.Y >= Config.WorldLine.RoundThresholdStuds then
+		if lineInfo.ThicknessYScale * canvas.Size.Y >= Config.WorldBoard.StudsPerZIndex then
 			local startCylinder = newSmoothNonPhysicalPart()
 			startCylinder.Shape = Enum.PartType.Cylinder
 			startCylinder.Name = "StartCylinder"
@@ -563,8 +565,12 @@ function MetaBoard.HideWorldLine(worldLineType, worldLine)
 		worldLine.Transparency = 1
 	elseif worldLineType == "RoundedParts" then
 		worldLine.Transparency = 1
-		worldLine.StartCylinder.Transparency = 1
-		worldLine.StopCylinder.Transparency = 1
+		if worldLine.StartCylinder then
+			worldLine.StartCylinder.Transparency = 1
+		end
+		if worldLine.StopCylinder then
+			worldLine.StopCylinder.Transparency = 1
+		end
 	elseif worldLineType == "HandleAdornments" then
 		worldLine.Visible = false
 		worldLine.StartHandle.Visible = false
@@ -582,8 +588,12 @@ function MetaBoard.ShowWorldLine(worldLineType, worldLine)
 		worldLine.Transparency = 0
 	elseif worldLineType == "RoundedParts" then
 		worldLine.Transparency = 0
-		worldLine.StartCylinder.Transparency = 0
-		worldLine.StopCylinder.Transparency = 0
+		if worldLine.StartCylinder then
+			worldLine.StartCylinder.Transparency = 0
+		end
+		if worldLine.StopCylinder then
+			worldLine.StopCylinder.Transparency = 0
+		end
 	elseif worldLineType == "HandleAdornments" then
 		worldLine.Visible = true
 		worldLine.StartHandle.Visible = true

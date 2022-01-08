@@ -373,7 +373,7 @@ function CanvasState.CreateLineFrame(lineInfo)
 	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 	
 	-- Round the corners
-	if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.UICornerThreshold then
+	if lineInfo.ThicknessYScale * Canvas.AbsoluteSize.Y >= Config.Gui.UICornerThreshold then
 		local UICorner = Instance.new("UICorner")
 		UICorner.CornerRadius = UDim.new(0.5,0)
 		UICorner.Parent = lineFrame

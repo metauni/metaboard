@@ -25,7 +25,7 @@ function ServerDrawingTasks.FreeHand.Init(board, curve, authorUserId, thicknessY
 	curve:SetAttribute("CurveStop", pos)
 
 	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
-	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, zIndex)
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, zIndex)
 	worldLine.Name = "1"
 	worldLine.Parent = curve
 	
@@ -47,13 +47,13 @@ function ServerDrawingTasks.FreeHand.Update(board, curve, pos)
 	if numLines == 1 then
 		local onlyLine = curve:FindFirstChild("1")
 		if onlyLine:GetAttribute("Start") == pos then
-			MetaBoard.UpdateWorldLine(Config.WorldLineType, onlyLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+			MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, onlyLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
 			-- TODO show line
 			return
 		end
 	end
 	
-	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
 	worldLine.Parent = curve
 	worldLine.Name = tostring(numLines + 1)
 end
@@ -76,7 +76,7 @@ function ServerDrawingTasks.StraightLine.Init(board, curve, authorUserId, thickn
 	curve:SetAttribute("CurveStart", pos)
 
 	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
-	local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, board.Canvas, lineInfo, zIndex)
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, zIndex)
 	worldLine.Name = "1"
 	worldLine.Parent = curve
 end
@@ -90,10 +90,48 @@ function ServerDrawingTasks.StraightLine.Update(board, curve, pos)
 			curve:GetAttribute("Color"))
 	
 	local worldLine = curve:FindFirstChild("1")
-	MetaBoard.UpdateWorldLine(Config.WorldLineType, worldLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+	MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, worldLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
 end
 
-function ServerDrawingTasks.StraightLine.Finish(curve) end
+function ServerDrawingTasks.StraightLine.Finish(board, curve)
+	local wholeLine = curve:FindFirstChild("1")
+	local wholeLineInfo = LineInfo.ReadInfo(wholeLine)
+	
+	if wholeLineInfo.Length > Config.Drawing.LineSubdivisionLength then
+		wholeLine:Destroy()
+
+		local start = wholeLineInfo.Start
+		local stop = wholeLineInfo.Stop
+		local lineVector = stop - start
+
+		local lineInfo
+		for i=0, wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength do
+			if i == wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength then
+				break
+			end
+
+			local lineStop =
+				if
+					i+1 >= wholeLineInfo.Length/Config.Drawing.LineSubdivisionLength
+				then
+					wholeLineInfo.Stop
+				else
+					start + (i+1) * Config.Drawing.LineSubdivisionLength * lineVector.Unit
+
+			lineInfo =
+				LineInfo.new(
+					start + i * Config.Drawing.LineSubdivisionLength * lineVector.Unit,
+					lineStop,
+					wholeLineInfo.ThicknessYScale,
+					wholeLineInfo.Color)
+
+			local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+			worldLine.Name = tostring(i+1)
+			worldLine.Parent = curve
+		end
+	end
+end
+
 function ServerDrawingTasks.StraightLine.Undo(curve) end
 function ServerDrawingTasks.StraightLine.Redo(curve) end
 
@@ -113,7 +151,7 @@ function ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, radiu
 			local lineInfo = LineInfo.ReadInfo(worldLine)
 			if LineInfo.Intersects(pos, radius, lineInfo) then
 				
-				MetaBoard.HideWorldLine(Config.WorldLineType, worldLine)
+				MetaBoard.HideWorldLine(Config.WorldBoard.LineType, worldLine)
 
 				table.insert(erasedLineNames, worldLine.Name)
 			end
@@ -160,7 +198,7 @@ function ServerDrawingTasks.Erase.Undo(board, erasedCurves)
 		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
 		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
 			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
-			MetaBoard.ShowWorldLine(Config.WorldLineType, worldLine)
+			MetaBoard.ShowWorldLine(Config.WorldBoard.LineType, worldLine)
 		end
 	end
 end
@@ -170,7 +208,7 @@ function ServerDrawingTasks.Erase.Redo(board, erasedCurves)
 		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
 		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
 			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
-			MetaBoard.HideWorldLine(Config.WorldLineType, worldLine)
+			MetaBoard.HideWorldLine(Config.WorldBoard.LineType, worldLine)
 		end
 	end
 end

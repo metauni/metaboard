@@ -1,6 +1,5 @@
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
-local BadgeService = game:GetService("BadgeService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local History = require(Common.History)
@@ -42,15 +41,7 @@ local Drawing = {
 	
 	ReservedTool = nil,
 
-	-- -- Every line drawn by this player on a given board will be sequentially
-	-- -- numbered by a curve index for undo-functionality. 
-	-- -- CurveIndexOf[board] will be the current curve being drawn on the board
-	-- -- by this player (or the last drawn curve if mouseHeld is false)
-	-- -- (See Config.CurveNamer)
-	-- CurveIndexOf = {},
-
-	CurrentCurve = nil,
-	CurrentErase = nil
+	CurrentTaskObject = nil,
 }
 Drawing.__index = Drawing
 
@@ -62,14 +53,14 @@ function Drawing.Init(boardGui)
 	CanvasState = require(script.Parent.CanvasState)
 	Buttons = require(script.Parent.Buttons)
 
-	Drawing.PenA = Pen.new(Config.Defaults.PenAColor, Config.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
-	Drawing.PenB = Pen.new(Config.Defaults.PenBColor, Config.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
+	Drawing.PenA = Pen.new(Config.Drawing.Defaults.PenAColor, Config.Drawing.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
+	Drawing.PenB = Pen.new(Config.Drawing.Defaults.PenBColor, Config.Drawing.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
 
 	Drawing.PenMode = "FreeHand"
 
 	ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
 
-	Drawing.Eraser = Eraser.new(Config.EraserSmall, BoardGui.Toolbar.Erasers.SmallButton)
+	Drawing.Eraser = Eraser.new(Config.Drawing.Defaults.EraserThicknessYScale, BoardGui.Toolbar.Erasers.SmallButton)
 
 	Drawing.EquippedTool = Drawing.PenA
 	Drawing.ReservedTool = Drawing.Eraser
@@ -129,21 +120,6 @@ function Drawing.Init(boardGui)
 end
 
 function Drawing.OnBoardOpen(board)
-	-- if Drawing.CurveIndexOf[board] == nil then
-	-- 	-- Search for curves already written by this user (possibly restored to a persistent board)
-	-- 	local curveIndexMax = 0
-
-	-- 	-- Note that we can't just search from curveIndex = 1 because curves
-	-- 	-- may be erased, leaving us e.g. with a Curves folder only containing ID#4
-	-- 	for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
-	-- 		-- Names are PlayerID#curveIndex
-	-- 		local curveIndex = tonumber(string.sub(curve.Name, string.find(curve.Name, "#")+1,string.len(curve.Name)))
-	-- 		curveIndexMax = if curveIndex > curveIndexMax then curveIndex else curveIndexMax
-	-- 	end
-		
-	-- 	Drawing.CurveIndexOf[board] = curveIndexMax -- Note it should be 0 if there are no lines
-	-- end
-
 	Drawing.CursorGui.Enabled = true
 end
 
@@ -182,7 +158,7 @@ function Drawing.ToolDown(x,y)
 		eraseObject.Name = eraseObjectId
 		eraseObject.Parent = BoardGui.Erases
 
-		Drawing.CurrentErase = eraseObject
+		Drawing.CurrentTaskObject = eraseObject
 
 		ClientDrawingTasks.Erase.Init(eraseObject, LocalPlayer.UserId, Drawing.EquippedTool.ThicknessYScale, canvasPos)
 
@@ -206,7 +182,7 @@ function Drawing.ToolDown(x,y)
 		if Drawing.EquippedTool.ToolType == "Pen" then
 			local curveId = Config.GenerateUUID()
 			local curve = CanvasState.CreateCurve(CanvasState.EquippedBoard, curveId)
-			Drawing.CurrentCurve = curve
+			Drawing.CurrentTaskObject = curve
 
 			ClientDrawingTasks[Drawing.PenMode].Init(
 				curve,
@@ -245,8 +221,8 @@ function Drawing.ToolMoved(x,y)
 		local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
 		
 		if Drawing.EquippedTool.ToolType == "Eraser" then
-			ClientDrawingTasks.Erase.Update(Drawing.CurrentErase, newCanvasPos)
-			DrawingTask.UpdateRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentErase.Name, newCanvasPos)
+			ClientDrawingTasks.Erase.Update(Drawing.CurrentTaskObject, newCanvasPos)
+			DrawingTask.UpdateRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentTaskObject.Name, newCanvasPos)
 		else
 			assert(Drawing.EquippedTool.ToolType == "Pen")
 
@@ -255,8 +231,8 @@ function Drawing.ToolMoved(x,y)
 				return
 			end
 
-			ClientDrawingTasks[Drawing.PenMode].Update(Drawing.CurrentCurve, newCanvasPos)
-			DrawingTask.UpdateRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentCurve.Name, newCanvasPos)
+			ClientDrawingTasks[Drawing.PenMode].Update(Drawing.CurrentTaskObject, newCanvasPos)
+			DrawingTask.UpdateRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentTaskObject.Name, newCanvasPos)
 
 		end
 
@@ -270,11 +246,11 @@ function Drawing.ToolLift(x,y)
 	Drawing.MousePixelPos = Vector2.new(x,y)
 	
 	if Drawing.EquippedTool == "Eraser" then
-		ClientDrawingTasks.Erase.Finish(Drawing.CurrentErase)
-		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentErase.Name)
+		ClientDrawingTasks.Erase.Finish(Drawing.CurrentTaskObject)
+		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentTaskObject.Name)
 	elseif Drawing.EquippedTool.ToolType == "Pen" then
-		ClientDrawingTasks[Drawing.PenMode].Finish(Drawing.CurrentCurve)
-		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentCurve.Name)
+		ClientDrawingTasks[Drawing.PenMode].Finish(Drawing.CurrentTaskObject)
+		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentTaskObject.Name)
 	end
 end
 

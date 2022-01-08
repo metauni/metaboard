@@ -19,29 +19,6 @@ function History.Init(player)
 	return playerHistory
 end
 
--- function History.GetNextTaskObjectValue(playerHistory, taskObjectValue)
--- 	if taskObjectValue then
--- 		taskObjectValue:FindFirstChildOfClass("ObjectValue")
--- 	else
--- 		for _, child in playerHistory:GetChildren() do
--- 			if child.Name ~= "MostRecent" then
--- 				return child
--- 			end
--- 		end
--- 	end
--- end
-
--- function History.GetPreviousTaskObjectValue(playerHistory, taskObjectValue)
--- 	if taskObjectValue then
--- 		if taskObjectValue.Parent == playerHistory then
--- 			return nil
--- 		else
--- 			return taskObjectValue.Parent
--- 		end
--- 	else
--- 		return nil
--- 	end
--- end
 
 function History.ForgetFuture(playerHistory, taskForgetter)
   local taskObjectValue = playerHistory.MostImminent.Value

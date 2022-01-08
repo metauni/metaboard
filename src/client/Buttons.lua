@@ -36,9 +36,9 @@ function Buttons.Init(boardGui)
 	Buttons.ConnectPenButton(Toolbar.Pens.PenAButton, Drawing.PenA)
 	Buttons.ConnectPenButton(Toolbar.Pens.PenBButton, Drawing.PenB)
 	Buttons.ConnectEraserIconButton(Toolbar.Erasers.EraserIconButton)
-	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.SmallButton, Config.EraserSmallRadiusYScale)
-	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.MediumButton, Config.EraserMediumRadiusYScale)
-	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.LargeButton, Config.EraserLargeRadiusYScale)
+	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.SmallButton, Config.Drawing.EraserSmallThicknessYScale)
+	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.MediumButton, Config.Drawing.EraserMediumThicknessYScale)
+	Buttons.ConnectEraserSizeButton(Toolbar.Erasers.LargeButton, Config.Drawing.EraserLargeThicknessYScale)
 	Buttons.ConnectUndoButton(Toolbar.UndoButton)
 	Buttons.ConnectRedoButton(Toolbar.RedoButton)
 	Buttons.ConnectCloseButton(Toolbar.CloseButton)
@@ -92,7 +92,7 @@ function Buttons.ConnectSlider(rail, knob)
 		local xScaleCubed = math.pow(xScale, 3)
 
 		-- Configure the size of the currently equipped pen
-		local thicknessYScale = (Config.MaxThicknessYScale - Config.MinThicknessYScale)*xScaleCubed + Config.MinThicknessYScale
+		local thicknessYScale = (Config.Drawing.MaxThicknessYScale - Config.Drawing.MinThicknessYScale)*xScaleCubed + Config.Drawing.MinThicknessYScale
 		Drawing.EquippedTool:SetThicknessYScale(thicknessYScale)
 		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
 	end
@@ -128,7 +128,7 @@ end
 
 -- Sync the slider configuration to the given pen's thickness
 function Buttons.SyncSlider(pen)
-	local xScaleCubed = (pen.ThicknessYScale - Config.MinThicknessYScale)/(Config.MaxThicknessYScale - Config.MinThicknessYScale)
+	local xScaleCubed = (pen.ThicknessYScale - Config.Drawing.MinThicknessYScale)/(Config.Drawing.MaxThicknessYScale - Config.Drawing.MinThicknessYScale)
 	local xScale = math.pow(xScaleCubed, 1/3)
 	Toolbar.Pens.Slider.Rail.Knob.Position = UDim2.new(math.clamp(xScale,0,1), 0, 0.5, 0)
 end
