@@ -1,5 +1,5 @@
 local Players = game:GetService("Players")
-local BoardGui = Players.LocalPlayer.PlayerGui:WaitForChild("BoardGui")
+local BoardGui = Players.LocalPlayer.PlayerGui:WaitForChild("BoardGui",math.huge)
 
 local CanvasState = require(script.Parent.CanvasState)
 local Buttons = require(script.Parent.Buttons)

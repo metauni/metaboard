@@ -1,11 +1,22 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.3.4",
+	Version = "v0.4.3",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end
+  
+  -- Interval in seconds between board persistence saves
+	-- Note that there is a 6s cooldown on writing to the same DataStore
+	-- key, so that AutoSaveInterval is lower bounded by 6
+	AutoSaveInterval = 30, 
+
+	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
+
+	-- Number of chars of board Json before which we freeze persistent boards
+	-- The DataStore limit is 4M chars
+	BoardFullThreshold = 3500000,
 }
 
 Config.Drawing = {

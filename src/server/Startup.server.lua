@@ -25,4 +25,6 @@ local Persistence = require(script.Parent.Persistence)
 MetaBoard.Init()
 PersonalBoardManager.Init()
 ServerDrawingTasks.Init()
-Persistence.Init()
+
+-- Delay loading persistent boards so as to avoid delaying server startup
+task.delay( 5, Persistence.Init )

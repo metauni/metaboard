@@ -656,7 +656,7 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>0</R>
+							<R>0.823529422</R>
 							<G>0</G>
 							<B>0</B>
 						</Color3>
@@ -671,11 +671,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">1</int>
+						<int name="LayoutOrder">5</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Black</string>
+						<string name="Name">Red</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -787,7 +787,7 @@
 							<int64 name="SourceAssetId">-1</int64>
 							<token name="Style">0</token>
 							<BinaryString name="Tags"></BinaryString>
-							<bool name="Visible">true</bool>
+							<bool name="Visible">false</bool>
 							<int name="ZIndex">-1</int>
 						</Properties>
 						<Item class="UICorner" referent="RBX8ec69889c9b84a0ab06963c972fc946b">
@@ -816,9 +816,9 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>0.823529422</R>
-							<G>0</G>
-							<B>0</B>
+							<R>0.960784316</R>
+							<G>0.603921592</G>
+							<B>0.137254909</B>
 						</Color3>
 						<float name="BackgroundTransparency">0</float>
 						<Color3 name="BorderColor3">
@@ -831,11 +831,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">5</int>
+						<int name="LayoutOrder">4</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Red</string>
+						<string name="Name">Orange</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -976,9 +976,9 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>0.960784316</R>
-							<G>0.603921592</G>
-							<B>0.137254909</B>
+							<R>0.494117647</R>
+							<G>0.776470602</G>
+							<B>0.211764708</B>
 						</Color3>
 						<float name="BackgroundTransparency">0</float>
 						<Color3 name="BorderColor3">
@@ -991,11 +991,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">4</int>
+						<int name="LayoutOrder">3</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Orange</string>
+						<string name="Name">Green</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -1136,9 +1136,9 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>0.494117647</R>
-							<G>0.776470602</G>
-							<B>0.211764708</B>
+							<R>1</R>
+							<G>0.533333361</G>
+							<B>0.835294127</B>
 						</Color3>
 						<float name="BackgroundTransparency">0</float>
 						<Color3 name="BorderColor3">
@@ -1151,11 +1151,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">3</int>
+						<int name="LayoutOrder">7</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Green</string>
+						<string name="Name">Pink</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -1296,9 +1296,9 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>1</R>
-							<G>0.533333361</G>
-							<B>0.835294127</B>
+							<R>0.509803951</R>
+							<G>0.129411772</G>
+							<B>0.545098066</B>
 						</Color3>
 						<float name="BackgroundTransparency">0</float>
 						<Color3 name="BorderColor3">
@@ -1311,11 +1311,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">7</int>
+						<int name="LayoutOrder">6</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Pink</string>
+						<string name="Name">Purple</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -1456,9 +1456,9 @@
 						<bool name="AutoLocalize">true</bool>
 						<token name="AutomaticSize">0</token>
 						<Color3 name="BackgroundColor3">
-							<R>0.509803951</R>
-							<G>0.129411772</G>
-							<B>0.545098066</B>
+							<R>0</R>
+							<G>0</G>
+							<B>0</B>
 						</Color3>
 						<float name="BackgroundTransparency">0</float>
 						<Color3 name="BorderColor3">
@@ -1471,11 +1471,11 @@
 						<bool name="ClipsDescendants">false</bool>
 						<bool name="Draggable">false</bool>
 						<token name="Font">3</token>
-						<int name="LayoutOrder">6</int>
+						<int name="LayoutOrder">1</int>
 						<float name="LineHeight">1</float>
 						<int name="MaxVisibleGraphemes">-1</int>
 						<bool name="Modal">true</bool>
-						<string name="Name">Purple</string>
+						<string name="Name">Black</string>
 						<Ref name="NextSelectionDown">null</Ref>
 						<Ref name="NextSelectionLeft">null</Ref>
 						<Ref name="NextSelectionRight">null</Ref>
@@ -1587,7 +1587,7 @@
 							<int64 name="SourceAssetId">-1</int64>
 							<token name="Style">0</token>
 							<BinaryString name="Tags"></BinaryString>
-							<bool name="Visible">false</bool>
+							<bool name="Visible">true</bool>
 							<int name="ZIndex">-1</int>
 						</Properties>
 						<Item class="UICorner" referent="RBXae53d32894204290ade59718aa5d2e9b">
@@ -3794,6 +3794,98 @@
 				<int64 name="SourceAssetId">-1</int64>
 				<BinaryString name="Tags"></BinaryString>
 			</Properties>
+		<Item class="TextButton" referent="RBX6daf51ada14d428e81d7f2696510c981">
+			<Properties>
+				<bool name="Active">true</bool>
+				<Vector2 name="AnchorPoint">
+					<X>0</X>
+					<Y>0</Y>
+				</Vector2>
+				<BinaryString name="AttributesSerialize"></BinaryString>
+				<bool name="AutoButtonColor">false</bool>
+				<bool name="AutoLocalize">true</bool>
+				<token name="AutomaticSize">0</token>
+				<Color3 name="BackgroundColor3">
+					<R>0</R>
+					<G>0</G>
+					<B>0</B>
+				</Color3>
+				<float name="BackgroundTransparency">1</float>
+				<Color3 name="BorderColor3">
+					<R>0.996078491</R>
+					<G>0.988235354</G>
+					<B>1</B>
+				</Color3>
+				<token name="BorderMode">0</token>
+				<int name="BorderSizePixel">1</int>
+				<bool name="ClipsDescendants">false</bool>
+				<bool name="Draggable">false</bool>
+				<token name="Font">3</token>
+				<int name="LayoutOrder">1</int>
+				<float name="LineHeight">1</float>
+				<int name="MaxVisibleGraphemes">-1</int>
+				<bool name="Modal">true</bool>
+				<string name="Name">PersistStatus</string>
+				<Ref name="NextSelectionDown">null</Ref>
+				<Ref name="NextSelectionLeft">null</Ref>
+				<Ref name="NextSelectionRight">null</Ref>
+				<Ref name="NextSelectionUp">null</Ref>
+				<UDim2 name="Position">
+					<XS>1</XS>
+					<XO>-20</XO>
+					<YS>1</YS>
+					<YO>-20</YO>
+				</UDim2>
+				<bool name="RichText">false</bool>
+				<Ref name="RootLocalizationTable">null</Ref>
+				<float name="Rotation">0</float>
+				<bool name="Selectable">true</bool>
+				<bool name="Selected">false</bool>
+				<Ref name="SelectionImageObject">null</Ref>
+				<UDim2 name="Size">
+					<XS>0</XS>
+					<XO>30</XO>
+					<YS>0</YS>
+					<YO>30</YO>
+				</UDim2>
+				<token name="SizeConstraint">2</token>
+				<int64 name="SourceAssetId">-1</int64>
+				<token name="Style">0</token>
+				<BinaryString name="Tags"></BinaryString>
+				<string name="Text"></string>
+				<Color3 name="TextColor3">
+					<R>0</R>
+					<G>0</G>
+					<B>0</B>
+				</Color3>
+				<bool name="TextScaled">false</bool>
+				<float name="TextSize">14</float>
+				<Color3 name="TextStrokeColor3">
+					<R>0</R>
+					<G>0</G>
+					<B>0</B>
+				</Color3>
+				<float name="TextStrokeTransparency">1</float>
+				<float name="TextTransparency">0</float>
+				<token name="TextTruncate">0</token>
+				<bool name="TextWrapped">false</bool>
+				<token name="TextXAlignment">2</token>
+				<token name="TextYAlignment">1</token>
+				<bool name="Visible">true</bool>
+				<int name="ZIndex">1</int>
+			</Properties>
+			<Item class="UICorner" referent="RBX51f7ebe8270944f2a1f6373a246b1409">
+				<Properties>
+					<BinaryString name="AttributesSerialize"></BinaryString>
+					<UDim name="CornerRadius">
+						<S>0.5</S>
+						<O>0</O>
+					</UDim>
+					<string name="Name">UICorner</string>
+					<int64 name="SourceAssetId">-1</int64>
+					<BinaryString name="Tags"></BinaryString>
+				</Properties>
+			</Item>
 		</Item>
 	</Item>
 </roblox>

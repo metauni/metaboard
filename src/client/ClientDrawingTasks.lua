@@ -158,6 +158,8 @@ ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 
 function ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, radius)
 
+	local lineCount = 0
+
 	for _, curve in ipairs(Curves:GetChildren()) do
 		
 		local erasedLineNames = {}

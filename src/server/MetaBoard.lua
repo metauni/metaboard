@@ -1,5 +1,5 @@
 local CollectionService = game:GetService("CollectionService")
-local ServerStorage = game:GetService("ServerStorage")
+local HttpService = game:GetService("HttpService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local History = require(Common.History)
@@ -97,8 +97,7 @@ function MetaBoard.Init()
 	end)
 
 	DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, board, taskType, taskObjectId, ...)
-		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)		
 		for _, subscriber in ipairs(subscriberFamily) do
 			local taskObject = MetaBoard.TaskObjectParent(subscriber, taskType):FindFirstChild(taskObjectId)
 			ServerDrawingTasks[taskType].Finish(subscriber, taskObject, ...)
@@ -331,6 +330,34 @@ function MetaBoard.InitBoard(board)
 		watchers.Name = "Watchers"
 		watchers.Parent = board
 	end
+	
+	local changeUid = board:FindFirstChild("ChangeUid")
+	if changeUid ~= nil then
+		changeUid:Destroy()
+	end
+	changeUid = Instance.new("StringValue")
+	changeUid.Value = ""
+	changeUid.Name = "ChangeUid"
+	changeUid.Parent = board
+	
+	-- Meaningful only for persistent boards
+	local hasLoaded = board:FindFirstChild("HasLoaded")
+	if hasLoaded ~= nil then
+		hasLoaded:Destroy()
+	end
+	hasLoaded = Instance.new("BoolValue")
+	hasLoaded.Value = false
+	hasLoaded.Name = "HasLoaded"
+	hasLoaded.Parent = board
+
+	local isFull = board:FindFirstChild("IsFull")
+	if isFull ~= nil then
+		isFull:Destroy()
+	end
+	isFull = Instance.new("BoolValue")
+	isFull.Value = false
+	isFull.Name = "IsFull"
+	isFull.Parent = board
 end
 
 function MetaBoard.Subscribe(subscriber, broadcaster)
@@ -391,7 +418,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 	if worldLineType == "RoundedParts" then
 		worldLine.Color = lineInfo.Color
 		
-		if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.StudsPerZIndex then
+		if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.RoundThresholdStuds then
 			worldLine.Size =
 				Vector3.new(
 					lineInfo.Length * yStuds,
@@ -413,38 +440,38 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 
-			if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.StudsPerZIndex then
-				worldLine.StartCylinder.Color = lineInfo.Color
-		
-				worldLine.StartCylinder.Size =
-					Vector3.new(
-						Config.WorldBoard.ZThicknessStuds,
-						lineInfo.ThicknessYScale * yStuds,
-						lineInfo.ThicknessYScale * yStuds)
-		
-				worldLine.StartCylinder.CFrame =
-					canvas.CFrame *
-					CFrame.new(
-						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
-						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
-						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
-						CFrame.Angles(0,math.pi/2,0)
-		
-				worldLine.StopCylinder.Color = lineInfo.Color
-		
-				worldLine.StopCylinder.Size =
-					Vector3.new(
-						Config.WorldBoard.ZThicknessStuds,
-						lineInfo.ThicknessYScale * yStuds,
-						lineInfo.ThicknessYScale * yStuds)
-		
-				worldLine.StopCylinder.CFrame =
-					canvas.CFrame *
-					CFrame.new(
-						lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
-						lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
-						canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
-						CFrame.Angles(0,math.pi/2,0)
+    if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.RoundThresholdStuds then
+      worldLine.StartCylinder.Color = lineInfo.Color
+
+      worldLine.StartCylinder.Size =
+        Vector3.new(
+          Config.WorldBoard.ZThicknessStuds,
+          lineInfo.ThicknessYScale * yStuds,
+          lineInfo.ThicknessYScale * yStuds)
+
+      worldLine.StartCylinder.CFrame =
+        canvas.CFrame *
+        CFrame.new(
+          lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
+          lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
+          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          CFrame.Angles(0,math.pi/2,0)
+
+      worldLine.StopCylinder.Color = lineInfo.Color
+
+      worldLine.StopCylinder.Size =
+        Vector3.new(
+          Config.WorldBoard.ZThicknessStuds,
+          lineInfo.ThicknessYScale * yStuds,
+          lineInfo.ThicknessYScale * yStuds)
+
+      worldLine.StopCylinder.CFrame =
+        canvas.CFrame *
+        CFrame.new(
+          lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
+          lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
+          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          CFrame.Angles(0,math.pi/2,0)
 		end
 	end
 
@@ -522,11 +549,11 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 			local startCylinder = newSmoothNonPhysicalPart()
 			startCylinder.Shape = Enum.PartType.Cylinder
 			startCylinder.Name = "StartCylinder"
-			
+
 			local stopCylinder = newSmoothNonPhysicalPart()
 			stopCylinder.Shape = Enum.PartType.Cylinder
 			stopCylinder.Name = "StopCylinder"
-			
+
 			startCylinder.Parent = line
 			stopCylinder.Parent = line
 		end

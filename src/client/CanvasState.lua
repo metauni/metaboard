@@ -21,10 +21,12 @@ local CanvasState = {
 	-- the board that is currently displayed on the canvas
 	EquippedBoard = nil,
 
+	IsFullConnection = nil,
+	HasChangedConnection = nil,
+
 	SurfaceGuiConnections = {},
 
-	-- permission to draw
-	HasWritePermission = true
+	HasWritePermission = true,
 }
 
 function CanvasState.Init(boardGui)
@@ -181,8 +183,9 @@ function CanvasState.ConnectDrawingTaskEvents()
 end
 
 function CanvasState.OpenBoard(board)
-
-	-- We do not open the BoardGui if we are in VR
+	-- If this is a persistent board and it hasn't finished loading from the
+	-- DataStore, don't allow it to be opened
+	if board:FindFirstChild("PersistId") and not board.HasLoaded.Value then return end
 	if VRService.VREnabled then return end
 
 	CanvasState.EquippedBoard = board
@@ -194,8 +197,40 @@ function CanvasState.OpenBoard(board)
 	Drawing.OnBoardOpen(board)
 
 	Canvas.UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
-
 	Canvas.BackgroundColor3 = board.Color
+
+	local persistId = board:FindFirstChild("PersistId")
+	BoardGui.PersistStatus.Visible = (persistId ~= nil)
+	if persistId then
+		local fullColor = Color3.new(1, 0, 0)
+		local normalColor = Color3.new(0, 0, 0)
+
+		local function reactIsFull(full)
+			if full then
+				BoardGui.PersistStatus.BackgroundColor3 = fullColor
+				BoardGui.PersistStatus.BackgroundTransparency = 0
+			else
+				BoardGui.PersistStatus.BackgroundColor3 = normalColor
+				BoardGui.PersistStatus.BackgroundTransparency = 1
+			end
+		end
+
+		reactIsFull(board.IsFull.Value)
+		CanvasState.IsFullConnection = board.IsFull.Changed:Connect(reactIsFull)
+
+		-- TODO maybe slow?
+		local function reactHasChanged(changeUid)
+			if changeUid == "" then
+				BoardGui.PersistStatus.BackgroundTransparency = 1
+			else
+				BoardGui.PersistStatus.BackgroundTransparency = 0.5
+			end
+		end
+
+		reactHasChanged(board.ChangeUid.Value)
+		CanvasState.HasChangedConnection = board.ChangeUid.Changed:Connect(reactHasChanged)
+	end
+
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
 
@@ -284,7 +319,6 @@ function CanvasState.OpenBoard(board)
 
 	-- Sync the buttons with the state of the board and equipped tools
 	Buttons.OnBoardOpen(board, BoardGui.History:FindFirstChild(LocalPlayer.UserId))
-
 end
 
 function CanvasState.CloseBoard(board)
@@ -293,6 +327,16 @@ function CanvasState.CloseBoard(board)
 	BoardGui.ModalGui.Enabled = false
 
 	Drawing.OnBoardClose(board)
+
+	if CanvasState.IsFullConnection then
+		CanvasState.IsFullConnection:Disconnect()
+		CanvasState.IsFullConnection = nil
+	end
+
+	if CanvasState.HasChangedConnection then
+		CanvasState.HasChangedConnection:Disconnect()
+		CanvasState.HasChangedConnection = nil
+	end
 	
 	game.StarterGui:SetCore("TopbarEnabled", true)
 

@@ -1,5 +1,6 @@
 local CollectionService = game:GetService("CollectionService")
 local HTTPService = game:GetService("HttpService")
+local PlayersService = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
@@ -15,49 +16,91 @@ local function isPrivateServer()
 	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
 end
 
+-- GetAsync and SetAsync have a rate limit of 60 + numPlayers * 10 calls per minute
+-- (see https://developer.roblox.com/en-us/articles/Data-store)
+-- 60/waitTime < 60 + numPlayers * 10 => waitTime > 60/( 60 + numPlayers * 10 )
+
+-- In an experiment with 124 full persistent boards, all updated, we averaged
+-- 1.13 seconds per board to store (i.e. 124 boards stored in 140sec)
+local function asyncWaitTime()
+    return 60/( 60 + 10 * #PlayersService:GetPlayers() )
+end
+
+local function keyForBoard(board)
+	local boardKey = "metaboard" .. tostring(board.PersistId.Value)
+
+	-- If we are in a private server the key is prefixed by the 
+	-- private server's ID
+	if isPrivateServer() then
+		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+	end
+
+    if string.len(boardKey) > 50 then
+        print("[Persistence] Board key length exceeds DataStore limit.")
+    end
+
+	return boardKey
+end
+
+local function storeAll()
+    local startTime = tick()
+	local boards = CollectionService:GetTagged(Config.BoardTag)
+	
+    -- Find persistent boards which have been changed since the last save
+    local changedBoards = {}
+	for _, board in ipairs(boards) do
+		if board:FindFirstChild("PersistId") and board.ChangeUid.Value ~= "" then
+			table.insert(changedBoards, board)
+		end
+	end
+
+    local waitTime = asyncWaitTime()
+    
+	for _, board in ipairs(changedBoards) do
+        local boardKey = keyForBoard(board)
+		task.spawn(Persistence.Store, board, boardKey)
+        task.wait(waitTime)
+	end
+
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
+    
+    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
+end
+
 function Persistence.Init()
     MetaBoard = require(script.Parent.MetaBoard)
-    
-    local function keyForBoard(board)
-        local boardKey = "metaboard" .. tostring(board.PersistId.Value)
-
-        -- If we are in a private server the key is prefixed by the 
-        -- private server's ID
-        if isPrivateServer() then
-            boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
-        end
-
-        return boardKey
-    end
 
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
 
+    local numPersistentBoards = 0
+    for _, board in ipairs(boards) do
+		if board:FindFirstChild("PersistId") then
+			numPersistentBoards += 1
+		end
+	end
+
+    local waitTime = asyncWaitTime()
+
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
-        if persistId and persistId:IsA("IntValue") then
+        if persistId then
             -- Restore this board and all its subscribers
             local boardKey = keyForBoard(board)
-
-            local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		
-            for _, subscriber in ipairs(subscriberFamily) do
-                Persistence.Restore(subscriber, boardKey)
-            end
+            task.spawn(Persistence.Restore, board, boardKey, true)
+            task.wait(waitTime)
         end
 	end
 
     -- Store all boards on shutdown
-    game:BindToClose(function()
-        local boardsClose = CollectionService:GetTagged(Config.BoardTag)
-
-        for _, board in ipairs(boardsClose) do
-            local persistId = board:FindFirstChild("PersistId")
-            if persistId and persistId:IsA("IntValue") then
-                Persistence.Store(board, keyForBoard(board))
-            end
-        end
-    end)
+	game:BindToClose(storeAll)
+	
+	task.spawn(function()
+		while true do
+			task.wait(Config.AutoSaveInterval)
+			storeAll()
+		end
+	end)
 end
 
 local function serialiseVector2(v)
@@ -139,22 +182,19 @@ local function serialiseCurve(curve)
 end
 
 -- Restores an empty board to the contents stored in the DataStore
--- with the given persistence ID string
-function Persistence.Restore(board, boardKey)
+-- with the given persistence ID string. Optionally, it restores the
+-- contents to all subscribers of the given board
+function Persistence.Restore(board, boardKey, restoreSubscribers)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local startTime = tick()
 
     if not DataStore then
-        print("Persistence: DataStore not loaded")
+        print("[Persistence] DataStore not loaded")
         return
     end
 
     if #board.Canvas.Curves:GetChildren() > 0 then
-        print("Persistence: Called Restore on a nonempty board")
-        return
-    end
-
-    if string.len(boardKey) >= 50 then
-        print("Persistence: board key is too long")
+        print("[Persistence] Called Restore on a nonempty board ".. boardKey)
         return
     end
 
@@ -164,55 +204,104 @@ function Persistence.Restore(board, boardKey)
         return DataStore:GetAsync(boardKey)
     end)
     if not success then
-        print("Persistence: Failed to read from DataStore for ID " .. boardKey)
+        print("[Persistence] GetAsync fail for " .. boardKey .. " " .. boardJSON)
         return
+    end
+
+    -- If restoreSubscribers is false, we just count the board
+    -- itself as a subscriber
+    local subscriberFamily = {board}
+    if restoreSubscribers then
+        for _, subscriber in ipairs(MetaBoard.GatherSubscriberFamily(board)) do
+            -- If we have a subscriber which is itself persistent, we do not
+            -- restore it using the curves on this board
+            if subscriber ~= board and subscriber:FindFirstChild("PersistId") then
+                continue
+            end
+
+            table.insert(subscriberFamily, subscriber)
+        end
     end
 
     -- Return if this board has not been stored
     if not boardJSON then
-        print("No data for this persistId")
+        for _, subscriber in ipairs(subscriberFamily) do
+            subscriber.HasLoaded.Value = true
+        end
+
         return
     end
 
 	local boardData = HTTPService:JSONDecode(boardJSON)
 
     if not boardData then
-        print("Persistence: failed to decode JSON")
+        print("[Persistence] Failed to decode JSON")
         return
     end
 
     local curves = boardData.Curves
 
     if not curves then
-        print("Persistance: failed to get curve data")
+        print("[Persistence] Failed to get curve data")
         return
     end
 
-    if boardData.CurrentZIndex and board.CurrentZIndex then
-        board.CurrentZIndex.Value = boardData.CurrentZIndex
+    if boardData.CurrentZIndex then
+        for _, subscriber in ipairs(subscriberFamily) do
+            if subscriber.CurrentZIndex then
+                subscriber.CurrentZIndex.Value = boardData.CurrentZIndex
+            end
+        end
     end
 
-    -- The board data is a table, each entry of which is a dictionary
-    -- defining a curve
-    for _, curveData in ipairs(curves) do
-        local curve = deserialiseCurve(board.Canvas, curveData)
-        curve.Parent = board.Canvas.Curves
+    -- The board data is a table, each entry of which is a dictionary defining a curve
+    for subIndex, subscriber in ipairs(subscriberFamily) do
+        local lineCount = 0
+
+        for curIndex, curveData in ipairs(curves) do
+            local curve = deserialiseCurve(subscriber.Canvas, curveData)
+			curve.Parent = subscriber.Canvas.Curves
+            lineCount += #curveData.Lines
+
+            if lineCount > Config.LinesLoadedBeforeWait then
+                lineCount = 0
+                -- Give control back to the engine until the next frame,
+                -- then continue loading, to prevent low frame rates on
+                -- server startup with many persistent boards
+                task.wait()
+            end
+		end
+	end
+	
+    for _, subscriber in ipairs(subscriberFamily) do
+        subscriber.HasLoaded.Value = true
+        subscriber.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     end
 
-    --print("Persistence: Successfully restored board " .. boardKey)
+    -- Count number of lines
+    local lineCount = 0
+    for curIndex, curveData in ipairs(curves) do
+        lineCount += #curveData.Lines
+    end
+
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
+    -- print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
+
+    if string.len(boardJSON) > Config.BoardFullThreshold then
+        print("[Persistence] board ".. boardKey .." is full.")
+    end
 end
 
 -- Stores a given board to the DataStore with the given ID
 function Persistence.Store(board, boardKey)
+    -- Do not store boards that have not changed
+	if board.ChangeUid.Value == "" then return end
+	
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local startTime = tick()
 
     if not DataStore then
-        print("Persistence: DataStore not loaded")
-        return
-    end
-
-    if string.len(boardKey) >= 50 then
-        print("Persistence: board key is too long")
+        print("[Persistence] DataStore not loaded")
         return
     end
 
@@ -232,23 +321,39 @@ function Persistence.Store(board, boardKey)
     local boardJSON = HTTPService:JSONEncode(boardData)
 
     if not boardJSON then
-        print("Persistence: Board JSON encoding failed")
+        print("[Persistence] Board JSON encoding failed")
         return
     end
 
     -- TODO pre-empt "value too big" error
     -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
-
+	
+    -- Since SetAsync yields we compare preSaveUid and board.ChangeUid
+    -- to assess whether the board was changed during the save process
+	local preSaveUid = board.ChangeUid.Value
     local success, errormessage = pcall(function()
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
-        print("Persistence: Failed to store to DataStore for ID " .. boardKey)
-        print(errormessage)
+        print("[Persistence] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
+        board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
         return
-    end
+	end
+	
+    -- If the board did not change during the save process,
+    -- then it is safe to mark it as saved
+	if preSaveUid == board.ChangeUid.Value then
+		board.ChangeUid.Value = ""
+	end
 
-    --print("Persistence: Successfully stored board " .. boardKey)
+    board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
+    local elapsedTime = math.floor(100 * (tick() - startTime))/100
+
+    -- print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
+
+    if string.len(boardJSON) > Config.BoardFullThreshold then
+        print("[Persistence] board ".. boardKey .." is full.")
+    end
 end
 
 return Persistence

@@ -299,6 +299,11 @@ function Buttons.ConnectUndoButton(undoButton)
 		if not undoButton.AutoButtonColor then return end
 
 		if not CanvasState.HasWritePermission then return end
+		
+		if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
+			CanvasState.EquippedBoard.IsFull.Value then
+			return
+		end
 
 		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
 		local taskObjectValue = playerHistory.MostRecent.Value
