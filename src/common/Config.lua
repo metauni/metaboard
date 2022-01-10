@@ -5,9 +5,9 @@ local Config = {
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
-	GenerateUUID = function() return HttpService:GenerateGUID(false) end
+	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
   
-  -- Interval in seconds between board persistence saves
+	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 30, 
