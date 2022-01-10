@@ -56,8 +56,12 @@ function MetaBoard.Init()
 
 	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskType, taskObjectId, ...)
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		
+
 		for _, subscriber in ipairs(subscriberFamily) do
+			local persistId = subscriber:FindFirstChild("PersistId")
+			if persistId and not subscriber.HasLoaded.Value then continue end
+			if subscriber.IsFull.Value then continue end
+
 			local taskObject = Instance.new("Folder")
 			taskObject.Name = taskObjectId
 			taskObject.Parent = MetaBoard.TaskObjectParent(subscriber, taskType)
@@ -78,6 +82,11 @@ function MetaBoard.Init()
 					DrawingTask.InitRemoteEvent:FireClient(playerValue.Value, player, taskType, taskObjectId, ...)
 				end
 			end
+
+			if persistId and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -93,6 +102,11 @@ function MetaBoard.Init()
 					DrawingTask.UpdateRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
 				end
 			end
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -107,6 +121,11 @@ function MetaBoard.Init()
 					DrawingTask.FinishRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
 				end
 			end
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -118,11 +137,16 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
+			if subscriber:FindFirstChild("PersistId") then
+				if not subscriber.HasLoaded.Value then continue end
+			end
+
+			if subscriber.IsFull.Value then continue end
 
 			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
 			local taskObjectValue = playerHistory.MostRecent.Value
 
-			if taskObjectValue == nil then return end
+			if taskObjectValue == nil then continue end
 
 			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 
@@ -142,6 +166,11 @@ function MetaBoard.Init()
 					Remotes.Undo:FireClient(playerValue.Value, player)
 				end
 			end
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -149,11 +178,16 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
+			if subscriber:FindFirstChild("PersistId") then
+				if not subscriber.HasLoaded.Value then continue end
+			end
+
+			if subscriber.IsFull.Value then continue end
 
 			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
 			local taskObjectValue = playerHistory.MostImminent.Value
 
-			if taskObjectValue == nil then return end
+			if taskObjectValue == nil then continue end
 
 			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 
@@ -169,6 +203,11 @@ function MetaBoard.Init()
 					Remotes.Redo:FireClient(playerValue.Value, player)
 				end
 			end
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
@@ -176,6 +215,8 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
+			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then continue end
+
 			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
 				if playerValue.Value ~= player then
 					Remotes.Clear:FireClient(playerValue.Value)
@@ -187,6 +228,11 @@ function MetaBoard.Init()
 			subscriber.Canvas.History:ClearAllChildren()
 
 			subscriber.CurrentZIndex.Value = 0
+
+			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+				-- Mark this persistent board as changed
+				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
 		end
 	end)
 
