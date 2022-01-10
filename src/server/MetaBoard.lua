@@ -95,6 +95,8 @@ function MetaBoard.Init()
 		
 		for _, subscriber in ipairs(subscriberFamily) do
 			local taskObject = MetaBoard.TaskObjectParent(subscriber, taskType):FindFirstChild(taskObjectId)
+			if taskObject == nil then continue end
+
 			ServerDrawingTasks[taskType].Update(subscriber, taskObject, ...)
 
 			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
@@ -114,6 +116,8 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)		
 		for _, subscriber in ipairs(subscriberFamily) do
 			local taskObject = MetaBoard.TaskObjectParent(subscriber, taskType):FindFirstChild(taskObjectId)
+			if taskObject == nil then continue end
+			
 			ServerDrawingTasks[taskType].Finish(subscriber, taskObject, ...)
 
 			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do

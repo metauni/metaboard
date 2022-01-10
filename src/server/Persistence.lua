@@ -153,6 +153,7 @@ end
 local function deserialiseCurve(canvas, curveData)
     local curve = Instance.new("Folder")
     curve.Name = curveData.Name
+    -- TODO, do in general
     curve:SetAttribute("AuthorUserId", curveData.AuthorUserId)
     curve:SetAttribute("ZIndex", curveData.ZIndex)
     curve:SetAttribute("CurveType", curveData.CurveType)
