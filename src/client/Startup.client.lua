@@ -10,7 +10,7 @@ local PersonalBoardTool = require(script.Parent.PersonalBoardTool)
 CanvasState.Init(BoardGui)
 Drawing.Init(BoardGui)
 Buttons.Init(BoardGui)
-ClientDrawingTasks.Init(BoardGui.Curves)
+ClientDrawingTasks.Init(BoardGui)
 
 local localCharacter = Players.LocalPlayer.Character
 

@@ -2,12 +2,11 @@ local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
+local History = require(Common.History)
+local Remotes = Common.Remotes
 local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
-local Cache = require(Common.Cache)
 local ServerDrawingTasks
-
-local UndoCurveRemoteEvent = Common.Remotes.UndoCurve
 
 local MetaBoard = {}
 MetaBoard.__index = MetaBoard
@@ -15,9 +14,6 @@ MetaBoard.__index = MetaBoard
 function MetaBoard.Init()
 
 	ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
-
-	-- maps boards to the subscribers of that board
-	MetaBoard.SubscribersOf = {}
 
 	local boards = CollectionService:GetTagged(Config.BoardTag)
 
@@ -42,65 +38,155 @@ function MetaBoard.Init()
 		subscribeToBroadcasters(board)
 	end)
 
-	UndoCurveRemoteEvent.OnServerEvent:Connect(function(player, board, curveName)
+	Remotes.WatchingBoard.OnServerEvent:Connect(function(player, board, isWatching)
+		local playerValue = board.Watchers:FindFirstChild(player.UserId)
+		if isWatching then
+			if playerValue == nil then
+				playerValue = Instance.new("ObjectValue")
+				playerValue.Name = player.UserId
+				playerValue.Value = player
+				playerValue.Parent = board.Watchers
+			end
+		else
+			if playerValue then
+				playerValue:Destroy()
+			end
+		end
+	end)
+
+	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskType, taskObjectId, ...)
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
-			if subscriber:FindFirstChild("PersistId") then
-				-- Persistent subscriber boards should not receive undo
-				-- until they have finished loading
-				if not subscriber.HasLoaded.Value then continue end
-			end
+			local taskObject = Instance.new("Folder")
+			taskObject.Name = taskObjectId
+			taskObject.Parent = MetaBoard.TaskObjectParent(subscriber, taskType)
 
-			if subscriber.IsFull.Value then continue end
+			ServerDrawingTasks[taskType].Init(subscriber, taskObject, ...)
+
+			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
+			if playerHistory == nil then
+				playerHistory = History.Init(player)
+				playerHistory.Parent = subscriber.Canvas.History
+			end
 			
-			local curve = subscriber.Canvas.Curves:FindFirstChild(curveName)
-			if curve then
-				MetaBoard.DiscardCurve(curve)
+			History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+			History.RecordTaskToHistory(playerHistory, taskObject)
+
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					DrawingTask.InitRemoteEvent:FireClient(playerValue.Value, player, taskType, taskObjectId, ...)
+				end
 			end
 		end
 	end)
 
-	-- (player -> (board -> task))
-	MetaBoard.DrawingTasksTable = {}
-
-	DrawingTask.InitRemoteEvent.OnServerEvent:Connect(function(player, board, taskKind, ...)
-		local args = {...}
+	DrawingTask.UpdateRemoteEvent.OnServerEvent:Connect(function(player, board, taskType, taskObjectId, ...)
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
-		local persistId
-
-		MetaBoard.DrawingTasksTable[player] = {}
 		
 		for _, subscriber in ipairs(subscriberFamily) do
-			persistId = subscriber:FindFirstChild("PersistId")
-			if persistId and not subscriber.HasLoaded.Value then continue end
-			if subscriber.IsFull.Value and taskKind ~= "Clear" then continue end
+			local taskObject = MetaBoard.TaskObjectParent(subscriber, taskType):FindFirstChild(taskObjectId)
+			ServerDrawingTasks[taskType].Update(subscriber, taskObject, ...)
 
-			local drawingTask = ServerDrawingTasks.new(taskKind, player, subscriber)
-			MetaBoard.DrawingTasksTable[player][subscriber] = drawingTask
-			drawingTask.Init(drawingTask.State, ...)
-
-			if persistId and subscriber.HasLoaded.Value then
-				-- Mark this persistent board as changed
-				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					DrawingTask.UpdateRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
+				end
 			end
 		end
 	end)
 
-	DrawingTask.UpdateRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		for board, drawingTask in pairs(MetaBoard.DrawingTasksTable[player]) do
-			drawingTask.Update(drawingTask.State, ...)
-			
-			if board.HasLoaded.Value then
-				-- Mark this persistent board as changed
-				board.ChangeUid.Value = HttpService:GenerateGUID(false)
+	DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, board, taskType, taskObjectId, ...)
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)		
+		for _, subscriber in ipairs(subscriberFamily) do
+			local taskObject = MetaBoard.TaskObjectParent(subscriber, taskType):FindFirstChild(taskObjectId)
+			ServerDrawingTasks[taskType].Finish(subscriber, taskObject, ...)
+
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					DrawingTask.FinishRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
+				end
 			end
 		end
 	end)
 
-	DrawingTask.FinishRemoteEvent.OnServerEvent:Connect(function(player, ...)
-		for board, drawingTask in pairs(MetaBoard.DrawingTasksTable[player]) do
-			drawingTask.Finish(drawingTask.State, ...)
+	local historyStorage = Instance.new("Folder")
+	historyStorage.Name = "HistoryStorage"
+	historyStorage.Parent = Common
+
+	Remotes.Undo.OnServerEvent:Connect(function(player, board)
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+		for _, subscriber in ipairs(subscriberFamily) do
+
+			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
+			local taskObjectValue = playerHistory.MostRecent.Value
+
+			if taskObjectValue == nil then return end
+
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+
+			ServerDrawingTasks[taskType].Undo(subscriber, taskObjectValue.Value)
+
+			taskObjectValue.Value.Parent = historyStorage
+
+			if playerHistory.MostRecent.Value.Parent == playerHistory then
+				playerHistory.MostRecent.Value = nil
+			else
+				playerHistory.MostRecent.Value = playerHistory.MostRecent.Value.Parent
+			end
+			playerHistory.MostImminent.Value = taskObjectValue
+
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					Remotes.Undo:FireClient(playerValue.Value, player)
+				end
+			end
+		end
+	end)
+
+	Remotes.Redo.OnServerEvent:Connect(function(player, board)
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+		for _, subscriber in ipairs(subscriberFamily) do
+
+			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
+			local taskObjectValue = playerHistory.MostImminent.Value
+
+			if taskObjectValue == nil then return end
+
+			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+
+			ServerDrawingTasks[taskType].Redo(subscriber, taskObjectValue.Value)
+
+			taskObjectValue.Value.Parent = MetaBoard.TaskObjectParent(subscriber, taskType)
+
+			playerHistory.MostImminent.Value = playerHistory.MostImminent.Value:FindFirstChildOfClass("ObjectValue")
+			playerHistory.MostRecent.Value = taskObjectValue
+
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					Remotes.Redo:FireClient(playerValue.Value, player)
+				end
+			end
+		end
+	end)
+
+	Remotes.Clear.OnServerEvent:Connect(function(player, board)
+		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
+		
+		for _, subscriber in ipairs(subscriberFamily) do
+			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if playerValue.Value ~= player then
+					Remotes.Clear:FireClient(playerValue.Value)
+				end
+			end
+
+			subscriber.Canvas.Curves:ClearAllChildren()
+			subscriber.Canvas.Erases:ClearAllChildren()
+			subscriber.Canvas.History:ClearAllChildren()
+
+			subscriber.CurrentZIndex.Value = 0
 		end
 	end)
 
@@ -176,8 +262,9 @@ function MetaBoard.InitBoard(board)
 		canvas.Massless = true
 		canvas.CanCollide = false
 		canvas.CanTouch = false
+
 		local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
-		canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.CanvasThickness)
+		canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.WorldBoard.CanvasThickness)
 		canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
 		canvas.Transparency = 1
 
@@ -189,6 +276,14 @@ function MetaBoard.InitBoard(board)
 		local curves = Instance.new("Folder")
 		curves.Name = "Curves"
 		curves.Parent = canvas
+
+		local erases = Instance.new("Folder")
+		erases.Name = "Erases"
+		erases.Parent = canvas
+
+		local history = Instance.new("Folder")
+		history.Name = "History"
+		history.Parent = canvas
 
 		if clickable.Value then
 			local surfaceGui = Instance.new("SurfaceGui")
@@ -226,6 +321,14 @@ function MetaBoard.InitBoard(board)
 		subscribers = Instance.new("Folder")
 		subscribers.Name = "Subscribers"
 		subscribers.Parent = board
+	end
+
+	local watchers = board:FindFirstChild("Watchers")
+
+	if watchers == nil then
+		watchers = Instance.new("Folder")
+		watchers.Name = "Watchers"
+		watchers.Parent = board
 	end
 	
 	local changeUid = board:FindFirstChild("ChangeUid")
@@ -285,7 +388,7 @@ function MetaBoard.GatherSubscriberFamily(board)
 	return subscriberFamily
 end
 
-function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex)
+function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, zIndex)
 
 	local function lerp(a, b, c)
 		return a + (b - a) * c
@@ -295,127 +398,129 @@ function MetaBoard.UpdateWorldLine(worldLineType, line, canvas, lineInfo, zIndex
 	local yStuds = canvas.Size.Y
 
 	if worldLineType == "Parts" then
-		line.Size =
+		worldLine.Size =
 			Vector3.new(
 				(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
 				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
+				Config.WorldBoard.ZThicknessStuds)
 
-		line.Color = lineInfo.Color
+		worldLine.Color = lineInfo.Color
 
-		line.CFrame =
+		worldLine.CFrame =
 			canvas.CFrame *
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 	end
 
 	if worldLineType == "RoundedParts" then
-		line.Color = lineInfo.Color
-
-		if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
-			line.Size =
+		worldLine.Color = lineInfo.Color
+		
+		if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.RoundThresholdStuds then
+			worldLine.Size =
 				Vector3.new(
 					lineInfo.Length * yStuds,
 					lineInfo.ThicknessYScale * yStuds,
-					Config.WorldLine.ZThicknessStuds)
+					Config.WorldBoard.ZThicknessStuds)
 		else
-			line.Size =
+			worldLine.Size =
 				Vector3.new(
 					(lineInfo.Length + lineInfo.ThicknessYScale) * yStuds,
 					lineInfo.ThicknessYScale * yStuds,
-					Config.WorldLine.ZThicknessStuds)
+					Config.WorldBoard.ZThicknessStuds)
 		end
 
-		line.CFrame =
+		worldLine.CFrame =
 			canvas.CFrame *
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
+				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 
-		if lineInfo.ThicknessYScale * yStuds >= Config.WorldLine.RoundThresholdStuds then
-			line.StartCylinder.Color = lineInfo.Color
+    if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.RoundThresholdStuds then
+      worldLine.StartCylinder.Color = lineInfo.Color
 
-			line.StartCylinder.Size =
-				Vector3.new(
-					Config.WorldLine.ZThicknessStuds,
-					lineInfo.ThicknessYScale * yStuds,
-					lineInfo.ThicknessYScale * yStuds)
+      worldLine.StartCylinder.Size =
+        Vector3.new(
+          Config.WorldBoard.ZThicknessStuds,
+          lineInfo.ThicknessYScale * yStuds,
+          lineInfo.ThicknessYScale * yStuds)
 
-			line.StartCylinder.CFrame =
-				canvas.CFrame *
-				CFrame.new(
-					lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
-					lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
-					canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
-				CFrame.Angles(0,math.pi/2,0)
+      worldLine.StartCylinder.CFrame =
+        canvas.CFrame *
+        CFrame.new(
+          lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
+          lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
+          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          CFrame.Angles(0,math.pi/2,0)
 
-			line.StopCylinder.Color = lineInfo.Color
+      worldLine.StopCylinder.Color = lineInfo.Color
 
-			line.StopCylinder.Size =
-				Vector3.new(
-					Config.WorldLine.ZThicknessStuds,
-					lineInfo.ThicknessYScale * yStuds,
-					lineInfo.ThicknessYScale * yStuds)
+      worldLine.StopCylinder.Size =
+        Vector3.new(
+          Config.WorldBoard.ZThicknessStuds,
+          lineInfo.ThicknessYScale * yStuds,
+          lineInfo.ThicknessYScale * yStuds)
 
-			line.StopCylinder.CFrame =
-				canvas.CFrame *
-				CFrame.new(
-					lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
-					lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
-					canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldLine.ZThicknessStuds / 2 - zIndex * Config.WorldLine.StudsPerZIndex) *
-				CFrame.Angles(0,math.pi/2,0)
+      worldLine.StopCylinder.CFrame =
+        canvas.CFrame *
+        CFrame.new(
+          lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
+          lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
+          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          CFrame.Angles(0,math.pi/2,0)
 		end
 	end
 
 	if worldLineType == "HandleAdornments" then
-		line.Size =
+		worldLine.Size =
 			Vector3.new(
 				lineInfo.Length * yStuds,
 				lineInfo.ThicknessYScale * yStuds,
-				Config.WorldLine.ZThicknessStuds)
+				Config.WorldBoard.ZThicknessStuds)
 
-		line.Color3 = lineInfo.Color
-		line.SizeRelativeOffset =
+		worldLine.Color3 = lineInfo.Color
+		worldLine.SizeRelativeOffset =
 			Vector3.new(
 				lerp(1,-1,lineInfo.Centre.X/aspectRatio),
 				lerp(1,-1,lineInfo.Centre.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		
-		line.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
+		worldLine.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
 
-		local startHandle = line.StartHandle
-		local stopHandle = line.StopHandle
+		local startHandle = worldLine.StartHandle
+		local stopHandle = worldLine.StopHandle
 
 		startHandle.SizeRelativeOffset =
 			Vector3.new(
 				lerp(1,-1,lineInfo.Start.X/aspectRatio),
 				lerp(1,-1,lineInfo.Start.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		startHandle.Height = Config.WorldLine.ZThicknessStuds
+		startHandle.Height = Config.WorldBoard.ZThicknessStuds
 		startHandle.Color3 = lineInfo.Color
 
 		stopHandle.SizeRelativeOffset =
 			Vector3.new(
 				lerp(1,-1,lineInfo.Stop.X/aspectRatio),
 				lerp(1,-1,lineInfo.Stop.Y),
-				1 - (Config.WorldLine.ZThicknessStuds / canvas.Size.Z) - Config.WorldLine.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
 		stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
-		stopHandle.Height = Config.WorldLine.ZThicknessStuds
+		stopHandle.Height = Config.WorldBoard.ZThicknessStuds
 		stopHandle.Color3 = lineInfo.Color
 	end
 
-	return line
+	LineInfo.StoreInfo(worldLine, lineInfo)
+
+	return worldLine
 end
 
 function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 	local function newSmoothNonPhysicalPart()
-		local part = Cache.Get("Part")
+		local part = Instance.new("Part")
 		part.Material = Enum.Material.SmoothPlastic
 		part.TopSurface = Enum.SurfaceType.Smooth
 		part.BottomSurface = Enum.SurfaceType.Smooth
@@ -440,7 +545,7 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 		local line = newSmoothNonPhysicalPart()
 		line.Name = "Line"
 
-		if lineInfo.ThicknessYScale * canvas.Size.Y >= Config.WorldLine.RoundThresholdStuds then
+		if lineInfo.ThicknessYScale * canvas.Size.Y >= Config.WorldBoard.StudsPerZIndex then
 			local startCylinder = newSmoothNonPhysicalPart()
 			startCylinder.Shape = Enum.PartType.Cylinder
 			startCylinder.Name = "StartCylinder"
@@ -458,12 +563,12 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 	end
 
 	if worldLineType == "HandleAdornments" then
-		local boxHandle = Cache.Get("BoxHandleAdornment")
+		local boxHandle = Instance.new("BoxHandleAdornment")
 
-		local startHandle = Cache.Get("CylinderHandleAdornment")
+		local startHandle = Instance.new("CylinderHandleAdornment")
 		startHandle.Name = "StartHandle"
 		
-		local stopHandle = Cache.Get("CylinderHandleAdornment")
+		local stopHandle = Instance.new("CylinderHandleAdornment")
 		stopHandle.Name = "StopHandle"
 
 		startHandle.Parent = boxHandle
@@ -481,19 +586,59 @@ function MetaBoard.CreateWorldLine(worldLineType, canvas, lineInfo, zIndex)
 	error(worldLineType.." world line type not implemented")
 end
 
-function MetaBoard.DiscardLine(lineHandle)
-	for _, cylinderHandleAdornment in ipairs(lineHandle:GetChildren()) do
-		Cache.Release(cylinderHandleAdornment)
+function MetaBoard.HideWorldLine(worldLineType, worldLine)
+
+	if worldLineType == "Parts" then
+		worldLine.Transparency = 1
+	elseif worldLineType == "RoundedParts" then
+		worldLine.Transparency = 1
+		if worldLine.StartCylinder then
+			worldLine.StartCylinder.Transparency = 1
+		end
+		if worldLine.StopCylinder then
+			worldLine.StopCylinder.Transparency = 1
+		end
+	elseif worldLineType == "HandleAdornments" then
+		worldLine.Visible = false
+		worldLine.StartHandle.Visible = false
+		worldLine.StartHandle.Visible = false
+	else
+		error(worldLineType.." world line type not implemented")
 	end
 
-	Cache.Release(lineHandle)
+	worldLine:SetAttribute("Hidden", true)
 end
 
-function MetaBoard.DiscardCurve(curve)
-	for _, lineHandle in ipairs(curve:GetChildren()) do
-		MetaBoard.DiscardLine(lineHandle)
+function MetaBoard.ShowWorldLine(worldLineType, worldLine)
+
+	if worldLineType == "Parts" then
+		worldLine.Transparency = 0
+	elseif worldLineType == "RoundedParts" then
+		worldLine.Transparency = 0
+		if worldLine.StartCylinder then
+			worldLine.StartCylinder.Transparency = 0
+		end
+		if worldLine.StopCylinder then
+			worldLine.StopCylinder.Transparency = 0
+		end
+	elseif worldLineType == "HandleAdornments" then
+		worldLine.Visible = true
+		worldLine.StartHandle.Visible = true
+		worldLine.StartHandle.Visible = true
+	else
+		error(worldLineType.." world line type not implemented")
 	end
-	Cache.Release(curve)
+
+	worldLine:SetAttribute("Hidden", nil)
+end
+
+
+function MetaBoard.TaskObjectParent(board, taskType)
+	if taskType == "Erase" then
+		return board.Canvas.Erases
+	else
+		return board.Canvas.Curves
+	end
 end
 
 return MetaBoard

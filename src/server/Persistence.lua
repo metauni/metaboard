@@ -136,8 +136,7 @@ local function deserialiseLine(canvas, lineData, zIndex)
 
     local lineInfo = LineInfo.new(start, stop, thicknessYScale, color)
     
-    local worldLine = MetaBoard.CreateWorldLine(Config.WorldLineType, canvas, lineInfo, zIndex)
-    LineInfo.StoreInfo(worldLine, lineInfo)
+    local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, canvas, lineInfo, zIndex)
 
     return worldLine
 end

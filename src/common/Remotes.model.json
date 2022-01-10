@@ -6,7 +6,15 @@
 			"ClassName": "RemoteEvent"
 		},
 		{
-			"Name": "UndoCurve",
+			"Name": "Undo",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Redo",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "Clear",
 			"ClassName": "RemoteEvent"
 		},
 		{
@@ -19,6 +27,10 @@
 		},
 		{
 			"Name": "DrawingTaskFinish",
+			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "WatchingBoard",
 			"ClassName": "RemoteEvent"
 		}
 	]

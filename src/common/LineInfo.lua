@@ -41,4 +41,27 @@ function LineInfo.ClearInfo(object)
 	object:SetAttribute("Color", nil)
 end
 
+-- True iff the circle centred at <pos> with radius <radius> intersects
+-- the line with LineInfo <lineInfo>
+function LineInfo.Intersects(pos, radius, lineInfo)
+	-- Vector from the start of the line to pos
+	local u = pos - lineInfo.Start
+	-- Vector from the start of the line to the end of the line
+	local v = lineInfo.Stop - lineInfo.Start
+	
+	-- the magnitude (with sign) of the projection of u onto v
+	local m = u:Dot(v.Unit)
+
+	if m <= 0 or lineInfo.Start == lineInfo.Stop then
+		-- The closest point on the line to pos is lineInfo.Start
+		return u.Magnitude <= radius + lineInfo.ThicknessYScale/2
+	elseif m >= v.Magnitude then
+		-- The closest point on the line to pos is lineInfo.Stop
+		return (pos - lineInfo.Stop).Magnitude <= radius + lineInfo.ThicknessYScale/2
+	else
+		-- The vector from pos to it's closest point on the line makes a perpendicular with the line
+		return math.abs(u:Cross(v.Unit)) <= radius + lineInfo.ThicknessYScale/2
+	end
+end
+
 return LineInfo
