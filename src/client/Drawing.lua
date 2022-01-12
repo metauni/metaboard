@@ -76,7 +76,7 @@ function Drawing.Init(boardGui)
 
 	Drawing.InitCursor(Drawing.CursorGui)
 
-	Canvas.MouseButton1Down:Connect(function(x,y)
+	Canvas.Button.MouseButton1Down:Connect(function(x,y)
 		if not CanvasState.HasWritePermission then return end
 
 		-- If the board is persistent and full, no new drawing tasks can be
@@ -92,21 +92,21 @@ function Drawing.Init(boardGui)
 		Drawing.ToolDown(x,y)
 	end)
 
-	Canvas.MouseMoved:Connect(function(x,y)
+	Canvas.Button.MouseMoved:Connect(function(x,y)
 		if not CanvasState.HasWritePermission then return end
 
 		Drawing.UpdateCursor(x,y)
 		Drawing.ToolMoved(x,y)
 	end)
 
-	Canvas.MouseEnter:Connect(function(x,y)
+	Canvas.Button.MouseEnter:Connect(function(x,y)
 		if not CanvasState.HasWritePermission then return end
 
 		Drawing.UpdateCursor(x,y)
 		Drawing.Cursor.Visible = true
 	end)
 	
-	Canvas.MouseLeave:Connect(function(x,y)
+	Canvas.Button.MouseLeave:Connect(function(x,y)
 		if not CanvasState.HasWritePermission then return end
 
 		if Drawing.MouseHeld then

@@ -40,6 +40,12 @@ function CanvasState.Init(boardGui)
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
 
+	local canvasCamera = Instance.new("Camera")
+	canvasCamera.Name = "Camera"
+	canvasCamera.Parent = Canvas
+	canvasCamera.FieldOfView = 70
+	Canvas.CurrentCamera = canvasCamera
+
 	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 		local clickable = board:WaitForChild("Clickable")
 		if clickable.Value == true then
@@ -197,7 +203,27 @@ function CanvasState.OpenBoard(board)
 	Drawing.OnBoardOpen(board)
 
 	Canvas.UIAspectRatioConstraint.AspectRatio = board.Canvas.Size.X / board.Canvas.Size.Y
-	Canvas.BackgroundColor3 = board.Color
+	
+	-- Turning off board.Canvas.Archivable allows us to clone the board without
+	-- cloning the canvas or anything parented to the canvas (like the curves)
+	board.Canvas.Archivable = false
+	local boardClone = board:Clone()
+	board.Canvas.Archivable = true
+
+	boardClone.Name = "BoardClone"
+	CollectionService:RemoveTag(boardClone, Config.BoardTag)
+	Canvas.Camera.CFrame =
+		-- start at the centre of the invisible canvas (looking away from the board)
+		board.Canvas.CFrame
+		-- move the camera towards board by half the thickness of the invisible canvas (to get to actual board surface)
+		-- then move it away so that the board fits perfectly within the FOV.
+		-- The horizontal FOV is aligned perfectly by the aspect ratio of BoardGui.Canvas
+		-- Equation: tan(verticalFOVAngle/2) = boardHeight/2 / camDistance
+		-- Reference: https://developer.roblox.com/en-us/api-reference/property/Camera/FieldOfView
+		* CFrame.new(0,0, board.Canvas.Size.Z/2 - board.Canvas.Size.Y/2 / math.tan(math.rad(Canvas.Camera.FieldOfView/2)))
+		-- Turn the camera around to look at the board
+		* CFrame.Angles(0,math.pi, 0)
+	boardClone.Parent = Canvas
 
 	local persistId = board:FindFirstChild("PersistId")
 	BoardGui.PersistStatus.Visible = (persistId ~= nil)
@@ -325,6 +351,8 @@ function CanvasState.CloseBoard(board)
 	
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
+
+	Canvas.BoardClone:Destroy()
 
 	Drawing.OnBoardClose(board)
 

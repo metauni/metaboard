@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.4.4",
+	Version = "v0.6.0",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
@@ -57,9 +57,10 @@ Config.WorldBoard = {
 	-- "HandleAdornments" or "Parts" or "RoundedParts"
 	LineType = "Parts",
 	-- The line z-thickness (in studs) on the axis normal to the board
-	ZThicknessStuds = 0.01,
+	ZThicknessStuds = 0.02,
 	-- How far above the previous curve to draw the next one, in studs
 	StudsPerZIndex = 0.001,
+	InitialZOffsetStuds = 0.1,
 	-- When using Type="RoundedParts", lines which are thicker than this in
 	-- studs (not z-thickness) will have circles (cylinder parts) at each end
 	-- of the line

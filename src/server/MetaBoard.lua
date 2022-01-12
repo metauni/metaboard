@@ -285,15 +285,6 @@ function MetaBoard.InitBoard(board)
 		
 		face.Parent = board
 	end
-	
-	local canvasColor = board:FindFirstChild("CanvasColor")
-	if canvasColor == nil then
-		canvasColor = Instance.new("Color3Value")
-		canvasColor.Name = "CanvasColor"
-		canvasColor.Value = board.Color or Color3.new(1,1,1)
-
-		canvasColor.Parent = board
-	end
 
 	local clickable = board:FindFirstChild("Clickable")
 	if clickable == nil then
@@ -313,13 +304,21 @@ function MetaBoard.InitBoard(board)
 		canvas.CanCollide = false
 		canvas.CanTouch = false
 
-		local dimensions = MetaBoard.GetSurfaceDimensions(board, face.Value)
+		local surfacePart
+		if board:IsA("Model") then
+			assert(board.PrimaryPart, "Metaboard model must have PrimaryPart")
+			surfacePart = board.PrimaryPart
+		else
+			surfacePart = board
+		end
+
+		local dimensions = MetaBoard.GetSurfaceDimensions(surfacePart, face.Value)
 		canvas.Size = Vector3.new(dimensions.X, dimensions.Y, Config.WorldBoard.CanvasThickness)
-		canvas.CFrame = MetaBoard.GetSurfaceCFrame(board, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
+		canvas.CFrame = MetaBoard.GetSurfaceCFrame(surfacePart, face.Value) * CFrame.new(0,0,-canvas.Size.Z/2)
 		canvas.Transparency = 1
 
 		local weldConstraint = Instance.new("WeldConstraint")
-		weldConstraint.Part0 = board
+		weldConstraint.Part0 = surfacePart
 		weldConstraint.Part1 = canvas
 		weldConstraint.Parent = board
 
@@ -461,7 +460,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+				canvas.Size.Z/2 - Config.WorldBoard.ZThicknessStuds / 2 - Config.WorldBoard.InitialZOffsetStuds - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 	end
 
@@ -487,7 +486,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			CFrame.new(
 				lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Centre.X/aspectRatio), 
 				lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Centre.Y),
-				canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+				canvas.Size.Z/2 - Config.WorldBoard.ZThicknessStuds / 2 - Config.WorldBoard.InitialZOffsetStuds - zIndex * Config.WorldBoard.StudsPerZIndex) *
 			CFrame.Angles(0,0,lineInfo.RotationRadians)
 
     if lineInfo.ThicknessYScale * yStuds >= Config.WorldBoard.RoundThresholdStuds then
@@ -504,7 +503,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
         CFrame.new(
           lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Start.X/aspectRatio), 
           lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Start.Y),
-          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          canvas.Size.Z/2 - Config.WorldBoard.ZThicknessStuds / 2 - Config.WorldBoard.InitialZOffsetStuds - zIndex * Config.WorldBoard.StudsPerZIndex) *
           CFrame.Angles(0,math.pi/2,0)
 
       worldLine.StopCylinder.Color = lineInfo.Color
@@ -520,7 +519,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
         CFrame.new(
           lerp(canvas.Size.X/2,-canvas.Size.X/2,lineInfo.Stop.X/aspectRatio), 
           lerp(canvas.Size.Y/2,-canvas.Size.Y/2,lineInfo.Stop.Y),
-          canvas.Size.Z/2 - lineInfo.ThicknessYScale * Config.WorldBoard.ZThicknessStuds / 2 - zIndex * Config.WorldBoard.StudsPerZIndex) *
+          canvas.Size.Z/2 - Config.WorldBoard.ZThicknessStuds / 2 - Config.WorldBoard.InitialZOffsetStuds - zIndex * Config.WorldBoard.StudsPerZIndex) *
           CFrame.Angles(0,math.pi/2,0)
 		end
 	end
@@ -537,7 +536,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				lerp(1,-1,lineInfo.Centre.X/aspectRatio),
 				lerp(1,-1,lineInfo.Centre.Y),
-				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.InitialZOffsetStuds - Config.WorldBoard.StudsPerZIndex * zIndex)
 		
 		worldLine.CFrame = CFrame.Angles(0,0,lineInfo.RotationRadians)
 
@@ -548,7 +547,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				lerp(1,-1,lineInfo.Start.X/aspectRatio),
 				lerp(1,-1,lineInfo.Start.Y),
-				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.InitialZOffsetStuds - Config.WorldBoard.StudsPerZIndex * zIndex)
 		startHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
 		startHandle.Height = Config.WorldBoard.ZThicknessStuds
 		startHandle.Color3 = lineInfo.Color
@@ -557,7 +556,7 @@ function MetaBoard.UpdateWorldLine(worldLineType, worldLine, canvas, lineInfo, z
 			Vector3.new(
 				lerp(1,-1,lineInfo.Stop.X/aspectRatio),
 				lerp(1,-1,lineInfo.Stop.Y),
-				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.StudsPerZIndex * zIndex)
+				1 - (Config.WorldBoard.ZThicknessStuds / canvas.Size.Z) - Config.WorldBoard.InitialZOffsetStuds - Config.WorldBoard.StudsPerZIndex * zIndex)
 		stopHandle.Radius = lineInfo.ThicknessYScale / 2 * yStuds
 		stopHandle.Height = Config.WorldBoard.ZThicknessStuds
 		stopHandle.Color3 = lineInfo.Color
