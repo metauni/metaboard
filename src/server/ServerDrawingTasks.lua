@@ -23,10 +23,11 @@ function ServerDrawingTasks.FreeHand.Init(board, curve, authorUserId, thicknessY
 	curve:SetAttribute("ZIndex", zIndex)
 
 	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", 1)
 
 	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
 	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, zIndex)
-	worldLine.Name = "1"
+	worldLine.Name = "0"
 	worldLine.Parent = curve
 	
 	board.CurrentZIndex.Value += 1
@@ -40,22 +41,28 @@ function ServerDrawingTasks.FreeHand.Update(board, curve, pos)
 			curve:GetAttribute("ThicknessYScale"),
 			curve:GetAttribute("Color"))
 	
-	curve:SetAttribute("CurveStop", pos)
-	
-	local numLines = #curve:GetChildren()
+	local numPoints = curve:GetAttribute("NumPoints")
 
-	if numLines == 1 then
-		local onlyLine = curve:FindFirstChild("1")
-		if onlyLine:GetAttribute("Start") == pos then
-			MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, onlyLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
-			-- TODO show line
-			return
-		end
+	if numPoints == 1 then
+		-- The zero line is the dot that is created when the user first puts the
+		-- tool down. It's a zero length line and makes non-rounded lines look gross,
+		-- because they have an unrotated square at the start of the line
+		local zeroLine = curve:FindFirstChild("0")
+		-- We update it to be the new line, instead of a making a new line
+		MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, zeroLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+		zeroLine.Name = "1"
+
+		-- Show it in case someone already erased the zero line
+		MetaBoard.ShowWorldLine(Config.WorldBoard.LineType, zeroLine)
+	else
+		-- Draw the next line
+		local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+		worldLine.Parent = curve
+		worldLine.Name = tostring(numPoints)
 	end
-	
-	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
-	worldLine.Parent = curve
-	worldLine.Name = tostring(numLines + 1)
+
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", numPoints + 1)
 end
 
 function ServerDrawingTasks.FreeHand.Finish(board, curve) end

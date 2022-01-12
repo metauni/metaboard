@@ -30,10 +30,11 @@ function ClientDrawingTasks.FreeHand.Init(curve, authorUserId, thicknessYScale, 
 	CanvasState.SetZIndex(curve, zIndex)
 
 	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", 1)
 
 	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
 	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-	lineFrame.Name = "1"
+	lineFrame.Name = "0"
 
 	CanvasState.AttachLine(lineFrame, curve)
 
@@ -41,31 +42,34 @@ end
 
 function ClientDrawingTasks.FreeHand.Update(curve, pos)
 
-	local lines = CanvasState.GetLinesContainer(curve)
-
 	local lineInfo =
 		LineInfo.new(
 			curve:GetAttribute("CurveStop"),
 			pos,
 			curve:GetAttribute("ThicknessYScale"),
 			curve:GetAttribute("Color"))
-	
-	curve:SetAttribute("CurveStop", pos)
-	
-	local numLines = #lines:GetChildren()
 
-	if numLines == 1 then
-		local onlyLine = lines:FindFirstChild("1")
-		if onlyLine:GetAttribute("Start") == pos then
-			CanvasState.UpdateLineFrame(onlyLine, lineInfo)
-			onlyLine.Visible = true
-			return
-		end
+	local numPoints = curve:GetAttribute("NumPoints")
+
+	if numPoints == 1 then
+		-- The zero line is the dot that is created when the user first puts the
+		-- tool down. It's a zero length line and makes non-rounded lines look gross,
+		-- because they have an unrotated square at the start of the line
+		local zeroLine = CanvasState.GetLinesContainer(curve):FindFirstChild("0")
+		-- We update it to be the new line, instead of a making a new line
+		CanvasState.UpdateLineFrame(zeroLine, lineInfo)
+		zeroLine.Name = "1"
+		-- Show it in case someone already erased the zero line
+		zeroLine.Visible = true
+	else
+		-- Draw the next line
+		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+		lineFrame.Name = tostring(numPoints)
+		CanvasState.AttachLine(lineFrame, curve)
 	end
 
-	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-	lineFrame.Name = tostring(numLines + 1)
-	CanvasState.AttachLine(lineFrame, curve)
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", numPoints + 1)
 end
 
 function ClientDrawingTasks.FreeHand.Finish(curve) end
