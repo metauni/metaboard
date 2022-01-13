@@ -44,6 +44,9 @@ end
 -- True iff the circle centred at <pos> with radius <radius> intersects
 -- the line with LineInfo <lineInfo>
 function LineInfo.Intersects(pos, radius, lineInfo)
+	-- See diagram here:
+	-- https://cdn.discordapp.com/attachments/916413265733636166/931115440409829376/image.png
+
 	-- Vector from the start of the line to pos
 	local u = pos - lineInfo.Start
 	-- Vector from the start of the line to the end of the line
