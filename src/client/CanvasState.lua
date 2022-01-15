@@ -196,18 +196,6 @@ function CanvasState.OpenBoard(board)
 
 	Remotes.WatchingBoard:FireServer(board, true)
 
-	-- Make the player's camera look from above
-	local camera = workspace.CurrentCamera
-	if camera.CameraType ~= Enum.CameraType.Scriptable then
-		camera.CameraType = Enum.CameraType.Scriptable
-	end
-	local boardPos = board:GetPivot().Position
-	local character = LocalPlayer.Character
-	if character and character.Head then
-		storedCameraOffset = camera.CFrame.Position - character.Head.Position
-	end
-	camera.CFrame = CFrame.lookAt(boardPos + Vector3.new(0,Config.Gui.CameraHeight,0), boardPos)
-
 	game.StarterGui:SetCore("TopbarEnabled", false)
 
 	Drawing.OnBoardOpen(board)
@@ -269,6 +257,18 @@ function CanvasState.OpenBoard(board)
 
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
+
+	-- Make the player's camera look from above
+	local camera = workspace.CurrentCamera
+	if camera.CameraType ~= Enum.CameraType.Scriptable then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
+	local boardPos = board:GetPivot().Position
+	local character = LocalPlayer.Character
+	if character and character.Head then
+		storedCameraOffset = camera.CFrame.Position - character.Head.Position
+	end
+	camera.CFrame = CFrame.lookAt(boardPos + Vector3.new(0,Config.Gui.CameraHeight,0), boardPos)
 
 	-- Replicate all of the curves currently on the board
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
