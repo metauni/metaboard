@@ -15,7 +15,7 @@ local Canvas
 local Curves
 local Buttons
 local Drawing
-
+local storedCameraOffset = nil
 
 local CanvasState = {
 	-- the board that is currently displayed on the canvas
@@ -189,8 +189,6 @@ function CanvasState.ConnectDrawingTaskEvents()
 end
 
 function CanvasState.OpenBoard(board)
-	-- If this is a persistent board and it hasn't finished loading from the
-	-- DataStore, don't allow it to be opened
 	if board:FindFirstChild("PersistId") and not board.HasLoaded.Value then return end
 	if VRService.VREnabled then return end
 
@@ -259,6 +257,18 @@ function CanvasState.OpenBoard(board)
 
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
+
+	-- Make the player's camera look from above
+	local camera = workspace.CurrentCamera
+	if camera.CameraType ~= Enum.CameraType.Scriptable then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
+	local boardPos = board:GetPivot().Position
+	local character = LocalPlayer.Character
+	if character and character.Head then
+		storedCameraOffset = camera.CFrame.Position - character.Head.Position
+	end
+	camera.CFrame = CFrame.lookAt(boardPos + Vector3.new(0,Config.Gui.CameraHeight,0), boardPos)
 
 	-- Replicate all of the curves currently on the board
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
@@ -347,8 +357,27 @@ function CanvasState.OpenBoard(board)
 	Buttons.OnBoardOpen(board, BoardGui.History:FindFirstChild(LocalPlayer.UserId))
 end
 
+local function resetCameraSubject()
+	local camera = workspace.CurrentCamera
+	if not camera then return end
+	if not LocalPlayer.Character then return end
+
+	local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		workspace.CurrentCamera.CameraSubject = humanoid
+	end
+
+	local character = LocalPlayer.Character
+	if storedCameraOffset and character.Head then
+		camera.CFrame = CFrame.lookAt(character.Head.Position + storedCameraOffset, character.Head.Position)
+	end
+end
+
 function CanvasState.CloseBoard(board)
-	
+	local camera = workspace.CurrentCamera
+	camera.CameraType = Enum.CameraType.Custom
+	resetCameraSubject()
+
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
 

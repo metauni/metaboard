@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.6.0",
+	Version = "v0.6.1",
 	BoardTag = "metaboard",
 	DataStoreTag = "metaboardv2.",
 
@@ -51,6 +51,8 @@ Config.Gui = {
 	UICornerThreshold = 4,
 	-- Transparency of shadow behind selected button
 	HighlightTransparency = 0.75,
+	-- Distance to put camera while board is open
+	CameraHeight = 120,
 }
 
 Config.WorldBoard = {
