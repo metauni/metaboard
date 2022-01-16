@@ -4,57 +4,46 @@ Interactive drawing boards in Roblox.
 
 ## Installation
 
-Get the latest [release files](https://github.com/metauni/metaboard/releases)
-and drag `metaboard.rbxmx` into `ServerScriptService`. This contains
-the ServerScripts, LocalScripts and Guis for handling all metaboard interaction,
-and are automatically distributed when you start your Roblox game.
+### From Roblox
+Grab the [metaboard package]() (COMING SOON) from Roblox, go to Roblox Studio and
+drag it into `ServerScriptService`. This contains the ServerScripts,
+LocalScripts and Guis for handling all metaboard interaction, and are automatically
+distributed when you start your Roblox game. This package will update automatically
+to the latest release of metaboard.
 
-Then you can create as many boards as you like, either by copying `Whiteboard.rbxmx`,
-`BrickWallBoard.rbxmx` into `Workspace`, or creating your own by following the
-[board structure](##-board-structure).
+### From Github Releases
 
-### Sync via Rojo
+Download the [latest release](https://github.com/metauni/metaboard/releases/latest)
+and drag the `metaboard.rbxmx` file into `ServerScriptService`. You will need
+to manually update this file if you want the newest release.
 
-Download the latest release of [foreman](https://github.com/Roblox/foreman).
-Move it somewhere within your `$PATH` (e.g. `/usr/local/bin`), and make it executable (`chmod +x /path/to/foreman`).
+## Adding boards to your game
 
-Then in the directory of this repository,
-run
-```bash
-foreman install
-```
-You may get an error if you are running Mac OS X, in which case check Security & Privacy under System Preferences and click `Allow Anyway` for foreman. This should install Rojo, but perhaps not in your `$PATH`. It's up to you to fix that, but for example on Mac OS X it might be in `~/.foreman/bin`.
+[metauni](https://www.roblox.com/groups/13108882/metauni#!/about) maintains a few example boards you can use.
+The easiest method to add these in Roblox Studio is to go to `Toolbox > Marketplace` and search "metaboard".
 
-To build and sync the demo world:
-```bash
-rojo build --output "demo.rbxlx" demo.project.json
-rojo plugin install
-rojo serve demo.project.json
-```
-Then open `demo.rbxlx` in Roblox Studio and click `Connect` in the Rojo window.
-Now you can edit any of the files in `src` with your favourite editor and your
-changes will be synced into Roblox Studio.
+- [WhiteBoard](https://www.roblox.com/library/8543134618/metaboard-WhiteBoard)
+- [BlackBoard](https://www.roblox.com/library/8542483968/metaboard-BlackBoard)
+- [TechBoard](https://www.roblox.com/library/8543176248/metaboard-TechBoard)
+	- This is really two boards, both the `FrontBoard` and `BackBoard` are tagged as metaboards.
 
-To sync just the backend code (scripts + gui) run `rojo serve`.
-This uses the `default.project.json` file, and can be synced into any
-place file without making any `Workspace` changes.
-
-For more help, check out [the Rojo documentation](https://rojo.space/docs).
+Don't be afraid to resize and stretch these boards as you please!
 
 ## Board Structure
 
-You can make pretty much any flat surface into a drawing board.
-To turn a Part into a board, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
+A metaboard can be either a `BasePart` or a `Model` with a `PrimaryPart`.
+To turn a `BasePart`/`Model` into a metaboard, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
 plugin to give it the tag `"metaboard"`. Then add any of the following optional
 values as children.
 
 | Object      | Name        | Value | Description |
 | ----------- | ----------- | ----------- | ----- |
-| ColorValue  | Color       | `Color3`| The colour of the canvas Gui when a player clicks on this board |
-| StringValue | Face        | `String` (one of "Front", "Back", "Left", "Right", "Top", "Bottom") | The surface of the part that should be used as the board |
+| StringValue | Face        | `String` (one of "Front" (default), "Back", "Left", "Right", "Top", "Bottom") | The surface of the part that should be used as the board |
 | BoolValue   | Clickable   | `Bool` | Set to false to prevent opening this board in the gui |
 
-For more customised positioning of the board, make an invisible part for the board and size/position on your model however you like.
+If the metaboard is a `Model`, the `PrimaryPart` should be set to the part which defines the drawing surface of the model (make sure the right `Face : StringValue` is configured).
+
+For more customised positioning of the board, make an invisible part for the board and size/position it on your model however you like (you should tag the parent model as the metaboard, not the invisible part, and remember to set the invisible part as the `PrimaryPart`).
 
 ## Subscriber Boards
 
@@ -66,6 +55,9 @@ There are two ways of setting up this link
 	You can make any number of these to subscribe to multiple boards (they must all be called "SubscribedTo").
 
 When you start your world, any links made with the second method will be converted according to use the first method.
+
+### WARNING
+> Subscriber boards can have undefined behaviour, and can introduce performance strains if used liberally.
 
 ## Persistent Boards
 
@@ -84,76 +76,3 @@ Since persistent boards use the Roblox DataStore API there are several limitatio
 * Changed persistent boards are autosaved by default every `30sec`.
 
 * On server shutdown there is a `30sec` hard limit, within which all boards which have changed after the last autosave must be saved if we are to avoid dataloss. Given that `SetAsync` has a rate limit of `60 + numPlayers * 10` calls per minute, and assuming we can spend at most `20sec` on boards, that means we can support at most `20 + numPlayers * 3` changed boards since the last autosave if we are to avoid dataloss, purely due to rate limits. A full board costs about `1.2sec` to save under adversarial conditions (i.e. many other full boards). So to be safe we can afford at most `16` changed boards per autosave period.
-
-## TODO
-- [x] Fix line intersection algorithm (tends to not recognise intersection with long lines)
-	- Check for numerical errors (or just bad logic)
-	- Make a test Gui that highlights a line when it is intersected?
-	- Check intersection with Frame properties instead of lineInfo?
-	- Separation Axis Theorem? Maybe not the best, our lines are not polygons.
-
-- [ ] Make erasing work between mouse movements (intersection of eraser path and line)
-
-- [ ] Other shape tools
-	- Guis
-		- Make everything out of lines? (circles can be squares with UICorners)
-		- Or use images
-
-- [ ] Undo and erase tool
-
-- [ ] VR support
-
-- [ ] Select lines and move them tool.
-	- What happens while being moved. Can those lines be erased by other players?
-
-- [ ] Line smoothing
-	- Apply CatRom smoothing just to long lines above some threshold
-
-- [ ] Google docs style indicators in GUI to show which player is currently drawing
-
-- [ ] Board textures/images for gui.
-
-## Module descriptions
-
-### Client module scripts (StarterPlayerScripts)
-- `CanvasState`
-	- Maintains the lines drawn on the canvas while the Gui is open
-	- Listens to the currently opened boards Curves folder (the in-world curves)
-		to add and remove lines when other players modify the board
-	- `Drawing` and `ClientDrawingTasks` access `CanvasState`'s function to update
-		the lines that are on the board gui
-- `Drawing`
-	- Tracks the currently equipped tool, pen mode, current drawing task and curve index of the local player
-	- Responds to mouse movement and triggers `ClientDrawingTasks` to tell them when to update some task.
-- `ClientDrawingTasks`
-	- Creates short-term "Drawing Tasks: for each tool/pen mode which describes their behaviour
-		over the lifetime of a tool-down, tool-move, tool-move,..., tool-lift.
-- `Buttons`
-	- Connect all the buttons in the toolbar
-- `PersonalBoardTool`
-	- Creates and adds tool to backpack which triggers personal board events.
-
-### Server module scripts (ServerScriptService)
-- `MetaBoard`
-	- Maintains the boards that exist in the workspace
-	- Reacts to drawing task events from the clients by triggering the associated task
-		from `ServerDrawingTasks`
-- `ServerDrawingTasks`
-	- Creates short term drawing tasks to synchronise with the client's drawing tasks.
-- `PersonalBoardManager`
-	- Creates personal board clones for each player when they join, and responds to
-		requests to show/hide a players personal board.
-
-## Generating a Release
-
-The `metaboard.rbxmx` file is generated like this
-```bash
-rojo build --output "build.rbxlx"
-remodel run metaboard_packager.lua
-```
-
-The first command builds a place file according to `default.project.json`.
-The second command uses [remodel](https://github.com/rojo-rbx/remodel) to extract all of the components of metaboard,
-and packages them all within the `MetaBoardServer` folder, and exports this 
-as a `metaboard.rbxmx` file. The startup server script then redistributes these
-components on world boot..

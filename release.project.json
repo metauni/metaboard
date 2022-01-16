@@ -1,0 +1,19 @@
+{
+	"name": "metaboard",
+	"tree": {
+		"$className": "Folder",
+		"$path": "src/server",
+
+		"MetaBoardCommon": {
+			"$path": "src/common"
+		},
+
+		"MetaBoardPlayer" : {
+			"$path": "src/client"
+		},
+
+		"MetaBoardGui" : {
+			"$path": "src/gui"
+		}
+	}
+}
