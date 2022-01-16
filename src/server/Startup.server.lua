@@ -1,5 +1,5 @@
 do
-	-- Move folder/guis around if they have been packaged inside MetaBoardServer
+	-- Move folder/guis around if this is the package version of metaboard
 	
 	local metaBoardCommon = script.Parent:FindFirstChild("MetaBoardCommon")
 	if metaBoardCommon then
@@ -11,9 +11,14 @@ do
 		metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
 	end
 
-	local boardGui = script.Parent:FindFirstChild("BoardGui")
-	if boardGui then
-		boardGui.Parent = game:GetService("StarterGui")
+	local metaBoardGui = script.Parent:FindFirstChild("MetaBoardGui")
+	if metaBoardGui then
+		local StarterGui = game:GetService("StarterGui")
+		-- Gui's need to be top level children of StarterGui in order for
+		-- ResetOnSpawn=false to work properly
+		for _, guiObject in ipairs(metaBoardGui:GetChildren()) do
+			guiObject.Parent = StarterGui
+		end
 	end
 end
 

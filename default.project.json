@@ -1,5 +1,5 @@
 {
-	"name": "metauni-whiteboard",
+	"name": "metaboard",
 	"tree": {
 		"$className": "DataModel",
 
@@ -14,7 +14,7 @@
 		"ServerScriptService": {
 			"$ignoreUnknownInstances": true,
 			"$className": "ServerScriptService",
-			"MetaBoardServer": {
+			"metaboard": {
 				"$className": "Folder",
 				"$path": "src/server"
 			}
@@ -35,7 +35,7 @@
 		"StarterGui": {
 			"$className": "StarterGui",
 			"$ignoreUnknownInstances": true,
-			"$path": "src/StarterGui"
+			"$path": "src/gui"
 		}
 	}
 }
