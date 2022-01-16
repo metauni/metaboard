@@ -45,6 +45,7 @@ function PersonalBoardManager.Init()
 			personalBoard.EntireModel.Value:SetPrimaryPartCFrame(boardCFrame)
 			personalBoard.EntireModel.Value.Parent = Workspace
 			CollectionService:AddTag(personalBoard, Config.BoardTag)
+			CollectionService:AddTag(personalBoard, Config.BoardTagPersonal)
 		elseif action == "Store" then
 			personalBoard.EntireModel.Value.Parent = Common
 			CollectionService:RemoveTag(personalBoard, Config.BoardTag)

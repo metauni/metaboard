@@ -3,6 +3,7 @@ local HttpService = game:GetService("HttpService")
 local Config = {
 	Version = "v0.6.1",
 	BoardTag = "metaboard",
+	BoardTagPersonal = "metaboard_personal",
 	DataStoreTag = "metaboardv2.",
 
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
