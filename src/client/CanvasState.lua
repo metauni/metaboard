@@ -1,4 +1,5 @@
 local VRService = game:GetService("VRService")
+local RunService = game:GetService("RunService")
 
 local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
@@ -10,12 +11,12 @@ local Remotes = Common.Remotes
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 local GuiPositioning = require(Common.GuiPositioning)
+local ScreenSpace = require(Common.Packages.ScreenSpace)
 local BoardGui
 local Canvas
 local Curves
 local Buttons
 local Drawing
-local storedCameraOffset = nil
 
 local CanvasState = {
 	-- the board that is currently displayed on the canvas
@@ -45,6 +46,19 @@ function CanvasState.Init(boardGui)
 	canvasCamera.Parent = Canvas
 	canvasCamera.FieldOfView = 70
 	Canvas.CurrentCamera = canvasCamera
+
+	-- Almost invisible part that sits in front of the camera, the exact size of
+	-- the canvas when the gui is up, so that the voice-indicator/mute-toggle doesn't capture
+	-- interaction with the canvas.
+	local muteButtonBlocker = Instance.new("Part")
+	muteButtonBlocker.Name = "MuteButtonBlocker"
+	-- If it's fully transparent it won't block anything
+	muteButtonBlocker.Transparency = 0.95
+	muteButtonBlocker.Anchored = true
+	muteButtonBlocker.CanCollide = false
+	muteButtonBlocker.CastShadow = false
+	muteButtonBlocker.Parent = BoardGui
+	CanvasState.MuteButtonBlocker = muteButtonBlocker
 
 	for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 		local clickable = board:WaitForChild("Clickable")
@@ -223,6 +237,26 @@ function CanvasState.OpenBoard(board)
 		* CFrame.Angles(0,math.pi, 0)
 	boardClone.Parent = Canvas
 
+	CanvasState.MuteButtonBlocker.Size = Vector3.new(board.Canvas.Size.X, board.Canvas.Size.Y, Config.Gui.MuteButtonBlockerThickness)
+	
+	local updateMuteButtonBlocker = function()
+		local camera = workspace.CurrentCamera
+
+		-- Put the blocker very close to the camera
+		local depth = camera.NearPlaneZ + Config.Gui.MuteButtonNearPlaneZOffset
+		local width = ScreenSpace.ScreenWidthToWorldWidth(Canvas.AbsoluteSize.X, -depth)
+    local height = ScreenSpace.ScreenHeightToWorldHeight(Canvas.AbsoluteSize.Y, -depth)
+		local shift = ScreenSpace.ScreenHeightToWorldHeight(camera.ViewportSize.Y/2 - (Canvas.AbsolutePosition.Y + Canvas.AbsoluteSize.Y/2 + 36), -depth)
+    
+    CanvasState.MuteButtonBlocker.Size = Vector3.new(width, height, CanvasState.MuteButtonBlocker.Size.Z)
+    CanvasState.MuteButtonBlocker.CFrame
+			= camera.CFrame * CFrame.new(Vector3.new(0, shift, 0))
+				+ camera.CFrame.LookVector * (depth + CanvasState.MuteButtonBlocker.Size.Z / 2)
+	end
+
+	RunService:BindToRenderStep("UpdateMuteButtonBlocker", Enum.RenderPriority.Camera.Value+1, updateMuteButtonBlocker)
+	CanvasState.MuteButtonBlocker.Parent = workspace
+
 	local persistId = board:FindFirstChild("PersistId")
 	BoardGui.PersistStatus.Visible = (persistId ~= nil)
 	if persistId then
@@ -257,18 +291,6 @@ function CanvasState.OpenBoard(board)
 
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
-
-	-- Make the player's camera look from above
-	local camera = workspace.CurrentCamera
-	if camera.CameraType ~= Enum.CameraType.Scriptable then
-		camera.CameraType = Enum.CameraType.Scriptable
-	end
-	local boardPos = board:GetPivot().Position
-	local character = LocalPlayer.Character
-	if character and character.Head then
-		storedCameraOffset = camera.CFrame.Position - character.Head.Position
-	end
-	camera.CFrame = CFrame.lookAt(boardPos + Vector3.new(0,Config.Gui.CameraHeight,0), boardPos)
 
 	-- Replicate all of the curves currently on the board
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
@@ -357,26 +379,13 @@ function CanvasState.OpenBoard(board)
 	Buttons.OnBoardOpen(board, BoardGui.History:FindFirstChild(LocalPlayer.UserId))
 end
 
-local function resetCameraSubject()
-	local camera = workspace.CurrentCamera
-	if not camera then return end
-	if not LocalPlayer.Character then return end
-
-	local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		workspace.CurrentCamera.CameraSubject = humanoid
-	end
-
-	local character = LocalPlayer.Character
-	if storedCameraOffset and character.Head then
-		camera.CFrame = CFrame.lookAt(character.Head.Position + storedCameraOffset, character.Head.Position)
-	end
-end
-
 function CanvasState.CloseBoard(board)
-	local camera = workspace.CurrentCamera
-	camera.CameraType = Enum.CameraType.Custom
-	resetCameraSubject()
+	-- local camera = workspace.CurrentCamera
+	-- camera.CameraType = Enum.CameraType.Custom
+	-- resetCameraSubject()
+
+	RunService:UnbindFromRenderStep("UpdateMuteButtonBlocker")
+	CanvasState.MuteButtonBlocker.Parent = BoardGui
 
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false

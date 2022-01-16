@@ -52,8 +52,8 @@ Config.Gui = {
 	UICornerThreshold = 4,
 	-- Transparency of shadow behind selected button
 	HighlightTransparency = 0.75,
-	-- Distance to put camera while board is open
-	CameraHeight = 120,
+	MuteButtonBlockerThickness = 0.01,
+	MuteButtonNearPlaneZOffset = 0.5,
 }
 
 Config.WorldBoard = {
