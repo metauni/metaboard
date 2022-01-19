@@ -203,9 +203,12 @@ function ServerDrawingTasks.Erase.Finish(board, erasedCurves) end
 function ServerDrawingTasks.Erase.Undo(board, erasedCurves)
 	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
 		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
-		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
-			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
-			MetaBoard.ShowWorldLine(Config.WorldBoard.LineType, worldLine)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
+				MetaBoard.ShowWorldLine(Config.WorldBoard.LineType, worldLine)
+			end
 		end
 	end
 end
@@ -213,9 +216,12 @@ end
 function ServerDrawingTasks.Erase.Redo(board, erasedCurves)
 	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
 		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
-		for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
-			local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
-			MetaBoard.HideWorldLine(Config.WorldBoard.LineType, worldLine)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
+				MetaBoard.HideWorldLine(Config.WorldBoard.LineType, worldLine)
+			end
 		end
 	end
 end
