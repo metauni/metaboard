@@ -4,18 +4,20 @@ Interactive drawing boards in Roblox.
 
 ## Installation
 
+There are two components to install: the metaboard backend code, and a metaboard model to draw on.
+
 ### From Roblox
-Grab the [metaboard package]() (COMING SOON) from Roblox, go to Roblox Studio and
-drag it into `ServerScriptService`. This contains the ServerScripts,
-LocalScripts and Guis for handling all metaboard interaction, and are automatically
-distributed when you start your Roblox game. This package will update automatically
-to the latest release of metaboard.
+You can find [metaboard](https://www.roblox.com/library/8573087394/metaboard) in Roblox Studio by searching "metaboard" in the Toolbox.
+Double-click it to insert it (it will appear under `Workspace`) and then move it to `ServerScriptService`. This contains the Scripts,
+LocalScripts and Guis for handling all metaboard interaction, which are automatically
+distributed when you start your Roblox game.
+You will need to manually update this file if you want the newest release.
 
 ### From Github Releases
-
-Download the [latest release](https://github.com/metauni/metaboard/releases/latest)
-and drag the `metaboard.rbxmx` file into `ServerScriptService`. You will need
-to manually update this file if you want the newest release.
+Download the [latest release](https://github.com/metauni/metaboard/releases/latest). In Roblox Studio, right click on `ServerScriptService`, click `Insert from File` and insert the `metaboard-v*.rbxmx` file. This contains the Scripts,
+LocalScripts and Guis for handling all metaboard interaction, which are automatically
+distributed when you start your Roblox game.
+You will need to manually update this file if you want the newest release.
 
 ## Adding boards to your game
 
