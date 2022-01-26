@@ -1,5 +1,6 @@
 local CollectionService = game:GetService("CollectionService")
 local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local History = require(Common.History)
@@ -39,17 +40,17 @@ function MetaBoard.Init()
 	end)
 
 	Remotes.WatchingBoard.OnServerEvent:Connect(function(player, board, isWatching)
-		local playerValue = board.Watchers:FindFirstChild(player.UserId)
+		local watcherValue = board.Watchers:FindFirstChild(player.UserId)
 		if isWatching then
-			if playerValue == nil then
-				playerValue = Instance.new("ObjectValue")
-				playerValue.Name = player.UserId
-				playerValue.Value = player
-				playerValue.Parent = board.Watchers
+			if watcherValue == nil then
+				watcherValue = Instance.new("ObjectValue")
+				watcherValue.Name = player.UserId
+				watcherValue.Value = player
+				watcherValue.Parent = board.Watchers
 			end
 		else
-			if playerValue then
-				playerValue:Destroy()
+			if watcherValue then
+				watcherValue:Destroy()
 			end
 		end
 	end)
@@ -74,12 +75,12 @@ function MetaBoard.Init()
 				playerHistory.Parent = subscriber.Canvas.History
 			end
 			
-			History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+			History.ForgetFuture(playerHistory)
 			History.RecordTaskToHistory(playerHistory, taskObject)
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					DrawingTask.InitRemoteEvent:FireClient(playerValue.Value, player, taskType, taskObjectId, ...)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					DrawingTask.InitRemoteEvent:FireClient(watcherValue.Value, player, taskType, taskObjectId, ...)
 				end
 			end
 
@@ -99,9 +100,9 @@ function MetaBoard.Init()
 
 			ServerDrawingTasks[taskType].Update(subscriber, taskObject, ...)
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					DrawingTask.UpdateRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					DrawingTask.UpdateRemoteEvent:FireClient(watcherValue.Value, player, taskType, taskObjectId, ...)
 				end
 			end
 
@@ -120,10 +121,17 @@ function MetaBoard.Init()
 			
 			ServerDrawingTasks[taskType].Finish(subscriber, taskObject, ...)
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					DrawingTask.FinishRemoteEvent:FireClient(playerValue.Value, taskType, taskObjectId, ...)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					DrawingTask.FinishRemoteEvent:FireClient(watcherValue.Value, player, taskType, taskObjectId, ...)
 				end
+			end
+
+			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
+			if playerHistory then
+				History.ForgetOldestUntilSize(playerHistory, Config.History.MaximumSize,
+					function(oldTaskObject) ServerDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(subscriber, oldTaskObject)
+				end)
 			end
 
 			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
@@ -165,9 +173,9 @@ function MetaBoard.Init()
 			end
 			playerHistory.MostImminent.Value = taskObjectValue
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					Remotes.Undo:FireClient(playerValue.Value, player)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					Remotes.Undo:FireClient(watcherValue.Value, player)
 				end
 			end
 
@@ -202,9 +210,9 @@ function MetaBoard.Init()
 			playerHistory.MostImminent.Value = playerHistory.MostImminent.Value:FindFirstChildOfClass("ObjectValue")
 			playerHistory.MostRecent.Value = taskObjectValue
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					Remotes.Redo:FireClient(playerValue.Value, player)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					Remotes.Redo:FireClient(watcherValue.Value, player)
 				end
 			end
 
@@ -221,9 +229,9 @@ function MetaBoard.Init()
 		for _, subscriber in ipairs(subscriberFamily) do
 			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then continue end
 
-			for _, playerValue in ipairs(subscriber.Watchers:GetChildren()) do
-				if playerValue.Value ~= player then
-					Remotes.Clear:FireClient(playerValue.Value)
+			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
+				if watcherValue.Value ~= player then
+					Remotes.Clear:FireClient(watcherValue.Value)
 				end
 			end
 
@@ -236,6 +244,18 @@ function MetaBoard.Init()
 			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
 				-- Mark this persistent board as changed
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+			end
+		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		for _, board in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+			local playerHistory = board.Canvas.History:FindFirstChild(player.UserId)
+			if playerHistory then
+				History.ForgetPastAndFuture(playerHistory, function(oldTaskObject)
+					ServerDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(board, oldTaskObject)
+				end)
+				playerHistory:Destroy()
 			end
 		end
 	end)

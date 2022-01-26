@@ -73,11 +73,12 @@ function ClientDrawingTasks.FreeHand.Update(curve, pos)
 end
 
 function ClientDrawingTasks.FreeHand.Finish(curve) end
-
-function ClientDrawingTasks.FreeHand.Undo(curve)
-end
-
-function ClientDrawingTasks.FreeHand.Redo(curve)
+function ClientDrawingTasks.FreeHand.Undo(curve) end
+function ClientDrawingTasks.FreeHand.Redo(curve) end
+function ClientDrawingTasks.FreeHand.Commit(curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	end
 end
 
 ClientDrawingTasks.StraightLine = {}
@@ -151,18 +152,18 @@ function ClientDrawingTasks.StraightLine.Finish(curve)
 end
 
 
-function ClientDrawingTasks.StraightLine.Undo(curve)
-end
-
-function ClientDrawingTasks.StraightLine.Redo(curve)
+function ClientDrawingTasks.StraightLine.Undo(curve) end
+function ClientDrawingTasks.StraightLine.Redo(curve) end
+function ClientDrawingTasks.FreeHand.Commit(curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	end
 end
 
 ClientDrawingTasks.Erase = {}
 ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 
 function ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, radius)
-
-	local lineCount = 0
 
 	for _, curve in ipairs(Curves:GetChildren()) do
 		
@@ -240,6 +241,29 @@ function ClientDrawingTasks.Erase.Redo(erasedCurves)
 			end
 		end
 	end
+end
+
+-- Destroy all of the lines which were temporarily invisible.
+function ClientDrawingTasks.Erase.Commit(erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = Curves:FindFirstChild(erasedCurve.Name)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		-- This is kinda bad. Since those invisible lines will never get destroyed
+		-- if their author redo's the curve. Doesn't seem like a huge problem.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local line = CanvasState.GetLinesContainer(curve):FindFirstChild(erasedLineIdValue.Value)
+				line:Destroy()
+			end
+
+			-- If the curve has been committed and all of it's lines were destroyed, then destroy it
+			if curve:GetAttribute("Committed") and #CanvasState.GetLinesContainer(curve):GetChildren() == 0 then
+				curve:Destroy()
+			end
+		end
+	end
+
+	erasedCurves:Destroy()
 end
 
 

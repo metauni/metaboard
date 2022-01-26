@@ -20,15 +20,19 @@ function History.Init(player)
 end
 
 
-function History.ForgetFuture(playerHistory, taskForgetter)
+function History.ForgetFuture(playerHistory)
   local taskObjectValue = playerHistory.MostImminent.Value
 
   while taskObjectValue do
-    taskForgetter(taskObjectValue.Value)
-    local oldTaskObjectValue = taskObjectValue
+    taskObjectValue.Value:Destroy()
     taskObjectValue = taskObjectValue:FindFirstChildOfClass("ObjectValue")
-    oldTaskObjectValue:Destroy()
+
     playerHistory:SetAttribute("Size", playerHistory:GetAttribute("Size") - 1)
+  end
+
+  if playerHistory.MostImminent.Value then
+    -- Destroys this and all future object values in the chain (because they are parented to this one)
+    playerHistory.MostImminent.Value:Destroy()
   end
 
   -- Destroying the value of this seems to not make this nil, so we do it manually
@@ -48,22 +52,65 @@ function History.RecordTaskToHistory(playerHistory, taskObject)
 	playerHistory:SetAttribute("Size", playerHistory:GetAttribute("Size") + 1)
 end
 
-function History.ForgetFutureTask(taskObject)
-
-end
-
-function History.ForgetHistoryTask(taskObject)
-
-end
-
-function History.GetOldestTaskObjectValue(playerHistory)
+function History.GetOldest(playerHistory)
   for _, child in ipairs(playerHistory:GetChildren()) do
     if child.Name ~= "MostRecent" and child.Name ~= "MostImminent" then
       return child
     end
   end
+end
 
-  return nil
+function History.ForgetOldestUntilSize(playerHistory, targetSize, committer)
+
+  local taskObjectValue = History.GetOldest(playerHistory)
+  local size = playerHistory:GetAttribute("Size")
+
+  while taskObjectValue and size > targetSize do
+    committer(taskObjectValue.Value)
+    local nextTaskObjectValue = taskObjectValue:FindFirstChildOfClass("ObjectValue")
+    
+    if nextTaskObjectValue then
+      nextTaskObjectValue.Parent = playerHistory
+    end
+
+    if taskObjectValue == playerHistory.MostRecent.Value then
+      taskObjectValue:Destroy()
+      playerHistory.MostRecent.Value = nil
+      size -= 1
+      break
+    else
+      taskObjectValue:Destroy()
+      size -= 1
+      taskObjectValue = nextTaskObjectValue
+    end
+  end
+
+  playerHistory:SetAttribute("Size", size)
+end
+
+function History.ForgetPastAndFuture(playerHistory, committer)
+  local taskObjectValue = History.GetOldest(playerHistory)
+
+  local isPast = playerHistory.MostRecent.Value ~= nil
+
+  while taskObjectValue do
+
+    if isPast then
+      committer(taskObjectValue.Value)
+    end
+
+    local nextTaskObjectValue = taskObjectValue:FindFirstChildOfClass("ObjectValue")
+    if nextTaskObjectValue then
+      nextTaskObjectValue.Parent = playerHistory
+    end
+
+    if taskObjectValue == playerHistory.MostRecent.Value then
+      isPast = false
+    end
+    taskObjectValue:Destroy()
+    taskObjectValue = nextTaskObjectValue
+  end
+
 end
 
 return History

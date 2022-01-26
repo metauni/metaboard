@@ -68,6 +68,13 @@ end
 function ServerDrawingTasks.FreeHand.Finish(board, curve) end
 function ServerDrawingTasks.FreeHand.Undo(board, curve) end
 function ServerDrawingTasks.FreeHand.Redo(board, curve) end
+function ServerDrawingTasks.FreeHand.Commit(board, curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	else
+		curve:SetAttribute("Committed", true)
+	end
+end
 
 ServerDrawingTasks.StraightLine = {}
 ServerDrawingTasks.StraightLine.__index = ServerDrawingTasks.StraightLine
@@ -141,18 +148,31 @@ end
 
 function ServerDrawingTasks.StraightLine.Undo(curve) end
 function ServerDrawingTasks.StraightLine.Redo(curve) end
+function ServerDrawingTasks.StraightLine.Commit(board, curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	else
+		curve:SetAttribute("Committed", true)
+	end
+end
 
 ServerDrawingTasks.Erase = {}
 ServerDrawingTasks.Erase.__index = ServerDrawingTasks.Erase
 
 
 function ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, radius)
+	local linesSeen = 0
 
 	for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
 		
 		local erasedLineNames = {}
 		
 		for _, worldLine in ipairs(curve:GetChildren()) do
+			if linesSeen >= Config.LinesSeenBeforeWait then
+				linesSeen = 0
+				task.wait()
+			end
+			linesSeen += 1
 			if worldLine:GetAttribute("Hidden") then continue end
 
 			local lineInfo = LineInfo.ReadInfo(worldLine)
@@ -224,6 +244,29 @@ function ServerDrawingTasks.Erase.Redo(board, erasedCurves)
 			end
 		end
 	end
+end
+
+-- Destroy all of the lines which were temporarily invisible.
+function ServerDrawingTasks.Erase.Commit(board, erasedCurves)
+	for _, erasedCurve in ipairs(erasedCurves:GetChildren()) do
+		local curve = board.Canvas.Curves:FindFirstChild(erasedCurve.Name)
+		-- Check if curve is there. If it's been undo'd it won't be, just ignore it.
+		-- This is kinda bad. Since those invisible lines will never get destroyed
+		-- if their author redo's the curve. Doesn't seem like a huge problem.
+		if curve then
+			for _, erasedLineIdValue in ipairs(erasedCurve:GetChildren()) do
+				local worldLine = curve:FindFirstChild(erasedLineIdValue.Value)
+				worldLine:Destroy()
+			end
+
+			-- If the curve has been committed and all of it's lines were destroyed, then destroy it
+			if curve:GetAttribute("Committed") and #erasedCurve:GetChildren() == 0 then
+				curve:Destroy()
+			end
+		end
+	end
+
+	erasedCurves:Destroy()
 end
 
 

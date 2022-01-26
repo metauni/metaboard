@@ -134,20 +134,27 @@ function CanvasState.ConnectDrawingTaskEvents()
 			playerHistory.Parent = BoardGui.History
 		end
 		
-		History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+		History.ForgetFuture(playerHistory)
 		History.RecordTaskToHistory(playerHistory, taskObject)
 	end)
 
-	DrawingTask.UpdateRemoteEvent.OnClientEvent:Connect(function(taskType, taskObjectId, ...)
+	DrawingTask.UpdateRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
 		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
 		ClientDrawingTasks[taskType].Update(taskObject, ...)
 	end)
 
-	DrawingTask.FinishRemoteEvent.OnClientEvent:Connect(function(taskType, taskObjectId, ...)
+	DrawingTask.FinishRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
 		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
 		ClientDrawingTasks[taskType].Finish(taskObject, ...)
+
+		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
+		if playerHistory then
+			History.ForgetOldestUntilSize(playerHistory, Config.History.MaximumSize,
+				function(oldTaskObject) ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(oldTaskObject)
+			end)
+		end
 	end)
 
 	Remotes.Undo.OnClientEvent:Connect(function(player)

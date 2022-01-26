@@ -15,6 +15,9 @@ local Config = {
 
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
 
+	-- Number of lines to iterate over while erasing before task.wait
+	LinesSeenBeforeWait = 50,
+
 	-- Number of chars of board Json before which we freeze persistent boards
 	-- The DataStore limit is 4M chars
 	BoardFullThreshold = 3500000,
@@ -87,6 +90,10 @@ Config.PersonalBoard = {
 	-- Position of where the board will spawn relative to the HumanoidRootPart
 	-- Increase y-value for larger boards
 	TorsoOffset = Vector3.new(0,2,-5),
+}
+
+Config.History = {
+	MaximumSize = 15,
 }
 
 return Config

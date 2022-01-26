@@ -171,7 +171,7 @@ function Drawing.ToolDown(x,y)
 		ClientDrawingTasks.Erase.Init(eraseObject, LocalPlayer.UserId, Drawing.EquippedTool.ThicknessYScale, canvasPos)
 
 		
-		History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+		History.ForgetFuture(playerHistory)
 		History.RecordTaskToHistory(playerHistory, eraseObject)
 
 		DrawingTask.InitRemoteEvent:FireServer(
@@ -201,7 +201,7 @@ function Drawing.ToolDown(x,y)
 				canvasPos
 			)
 
-			History.ForgetFuture(playerHistory, function(futureTaskObject) end)
+			History.ForgetFuture(playerHistory)
 			History.RecordTaskToHistory(playerHistory, curve)
 
 			DrawingTask.InitRemoteEvent:FireServer(
@@ -259,6 +259,13 @@ function Drawing.ToolLift(x,y)
 	elseif Drawing.EquippedTool.ToolType == "Pen" then
 		ClientDrawingTasks[Drawing.PenMode].Finish(Drawing.CurrentTaskObject)
 		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentTaskObject.Name)
+	end
+
+	local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
+	if playerHistory then
+		History.ForgetOldestUntilSize(playerHistory, Config.History.MaximumSize,
+			function(oldTaskObject) ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(oldTaskObject)
+		end)
 	end
 end
 
