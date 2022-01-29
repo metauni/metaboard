@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.7.2",
+	Version = "v0.7.3",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	DataStoreTag = "metaboardv2.",
@@ -30,7 +30,7 @@ Config.Drawing = {
 	SmoothingAlgorithm = nil,
 
 	MinLineLengthYScale = 0,
-	MaxLineLengthTouchYScale = 200/1000,
+	MaxLineLengthTouch = 100,
 
 	MinThicknessYScale = 1.5/1000,
 	MaxThicknessYScale = 40/1000,

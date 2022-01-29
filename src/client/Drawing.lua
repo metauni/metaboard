@@ -228,6 +228,12 @@ function Drawing.ToolMoved(x,y)
 
 		local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
 		
+		-- Simple palm rejection
+		if UserInputService.TouchEnabled then
+			local diff = Vector2.new(x,y) - Drawing.MousePixelPos
+			if diff.Magnitude > Config.Drawing.MaxLineLengthTouch then return end
+		end
+
 		if Drawing.EquippedTool.ToolType == "Eraser" then
 			ClientDrawingTasks.Erase.Update(Drawing.CurrentTaskObject, newCanvasPos)
 			DrawingTask.UpdateRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentTaskObject.Name, newCanvasPos)
