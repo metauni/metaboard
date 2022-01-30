@@ -11,6 +11,7 @@ local Curves
 local Toolbar
 
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local Buttons = {}
 Buttons.__index = Buttons
@@ -49,7 +50,9 @@ function Buttons.Init(boardGui)
 	Buttons.SyncPenModeButton(Toolbar.PenModeButton, Drawing.PenMode)
 
 	Buttons.ConnectClearButton(Toolbar.ClearButton, ModalGui.ConfirmClearModal)
-	
+
+	Buttons.ApplyToolbarHoverEffects(Toolbar)
+
 	--print("Buttons initialized")
 end
 
@@ -450,6 +453,94 @@ function Buttons.ConnectClearButton(clearButton, confirmClearModal)
 	confirmClearModal.CancelButton.Activated:Connect(function()
 		confirmClearModal.Visible = false
 	end)
+end
+
+function Buttons.ApplyToolbarHoverEffects(toolbar)
+	local delayTime = 1
+	
+	local function CreateToolTip(position, text)		
+		local Label = Instance.new("TextLabel")
+		Label.Name = "ToolTip"
+		Label.AnchorPoint = Vector2.new(.5, 0)
+		Label.BackgroundColor3 = Color3.fromRGB(64, 64, 64)
+		Label.BackgroundTransparency = 0.1
+		Label.BorderSizePixel = 0
+		Label.Position = UDim2.fromOffset(position.X, position.Y)
+		Label.AutomaticSize = Enum.AutomaticSize.X
+		Label.Size = UDim2.fromScale(0, .03)
+		Label.ZIndex = 2
+		Label.Font = Enum.Font.SourceSansSemibold
+		Label.Text = text
+		Label.TextColor3 = Color3.new(1, 1, 1)
+		Label.TextScaled = true
+		Label.TextSize = 20
+		Label.TextWrapped = true
+		Label.Visible = false
+		
+		local UICorner = Instance.new("UICorner")
+		UICorner.CornerRadius = UDim.new(0.3, 0)
+		UICorner.Parent = Label
+		
+		local UIPadding = Instance.new("UIPadding")
+		UIPadding.Parent = Label
+		UIPadding.PaddingLeft = UDim.new(0.1, 0)
+		UIPadding.PaddingRight = UDim.new(0.1, 0)
+		
+		Label.Parent = toolbar.Parent
+		
+		return Label
+	end
+	
+	local ToolTip = CreateToolTip(Vector2.new(), "Tool Tip")
+	local ShowToolTip = TweenService:Create(
+		ToolTip,
+		TweenInfo.new(0, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, 0, false, delayTime),
+		{ Visible = true }
+	)
+	
+	local function InitiateHoverEffect(button, text)		
+		button.MouseEnter:Connect(function()			
+			local offset = toolbar.Parent.IgnoreGuiInset and Vector2.new(0, 36) or Vector2.new()
+			local position = button.AbsolutePosition + Vector2.new(button.AbsoluteSize.X/2, button.AbsoluteSize.Y + 10) + offset
+
+			ToolTip.Visible = false
+			ToolTip.Position = UDim2.fromOffset(position.X, position.Y)
+			ToolTip.Text = text
+			
+			ShowToolTip:Play()
+		end)
+		
+		button.MouseLeave:Connect(function()
+			ToolTip.Visible = false
+		end)
+	end
+	
+	-- Pens
+	local Pens = toolbar.Pens
+	InitiateHoverEffect(Pens.Slider, "Thickness")
+	InitiateHoverEffect(Pens.PenAButton, "Dotted Stroke")
+	InitiateHoverEffect(Pens.PenBButton, "Stroke")
+	
+	-- Color buttons
+	for _, object in ipairs(toolbar.Colors:GetChildren()) do 
+		if object:IsA("TextButton") then 
+			InitiateHoverEffect(object, object.Name)
+		end
+	end
+	
+	-- Erasers
+	local Erasers = toolbar.Erasers
+	InitiateHoverEffect(Erasers.EraserIconButton, "Eraser Mode")
+	InitiateHoverEffect(Erasers.LargeButton, "Large")
+	InitiateHoverEffect(Erasers.MediumButton, "Medium")
+	InitiateHoverEffect(Erasers.SmallButton, "Small")
+	
+	-- Misc
+	InitiateHoverEffect(toolbar.ClearButton, "Clear Board")
+	InitiateHoverEffect(toolbar.CloseButton, "Close")
+	InitiateHoverEffect(toolbar.PenModeButton, "Pen/Line Mode")
+	InitiateHoverEffect(toolbar.RedoButton, "Redo")
+	InitiateHoverEffect(toolbar.UndoButton, "Undo")
 end
 
 return Buttons
