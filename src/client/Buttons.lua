@@ -456,7 +456,9 @@ function Buttons.ConnectClearButton(clearButton, confirmClearModal)
 end
 
 function Buttons.ApplyToolbarHoverEffects(toolbar)
-	local delayTime = 1
+	if not UserInputService.MouseEnabled then
+		return
+	end
 	
 	local function CreateToolTip(position, text)		
 		local Label = Instance.new("TextLabel")
@@ -491,6 +493,7 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 		return Label
 	end
 	
+	local delayTime = 1
 	local ToolTip = CreateToolTip(Vector2.new(), "Tool Tip")
 	local ShowToolTip = TweenService:Create(
 		ToolTip,
