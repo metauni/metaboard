@@ -515,6 +515,9 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 		
 		button.MouseLeave:Connect(function()
 			ToolTip.Visible = false
+			if ShowToolTip.PlaybackState == Enum.PlaybackState.Playing then
+				ShowToolTip:Cancel()
+			end
 		end)
 	end
 	
