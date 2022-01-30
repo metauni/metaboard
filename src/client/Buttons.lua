@@ -521,8 +521,8 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 	-- Pens
 	local Pens = toolbar.Pens
 	InitiateHoverEffect(Pens.Slider, "Thickness")
-	InitiateHoverEffect(Pens.PenAButton, "Dotted Stroke")
-	InitiateHoverEffect(Pens.PenBButton, "Stroke")
+	InitiateHoverEffect(Pens.PenAButton, "Pen A")
+	InitiateHoverEffect(Pens.PenBButton, "Pen B")
 	
 	-- Color buttons
 	for _, object in ipairs(toolbar.Colors:GetChildren()) do 
