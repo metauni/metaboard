@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.7.5",
+	Version = "v0.7.6",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	DataStoreTag = "metaboardv2.",

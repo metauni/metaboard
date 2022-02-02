@@ -26,22 +26,6 @@ local function asyncWaitTime()
     return 60/( 60 + 10 * #PlayersService:GetPlayers() )
 end
 
-local function keyForBoard(board)
-	local boardKey = "metaboard" .. tostring(board.PersistId.Value)
-
-	-- If we are in a private server the key is prefixed by the 
-	-- private server's ID
-	if isPrivateServer() then
-		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
-	end
-
-    if string.len(boardKey) > 50 then
-        print("[Persistence] Board key length exceeds DataStore limit.")
-    end
-
-	return boardKey
-end
-
 local function storeAll()
     local startTime = tick()
 	local boards = CollectionService:GetTagged(Config.BoardTag)
@@ -57,8 +41,7 @@ local function storeAll()
     local waitTime = asyncWaitTime()
     
 	for _, board in ipairs(changedBoards) do
-        local boardKey = keyForBoard(board)
-		task.spawn(Persistence.Store, board, boardKey)
+		task.spawn(Persistence.Save, board)
         task.wait(waitTime)
 	end
 
@@ -75,20 +58,13 @@ function Persistence.Init()
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
 
-    local numPersistentBoards = 0
-    for _, board in ipairs(boards) do
-		if board:FindFirstChild("PersistId") then
-			numPersistentBoards += 1
-		end
-	end
-
     local waitTime = asyncWaitTime()
 
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
         if persistId then
             -- Restore this board and all its subscribers
-            local boardKey = keyForBoard(board)
+            local boardKey = Persistence.KeyForBoard(board)
             task.spawn(Persistence.Restore, board, boardKey, true)
             task.wait(waitTime)
         end
@@ -103,6 +79,22 @@ function Persistence.Init()
 			storeAll()
 		end
 	end)
+end
+
+function Persistence.KeyForBoard(board)
+	local boardKey = "metaboard" .. tostring(board.PersistId.Value)
+
+	-- If we are in a private server the key is prefixed by the 
+	-- private server's ID
+	if isPrivateServer() then
+		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+	end
+
+    if string.len(boardKey) > 50 then
+        print("[Persistence] ERROR: Board key length exceeds DataStore limit.")
+    end
+
+	return boardKey
 end
 
 local function serialiseVector2(v)
@@ -249,6 +241,10 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return
     end
 
+    if boardData.ClearCount then
+        board.ClearCount.Value = boardData.ClearCount
+    end
+
     if boardData.CurrentZIndex then
         for _, subscriber in ipairs(subscriberFamily) do
             if subscriber.CurrentZIndex then
@@ -295,18 +291,35 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 end
 
--- Stores a given board to the DataStore with the given ID
-function Persistence.Store(board, boardKey)
+function Persistence.Save(board)
     -- Do not store boards that have not changed
-	if board.ChangeUid.Value == "" then return end
-	
+    local preSaveUid = board.ChangeUid.Value
+	if preSaveUid == "" then return end
+
+    local boardKey = Persistence.KeyForBoard(board)
+    Persistence.Store(board, boardKey)
+
+    -- Since SetAsync yields we compare preSaveUid and board.ChangeUid
+    -- to assess whether the board was changed during the save process
+	-- If the board did not change during the save process,
+    -- then it is safe to mark it as saved
+    if preSaveUid == board.ChangeUid.Value then
+        board.ChangeUid.Value = ""
+    end
+end
+
+-- Stores a given board to the DataStore with the given ID
+-- Note that this may be called to save historical boards in 
+-- _before_ Persistence.Init has been run
+function Persistence.Store(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
-    local startTime = tick()
 
     if not DataStore then
         print("[Persistence] DataStore not loaded")
         return
     end
+
+    local startTime = tick()
 
     local boardData = {}
     local curves = {}
@@ -316,6 +329,10 @@ function Persistence.Store(board, boardKey)
     end
 
     boardData.Curves = curves
+
+    if board:FindFirstChild("ClearCount") then
+        boardData.ClearCount = board.ClearCount.Value
+    end
 
     if board:FindFirstChild("CurrentZIndex") then
         boardData.CurrentZIndex = board.CurrentZIndex.Value
@@ -331,9 +348,6 @@ function Persistence.Store(board, boardKey)
     -- TODO pre-empt "value too big" error
     -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
 	
-    -- Since SetAsync yields we compare preSaveUid and board.ChangeUid
-    -- to assess whether the board was changed during the save process
-	local preSaveUid = board.ChangeUid.Value
     local success, errormessage = pcall(function()
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
@@ -342,19 +356,13 @@ function Persistence.Store(board, boardKey)
         board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
         return
 	end
-	
-    -- If the board did not change during the save process,
-    -- then it is safe to mark it as saved
-	if preSaveUid == board.ChangeUid.Value then
-		board.ChangeUid.Value = ""
-	end
 
     board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
     print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
 
-    if string.len(boardJSON) > Config.BoardFullThreshold then
+    if board.IsFull.Value then
         print("[Persistence] board ".. boardKey .." is full.")
     end
 end

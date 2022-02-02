@@ -7,7 +7,7 @@ local History = require(Common.History)
 local Remotes = Common.Remotes
 local LineInfo = require(Common.LineInfo)
 local DrawingTask = require(Common.DrawingTask)
-local ServerDrawingTasks
+local ServerDrawingTasks, Persistence
 
 local MetaBoard = {}
 MetaBoard.__index = MetaBoard
@@ -15,6 +15,7 @@ MetaBoard.__index = MetaBoard
 function MetaBoard.Init()
 
 	ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
+	Persistence = require(script.Parent.Persistence)
 
 	local boards = CollectionService:GetTagged(Config.BoardTag)
 
@@ -241,7 +242,14 @@ function MetaBoard.Init()
 
 			subscriber.CurrentZIndex.Value = 0
 
-			if subscriber:FindFirstChild("PersistId") and subscriber.HasLoaded.Value then
+			if subscriber:FindFirstChild("PersistId") then
+				subscriber.ClearCount.Value = subscriber.ClearCount.Value + 1
+
+				-- Store this as a historical version of the board
+				local boardKey = Persistence.KeyForBoard(subscriber)
+				boardKey = boardKey .. ":" .. subscriber.ClearCount.Value
+				Persistence.Store(subscriber, boardKey)
+
 				-- Mark this persistent board as changed
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
 			end
@@ -427,6 +435,19 @@ function MetaBoard.InitBoard(board)
 	isFull.Value = false
 	isFull.Name = "IsFull"
 	isFull.Parent = board
+
+	-- Persistent boards track how many times they have been cleared
+	if board:FindFirstChild("PersistId") then
+		local clearCount = board:FindFirstChild("ClearCount")
+		if clearCount ~= nil then
+			clearCount:Destroy()
+		end
+
+		clearCount = Instance.new("IntValue")
+		clearCount.Value = 0
+		clearCount.Name = "ClearCount"
+		clearCount.Parent = board
+	end
 end
 
 function MetaBoard.Subscribe(subscriber, broadcaster)
