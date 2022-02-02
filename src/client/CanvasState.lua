@@ -116,6 +116,8 @@ end
 function CanvasState.ConnectDrawingTaskEvents()
 
 	DrawingTask.InitRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
+		if CanvasState.EquippedBoard == nil then return end
+
 		local taskObject
 		if taskType == "Erase" then
 			taskObject = Instance.new("Folder")
@@ -139,12 +141,16 @@ function CanvasState.ConnectDrawingTaskEvents()
 	end)
 
 	DrawingTask.UpdateRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
+		if CanvasState.EquippedBoard == nil then return end
+
 		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
 		ClientDrawingTasks[taskType].Update(taskObject, ...)
 	end)
 
 	DrawingTask.FinishRemoteEvent.OnClientEvent:Connect(function(player, taskType, taskObjectId, ...)
+		if CanvasState.EquippedBoard == nil then return end
+
 		local taskObject = CanvasState.TaskObjectParent(taskType):FindFirstChild(taskObjectId)
 
 		ClientDrawingTasks[taskType].Finish(taskObject, ...)
@@ -158,6 +164,8 @@ function CanvasState.ConnectDrawingTaskEvents()
 	end)
 
 	Remotes.Undo.OnClientEvent:Connect(function(player)
+		if CanvasState.EquippedBoard == nil then return end
+
 		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
 		local taskObjectValue = playerHistory.MostRecent.Value
 
@@ -183,6 +191,8 @@ function CanvasState.ConnectDrawingTaskEvents()
 	end)
 
 	Remotes.Redo.OnClientEvent:Connect(function(player)
+		if CanvasState.EquippedBoard == nil then return end
+
 		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
 		local taskObjectValue = playerHistory.MostImminent.Value
 
@@ -204,6 +214,8 @@ function CanvasState.ConnectDrawingTaskEvents()
 	end)
 
 	Remotes.Clear.OnClientEvent:Connect(function()
+		if CanvasState.EquippedBoard == nil then return end
+		
 		Drawing.MouseHeld = false
 		CanvasState.Clear()
 	end)
