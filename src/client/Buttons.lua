@@ -1,17 +1,19 @@
+-- Services
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Config = require(Common.Config)
-local Remotes = Common.Remotes
-local Drawing = require(script.Parent.Drawing)
-local LocalPlayer = game:GetService("Players").LocalPlayer
-local ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
-local BoardGui
-local ModalGui
-local CanvasState
-local Curves
-local Toolbar
-
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+
+-- Imports
+local Config = require(Common.Config)
+local Drawing = require(script.Parent.Drawing)
+local CanvasState
+
+-- Gui Objects
+local BoardGui
+local ModalGui
+local Toolbar
+
 
 local Buttons = {}
 Buttons.__index = Buttons
@@ -21,8 +23,6 @@ function Buttons.Init(boardGui)
 
 	BoardGui = boardGui
 	Toolbar = boardGui.Toolbar
-	Curves = boardGui.Curves
-	CanvasState = require(script.Parent.CanvasState)
 	ModalGui = boardGui.ModalGui
 
 	for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
@@ -56,36 +56,43 @@ function Buttons.Init(boardGui)
 	--print("Buttons initialized")
 end
 
-function Buttons.OnBoardOpen(board, playerHistory)
+function Buttons.OnBoardOpen(board)
 
-	if Drawing.EquippedTool.ToolType == "Pen" then
-		Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
-		Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
-	else
-		assert(Drawing.EquippedTool.ToolType == "Eraser")
-		Buttons.HighlightJustEraserButton(Drawing.EquippedTool.GuiButton)
-	end
+	Buttons.EquippedBoard = board
 
-	Buttons.SyncUndoButton(playerHistory)
-	Buttons.SyncRedoButton(playerHistory)
+	Drawing.EquippedTool:Update()
+
+	Buttons.SyncUndoButton(board.PlayerHistory[Players.LocalPlayer])
+	Buttons.SyncRedoButton(board.PlayerHistory[Players.LocalPlayer])
+end
+
+function Buttons.ConnectPenSignals(pen, penButton, penModeButton)
+	pen.UpdateSignal:Connect(function()
+		Buttons.SyncPenButton(penButton, pen)
+		if pen == Drawing.EquippedTool then
+			Buttons.SyncSlider(pen)
+			Buttons.SyncPenModeButton(penModeButton)
+			Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
+			Buttons.HighlightJustEraserSizeButton(nil)
+			Buttons.HighlightJustPenButton(penButton)
+		end
+	end)
+end
+
+function Buttons.ConnectEraserSignals(eraser)
+	eraser.EquipSignal:Connect(function()
+		Buttons.HighlightJustEraserSizeButton(eraser.ThicknessYScale)
+		Buttons.HighlightJustColor()
+		Buttons.HighlightJustPenButton()
+	end)
 end
 
 function Buttons.ConnectSlider(rail, knob)
-	
-	local function updateAt(xScale)
-		-- slider inactive unless a Pen is selected
-		if Drawing.EquippedTool.ToolType ~= "Pen" then
-			-- switched to reserved pen and reserve the eraser
-			local tmp = Drawing.EquippedTool
-			Drawing.EquippedTool = Drawing.ReservedTool
-			Drawing.ReservedTool = tmp
 
-			-- Unhighlight all erasers
-			Buttons.HighlightJustEraserButton()
-			-- highlight the right color
-			Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
-			-- Highlight the equipped pen
-			Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
+	local function updateAt(xScale)
+		if not Drawing.EquippedTool.IsPen then
+			Drawing.EquippedTool = Drawing.LastUsedPen
+			Drawing.EquippedTool:Update()
 		end
 
 		-- Put the Knob there
@@ -96,10 +103,9 @@ function Buttons.ConnectSlider(rail, knob)
 
 		-- Configure the size of the currently equipped pen
 		local thicknessYScale = (Config.Drawing.MaxThicknessYScale - Config.Drawing.MinThicknessYScale)*xScaleCubed + Config.Drawing.MinThicknessYScale
-		Drawing.EquippedTool:SetThicknessYScale(thicknessYScale)
-		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
+		Drawing.EquippedTool:Update(thicknessYScale)
 	end
-	
+
 	rail.MouseButton1Down:Connect(function(x,y)
 		Buttons.SliderActive = true
 		local xScale = math.clamp((x - rail.AbsolutePosition.X) / rail.AbsoluteSize.X, 0, 1)
@@ -157,130 +163,112 @@ function Buttons.HighlightJustColor(color)
 	end
 end
 
-function Buttons.HighlightJustEraserButton(eraserButton)
-	for _, otherEraserButton in ipairs(Toolbar.Erasers:GetChildren()) do
-		if otherEraserButton:IsA("TextButton") then
-			if otherEraserButton == eraserButton then
-				otherEraserButton.BackgroundTransparency = Config.Gui.HighlightTransparency
+function Buttons.HighlightJustEraserSizeButton(thicknessYScale)
+	for _, eraserSizeButton in ipairs(Toolbar.Erasers:GetChildren()) do
+		if eraserSizeButton:IsA("TextButton") then
+			if eraserSizeButton:GetAttribute("ThicknessYScale") == thicknessYScale then
+				eraserSizeButton.BackgroundTransparency = Config.Gui.HighlightTransparency
 			else
-				otherEraserButton.BackgroundTransparency = 1
+				eraserSizeButton.BackgroundTransparency = 1
 			end
 		end
-
 	end
 end
 
 function Buttons.SyncPenButton(penButton, pen)
 	penButton.PenStroke.BackgroundColor3 = pen.Color
-	penButton.PenStroke.Size = UDim2.new(0.8, 0, 0, CanvasState.CanvasYScaleToOffset(pen.ThicknessYScale))
+	penButton.PenStroke.Size = UDim2.new(0.8, 0, 0, Drawing.EquippedBoard.Canvas:YScaleToOffset(pen.ThicknessYScale))
 end
 
-function Buttons.ConnectPenButton(penButton, penTool)
-
+function Buttons.ConnectPenButton(penButton, pen)
 	penButton.MouseEnter:Connect(function(x,y)
 		penButton.BackgroundTransparency = Config.Gui.HighlightTransparency
 	end)
 
-	penButton.MouseLeave:Connect(function(x,y) 
-		if Drawing.EquippedTool.GuiButton ~= penButton then
+	penButton.MouseLeave:Connect(function(x,y)
+		if Drawing.EquippedTool ~= pen then
 			penButton.BackgroundTransparency = 1
 		end
 	end)
 
 	penButton.Activated:Connect(function(input, clickCount)
-		
-		Drawing.EquippedTool = penTool
-		Drawing.ReservedTool = Drawing.Eraser
-		Buttons.SyncSlider(penTool)
-		
-		Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
-		Buttons.HighlightJustPenButton(penButton)
-		Buttons.HighlightJustEraserButton()
+		Drawing.EquippedTool = pen
+		pen:Update()
 	end)
-
 end
 
 function Buttons.ConnectColorButton(colorButton)
 	colorButton.MouseEnter:Connect(function(x,y) colorButton.Highlight.Visible = true end)
 	colorButton.MouseLeave:Connect(function(x,y)
-		if Drawing.EquippedTool.ToolType ~= "Pen" or Drawing.EquippedTool.Color ~= colorButton.BackgroundColor3 then
+		if not (Drawing.EquippedTool.IsPen and Drawing.EquippedTool.Color == colorButton.BackgroundColor3) then
 			colorButton.Highlight.Visible = false
-		end 
+		end
 	end)
 	
 	colorButton.Activated:Connect(function(input, clickCount)
-		colorButton.Highlight.Visible = true
-		if Drawing.EquippedTool.ToolType ~= "Pen" then
+		-- colorButton.Highlight.Visible = true
+		if not Drawing.EquippedTool.IsPen then
 			-- Pressed color button while using Eraser
-			assert(Drawing.EquippedTool.ToolType == "Eraser")
-			assert(Drawing.ReservedTool.ToolType == "Pen")
 			
 			-- switched to reserved pen and reserve the eraser
-			local tmp = Drawing.EquippedTool
-			Drawing.EquippedTool = Drawing.ReservedTool
-			Drawing.ReservedTool = tmp
+			Drawing.EquippedTool = Drawing.LastUsedPen
 		end
-
-		Drawing.EquippedTool:SetColor(colorButton.BackgroundColor3)
-		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
 		
-		-- Unhighlight all erasers
-		Buttons.HighlightJustEraserButton()
-		-- highlight the right color
-		Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
-		-- Highlight the equipped pen
-		Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
+		Drawing.EquippedTool:Update(Drawing.LastUsedPen.ThicknessYScale, colorButton.BackgroundColor3)
+		-- Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
+		
+		-- -- Unhighlight all erasers
+		-- Buttons.HighlightJustEraserSizeButton()
+		-- -- highlight the right color
+		-- Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
+		-- -- Highlight the equipped pen
+		-- Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
 	end)
 end
 
 function Buttons.ConnectEraserIconButton(eraserIconButton)
 	eraserIconButton.Activated:Connect(function(input, clickCount)
-		if Drawing.EquippedTool.ToolType ~= "Eraser" then
-			assert(Drawing.ReservedTool.ToolType == "Eraser")
-			-- equip the reserved eraser and reserve the pen
-			local tmp = Drawing.EquippedTool
-			Drawing.EquippedTool = Drawing.ReservedTool
-			Drawing.ReservedTool = tmp
-
-			-- Highlight just the eraser and unhighlight all colors and pens
-			Buttons.HighlightJustEraserButton(Drawing.EquippedTool.GuiButton)
-			Buttons.HighlightJustColor()
-			Buttons.HighlightJustPenButton()
+		if not Drawing.EquippedTool.IsEraser then
+			Drawing.EquippedTool = Drawing.Eraser
+			
+			-- -- Highlight just the eraser and unhighlight all colors and pens
+			-- Buttons.HighlightJustEraserSizeButton(Drawing.EquippedTool.GuiButton)
+			-- Buttons.HighlightJustColor()
+			-- Buttons.HighlightJustPenButton()
 		end
+		Drawing.EquippedTool:Update()
 	end)
 end
 
 function Buttons.ConnectEraserSizeButton(eraserSizeButton, eraserThicknessYScale)
 
+	eraserSizeButton:SetAttribute("ThicknessYScale", eraserThicknessYScale)
+
 	eraserSizeButton.MouseEnter:Connect(function(x,y) eraserSizeButton.BackgroundTransparency = Config.Gui.HighlightTransparency end)
 			
 	eraserSizeButton.MouseLeave:Connect(function(x,y)
-		if Drawing.EquippedTool.ToolType ~= "Eraser" or Drawing.EquippedTool.GuiButton ~= eraserSizeButton then
+		if not (Drawing.EquippedTool.IsEraser and Drawing.EquippedTool.ThicknessYScale == eraserThicknessYScale) then
 			eraserSizeButton.BackgroundTransparency = 1
-		end 
+		end
 	end)
 	
 	eraserSizeButton.Activated:Connect(function(input, clickCount)
 		eraserSizeButton.BackgroundTransparency = Config.Gui.HighlightTransparency
-		if Drawing.EquippedTool.ToolType ~= "Eraser" then
-			assert(Drawing.EquippedTool.ToolType == "Pen")
-			assert(Drawing.ReservedTool.ToolType == "Eraser")
-			
-			-- equip reserved eraser and reserve the pen
-			local tmp = Drawing.EquippedTool
-			Drawing.EquippedTool = Drawing.ReservedTool
-			Drawing.ReservedTool = tmp
+		if not Drawing.EquippedTool.IsEraser then
+			if Drawing.EquippedTool.IsPen then
+				Drawing.LastUsedPen = Drawing.EquippedTool
+			end
+
+			Drawing.EquippedTool = Drawing.Eraser
 			
 		end
 
-		-- Configure equipped eraser tool
-		Drawing.EquippedTool:SetThicknessYScale(eraserThicknessYScale)
-		Drawing.EquippedTool:SetGuiButton(eraserSizeButton)
+		Drawing.EquippedTool:Update(eraserThicknessYScale)
 		
-		-- Highlight just the eraser and unhighlight all colors and pens
-		Buttons.HighlightJustEraserButton(eraserSizeButton)
-		Buttons.HighlightJustColor()
-		Buttons.HighlightJustPenButton()
+		-- -- Highlight just the eraser and unhighlight all colors and pens
+		-- Buttons.HighlightJustEraserSizeButton(eraserSizeButton)
+		-- Buttons.HighlightJustColor()
+		-- Buttons.HighlightJustPenButton()
 	end)
 	
 end
@@ -295,45 +283,52 @@ function Buttons.SyncUndoButton(playerHistory)
 	end
 end
 
-function Buttons.ConnectUndoButton(undoButton)
+function Buttons.ConnectUndoButton(board, undoButton)
+	local localPlayerHistory = board.PlayerHistory[Players.LocalPlayer]
+	localPlayerHistory.UpdatedSignal:Connect(function()
+		Buttons.SyncUndoButton(localPlayerHistory)
+	end)
 
 	undoButton.Activated:Connect(function()
 		-- We use this flag to indicate whether this button should be clickable
 		if not undoButton.AutoButtonColor then return end
 
-		if not CanvasState.HasWritePermission then return end
+		Buttons.EquippedBoard:Undo(Players.LocalPlayer)
+		-- Buttons.EquippedBoard.Remotes.Undo:FireServer()
+
+		-- -- if not CanvasState.HasWritePermission then return end
 		
-		if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
-			CanvasState.EquippedBoard.IsFull.Value then
-			return
-		end
+		-- if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
+		-- 	CanvasState.EquippedBoard.IsFull.Value then
+		-- 	return
+		-- end
 
-		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
-		local taskObjectValue = playerHistory.MostRecent.Value
+		-- local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
+		-- local taskObjectValue = playerHistory.MostRecent.Value
 
-		if taskObjectValue == nil then return end
+		-- if taskObjectValue == nil then return end
 
-		if taskObjectValue.Value then
+		-- if taskObjectValue.Value then
 			
-			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+		-- 	local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 			
-			ClientDrawingTasks[taskType].Undo(taskObjectValue.Value)
-			taskObjectValue.Value.Parent = Common.HistoryStorage
-		else
-			-- This currently happens, and shouldn't happen
-			print("taskObjectValue not linked to client side value")
-		end
+		-- 	ClientDrawingTasks[taskType].Undo(taskObjectValue.Value)
+		-- 	taskObjectValue.Value.Parent = Common.HistoryStorage
+		-- else
+		-- 	-- This currently happens, and shouldn't happen
+		-- 	print("taskObjectValue not linked to client side value")
+		-- end
 
-		Remotes.Undo:FireServer(CanvasState.EquippedBoard)
+		-- Remotes.Undo:FireServer(CanvasState.EquippedBoard)
 
-		if playerHistory.MostRecent.Value.Parent == playerHistory then
-			playerHistory.MostRecent.Value = nil
-		else
-			playerHistory.MostRecent.Value = playerHistory.MostRecent.Value.Parent
-		end
-		playerHistory.MostImminent.Value = taskObjectValue
-		Buttons.SyncUndoButton(playerHistory)
-		Buttons.SyncRedoButton(playerHistory)
+		-- if playerHistory.MostRecent.Value.Parent == playerHistory then
+		-- 	playerHistory.MostRecent.Value = nil
+		-- else
+		-- 	playerHistory.MostRecent.Value = playerHistory.MostRecent.Value.Parent
+		-- end
+		-- playerHistory.MostImminent.Value = taskObjectValue
+		-- Buttons.SyncUndoButton(playerHistory)
+		-- Buttons.SyncRedoButton(playerHistory)
 	end)
 end
 
@@ -347,45 +342,50 @@ function Buttons.SyncRedoButton(playerHistory)
 	end
 end
 
-function Buttons.ConnectRedoButton(redoButton)
+function Buttons.ConnectRedoButton(board, redoButton)
+
+	local localPlayerHistory = board.PlayerHistory[Players.LocalPlayer]
+	localPlayerHistory.UpdatedSignal:Connect(function()
+		Buttons.SyncRedoButton(localPlayerHistory)
+	end)
 
 	redoButton.Activated:Connect(function()
 		-- We use this flag to indicate whether this button should be clickable
 		if not redoButton.AutoButtonColor then return end
 
-		if not CanvasState.HasWritePermission then return end
+		-- if not CanvasState.HasWritePermission then return end
 
-		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
-		local taskObjectValue = playerHistory.MostImminent.Value
+		-- local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
+		-- local taskObjectValue = playerHistory.MostImminent.Value
 
-		-- Ignore if there's no actual recorded drawing task
-		if taskObjectValue == nil then return end
+		-- -- Ignore if there's no actual recorded drawing task
+		-- if taskObjectValue == nil then return end
 
-		if taskObjectValue.Value then
-			local taskType = taskObjectValue.Value:GetAttribute("TaskType")
+		-- if taskObjectValue.Value then
+		-- 	local taskType = taskObjectValue.Value:GetAttribute("TaskType")
 
-			ClientDrawingTasks[taskType].Redo(taskObjectValue.Value)
-			if taskType == "Erase" then
-				taskObjectValue.Value.Parent = BoardGui.Erases
-			else
-				taskObjectValue.Value.Parent = BoardGui.Curves
-			end
-		else
-			-- This currently happens, and shouldn't happen
-			print("taskObjectValue not linked to client side value")
-		end
+		-- 	ClientDrawingTasks[taskType].Redo(taskObjectValue.Value)
+		-- 	if taskType == "Erase" then
+		-- 		taskObjectValue.Value.Parent = BoardGui.Erases
+		-- 	else
+		-- 		taskObjectValue.Value.Parent = BoardGui.Curves
+		-- 	end
+		-- else
+		-- 	-- This currently happens, and shouldn't happen
+		-- 	print("taskObjectValue not linked to client side value")
+		-- end
 
-		Remotes.Redo:FireServer(CanvasState.EquippedBoard)
+		-- Remotes.Redo:FireServer(CanvasState.EquippedBoard)
 
-		local nextImminentTaskObjectValue = playerHistory.MostImminent.Value:FindFirstChildOfClass("ObjectValue")
-		if nextImminentTaskObjectValue == nil then
-			playerHistory.MostImminent.Value = nil
-		else
-			playerHistory.MostImminent.Value = nextImminentTaskObjectValue
-		end
-		playerHistory.MostRecent.Value = taskObjectValue
-		Buttons.SyncUndoButton(playerHistory)
-		Buttons.SyncRedoButton(playerHistory)
+		-- local nextImminentTaskObjectValue = playerHistory.MostImminent.Value:FindFirstChildOfClass("ObjectValue")
+		-- if nextImminentTaskObjectValue == nil then
+		-- 	playerHistory.MostImminent.Value = nil
+		-- else
+		-- 	playerHistory.MostImminent.Value = nextImminentTaskObjectValue
+		-- end
+		-- playerHistory.MostRecent.Value = taskObjectValue
+		-- Buttons.SyncUndoButton(playerHistory)
+		-- Buttons.SyncRedoButton(playerHistory)
 	end)
 end
 
@@ -397,31 +397,21 @@ end
 
 function Buttons.ConnectPenModeButton(penModeButton)
 	penModeButton.Activated:Connect(function()
-		if Drawing.PenMode == "FreeHand" then
-			Buttons.SyncPenModeButton(penModeButton, "StraightLine")
-			Drawing.PenMode = "StraightLine"
-		else
-			Buttons.SyncPenModeButton(penModeButton, "FreeHand")
-			Drawing.PenMode = "FreeHand"
-		end
+		-- if Drawing.PenMode == "FreeHand" then
+		-- 	Buttons.SyncPenModeButton(penModeButton, "StraightLine")
+		-- 	Drawing.PenMode = "StraightLine"
+		-- else
+		-- 	Buttons.SyncPenModeButton(penModeButton, "FreeHand")
+		-- 	Drawing.PenMode = "FreeHand"
+		-- end
 
-		if Drawing.EquippedTool.ToolType ~= "Pen" then
+		if not Drawing.EquippedTool.IsPen then
 			-- Pressed pen mode button while using Eraser
-			assert(Drawing.EquippedTool.ToolType == "Eraser")
-			assert(Drawing.ReservedTool.ToolType == "Pen")
-			
-			-- switched to reserved pen and reserve the eraser
-			local tmp = Drawing.EquippedTool
-			Drawing.EquippedTool = Drawing.ReservedTool
-			Drawing.ReservedTool = tmp
-
-				-- Unhighlight all erasers
-			Buttons.HighlightJustEraserButton()
-			-- highlight the right color
-			Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
-			-- Highlight the equipped pen
-			Buttons.HighlightJustPenButton(Drawing.EquippedTool.GuiButton)
+			Drawing.EquippedTool = Drawing.LastUsedPen
 		end
+		
+		Drawing.EquippedTool:ToggleMode()
+		Drawing.EquippedTool:Update()
 	end)
 end
 
@@ -435,19 +425,19 @@ end
 
 function Buttons.ConnectClearButton(clearButton, confirmClearModal)
 	clearButton.Activated:Connect(function()
-		if not CanvasState.HasWritePermission then return end
+		-- if not CanvasState.HasWritePermission then return end
 
 		confirmClearModal.Visible = true
 	end)
 
 	confirmClearModal.ConfirmClearButton.Activated:Connect(function()
-		if not CanvasState.HasWritePermission then return end
+		-- if not CanvasState.HasWritePermission then return end
 		
 		confirmClearModal.Visible = false
 
-		CanvasState.Clear()
+		Buttons.EquippedBoard:Clear()
 
-		Remotes.Clear:FireServer(CanvasState.EquippedBoard)
+		Buttons.EquippedBoard.Remotes.Clear:FireServer(CanvasState.EquippedBoard)
 	end)
 
 	confirmClearModal.CancelButton.Activated:Connect(function()
