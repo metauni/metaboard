@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.7.6",
+	Version = "v0.8.0",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -97,7 +97,7 @@ Config.History = {
 	MaximumSize = 15,
 }
 
-Config.HistoryBoards = {
+Config.HistoryBoard = {
 	Material = Enum.Material.LeafyGrass,
 }
 
