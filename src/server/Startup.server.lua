@@ -26,10 +26,16 @@ local MetaBoard = require(script.Parent.MetaBoard)
 local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
 local ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
 local Persistence = require(script.Parent.Persistence)
+local History = require(script.Parent.History)
 
 MetaBoard.Init()
 PersonalBoardManager.Init()
 ServerDrawingTasks.Init()
 
 -- Delay loading persistent boards so as to avoid delaying server startup
-task.delay( 5, Persistence.Init )
+local function delayedStartup()
+	Persistence.Init()
+	History.Init()
+end
+
+task.delay( 5, delayedStartup )

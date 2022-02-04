@@ -4,6 +4,7 @@ local Config = {
 	Version = "v0.7.6",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
+	BoardTagHistory = "metaboard_history",
 	DataStoreTag = "metaboardv2.",
 
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
@@ -94,6 +95,10 @@ Config.PersonalBoard = {
 
 Config.History = {
 	MaximumSize = 15,
+}
+
+Config.HistoryBoards = {
+	Material = Enum.Material.LeafyGrass,
 }
 
 return Config

@@ -241,7 +241,7 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return
     end
 
-    if boardData.ClearCount then
+    if boardData.ClearCount and board:FindFirstChild("ClearCount") then
         board.ClearCount.Value = boardData.ClearCount
     end
 

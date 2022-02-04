@@ -228,7 +228,17 @@ function MetaBoard.Init()
 		local subscriberFamily = MetaBoard.GatherSubscriberFamily(board)
 		
 		for _, subscriber in ipairs(subscriberFamily) do
-			if subscriber:FindFirstChild("PersistId") and not subscriber.HasLoaded.Value then continue end
+			local persistId = subscriber:FindFirstChild("PersistId")
+			if persistId and not subscriber.HasLoaded.Value then continue end
+
+			if persistId then
+				subscriber.ClearCount.Value = subscriber.ClearCount.Value + 1
+
+				-- Store this as a historical version of the board
+				local boardKey = Persistence.KeyForBoard(subscriber)
+				boardKey = boardKey .. ":" .. subscriber.ClearCount.Value
+				Persistence.Store(subscriber, boardKey)
+			end
 
 			for _, watcherValue in ipairs(subscriber.Watchers:GetChildren()) do
 				if watcherValue.Value ~= player then
@@ -242,14 +252,7 @@ function MetaBoard.Init()
 
 			subscriber.CurrentZIndex.Value = 0
 
-			if subscriber:FindFirstChild("PersistId") then
-				subscriber.ClearCount.Value = subscriber.ClearCount.Value + 1
-
-				-- Store this as a historical version of the board
-				local boardKey = Persistence.KeyForBoard(subscriber)
-				boardKey = boardKey .. ":" .. subscriber.ClearCount.Value
-				Persistence.Store(subscriber, boardKey)
-
+			if persistId then
 				-- Mark this persistent board as changed
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
 			end
