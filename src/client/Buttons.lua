@@ -26,15 +26,15 @@ function Buttons.Init(boardGui)
 	Curves = boardGui.Curves
 	CanvasState = require(script.Parent.CanvasState)
 	ModalGui = boardGui.ModalGui
-	ShadeFrame = Toolbar.Colors.SelectShade.ColorShades
+	ShadeFrame = BoardGui.ShadeSelector.ColorShades
 	ShadeButtonHighlight = ShadeFrame.Shades["Shade3"].UIStroke
-
+	
 	for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
 		if colorButton:IsA("TextButton") and colorButton.Name ~= "SelectShade" then
 			Buttons.ConnectColorButton(colorButton)
 		end
 	end
-
+	
 	Buttons.ConnectSelectShadeButton(Toolbar.Colors.SelectShade, ShadeFrame)
 	Buttons.ConnectPenModeButton(Toolbar.PenModeButton)
 	Buttons.ConnectSlider(Toolbar.Pens.Slider.Rail, Toolbar.Pens.Slider.Rail.Knob)
