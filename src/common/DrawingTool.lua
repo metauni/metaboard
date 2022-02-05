@@ -4,10 +4,11 @@ Pen.__index = Pen
 function Pen.new(color, thicknessYScale, guiButton)
 	local pen = setmetatable({
 		Color = color,
+		AllColors = {},
 		ThicknessYScale = thicknessYScale,
 		GuiButton = guiButton,
 		ToolType = "Pen",
-	},Pen)
+	}, Pen)
 	
 	pen:Set(color, thicknessYScale)
 	
@@ -16,6 +17,10 @@ end
 
 function Pen:SetColor(color)
 	self.Color = color
+end
+
+function Pen:SetAllColors(colors)
+	self.AllColors = colors
 end
 
 function Pen:SetThicknessYScale(thicknessYScale)
