@@ -168,12 +168,21 @@ local function serialiseCurve(curve)
     local lines = {}
 
     for _, line in ipairs(curve:GetChildren()) do
-        table.insert(lines, serialiseLine(line))
+        -- In the current implementation, erased lines may
+        -- be just made transparent OR deleted completely
+        -- depending on the status of the undo history
+        if line.Transparency ~= 1 then
+            table.insert(lines, serialiseLine(line))
+        end
     end
 
     curveData.Lines = lines
 
-    return curveData
+    if #lines > 0 then
+        return curveData
+    else
+        return nil
+    end
 end
 
 -- Restores an empty board to the contents stored in the DataStore
@@ -325,7 +334,9 @@ function Persistence.Store(board, boardKey)
     local curves = {}
     for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
         local curveData = serialiseCurve(curve)
-        table.insert(curves, curveData)
+        if curveData then
+            table.insert(curves, curveData)
+        end
     end
 
     boardData.Curves = curves
