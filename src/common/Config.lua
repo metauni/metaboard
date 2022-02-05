@@ -101,4 +101,16 @@ Config.HistoryBoard = {
 	Material = Enum.Material.LeafyGrass,
 }
 
+-- Shades of all the available colors. Currently Hardcoded.
+Config.ColorShades = {
+	Blue = {Color3.fromRGB(0, 67, 141), Color3.fromRGB(0, 94, 198), Color3.fromRGB(0, 122, 255), Color3.fromRGB(56, 151, 255), Color3.fromRGB(113, 181, 255), Color3.fromRGB(170, 210, 255), Color3.fromRGB(226, 240, 255)},
+	Black = {Color3.new(), Color3.fromRGB(32, 32, 32), Color3.fromRGB(56, 56, 56), Color3.fromRGB(113, 113, 113), Color3.fromRGB(170, 170, 170), Color3.fromRGB(220, 220, 220), Color3.new(1, 1, 1)},	
+	White = {Color3.new(), Color3.fromRGB(32, 32, 32), Color3.fromRGB(56, 56, 56), Color3.fromRGB(113, 113, 113), Color3.fromRGB(170, 170, 170), Color3.fromRGB(220, 220, 220), Color3.new(1, 1, 1)},	
+	Green = {Color3.fromRGB(56, 88, 24), Color3.fromRGB(98, 154, 42), Color3.fromRGB(126, 198, 54), Color3.fromRGB(154, 210, 98), Color3.fromRGB(183, 223, 143), Color3.fromRGB(212, 236, 188), Color3.fromRGB(240, 248, 232)},
+	Orange = {Color3.fromRGB(108, 68, 15), Color3.fromRGB(163, 102, 23), Color3.fromRGB(245, 154, 35), Color3.fromRGB(255, 255, 0), Color3.fromRGB(247, 176, 83), Color3.fromRGB(249, 198, 132), Color3.fromRGB(251, 221, 181)},
+	Red = {Color3.fromRGB(93, 0, 0), Color3.fromRGB(163, 0, 0), Color3.fromRGB(210, 0, 0), Color3.fromRGB(220, 56, 56), Color3.fromRGB(230, 113, 113), Color3.fromRGB(240, 170, 170), Color3.fromRGB(250, 226, 226)},
+	Pink = {Color3.fromRGB(141, 75, 118), Color3.fromRGB(198, 105, 165), Color3.fromRGB(255, 136, 213), Color3.fromRGB(255, 162, 222), Color3.fromRGB(255, 188, 231), Color3.fromRGB(255, 215, 241), Color3.fromRGB(255, 241, 250)},
+	Purple = {Color3.fromRGB(72, 18, 77), Color3.fromRGB(101, 25, 108), Color3.fromRGB(130, 33, 139), Color3.fromRGB(157, 82, 164), Color3.fromRGB(185, 142, 190), Color3.fromRGB(213, 181, 216), Color3.fromRGB(241, 230, 242)}
+}
+
 return Config
