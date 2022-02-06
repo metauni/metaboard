@@ -158,8 +158,13 @@ function CanvasState.ConnectDrawingTaskEvents()
 		local playerHistory = BoardGui.History:FindFirstChild(player.UserId)
 		if playerHistory then
 			History.ForgetOldestUntilSize(playerHistory, Config.History.MaximumSize,
-				function(oldTaskObject) ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(oldTaskObject)
-			end)
+				function(oldTaskObject) 
+					-- BUG: This has crashed with drawingTask = nil
+					local drawingTask = ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")]
+					if drawingTask then
+						drawingTask.Commit(oldTaskObject)
+					end
+				end)
 		end
 	end)
 

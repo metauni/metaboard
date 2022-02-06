@@ -263,6 +263,7 @@ function Drawing.ToolLift(x,y)
 		ClientDrawingTasks.Erase.Finish(Drawing.CurrentTaskObject)
 		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentTaskObject.Name)
 	elseif Drawing.EquippedTool.ToolType == "Pen" then
+		-- BUG: the next line has crashed with "attempt to call nil value"
 		ClientDrawingTasks[Drawing.PenMode].Finish(Drawing.CurrentTaskObject)
 		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentTaskObject.Name)
 	end
@@ -270,8 +271,13 @@ function Drawing.ToolLift(x,y)
 	local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
 	if playerHistory then
 		History.ForgetOldestUntilSize(playerHistory, Config.History.MaximumSize,
-			function(oldTaskObject) ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")].Commit(oldTaskObject)
-		end)
+			function(oldTaskObject)
+				-- BUG: this has crashed with drawingTask = nil
+				local drawingTask = ClientDrawingTasks[oldTaskObject:GetAttribute("TaskType")]
+				if drawingTask then
+					drawingTask.Commit(oldTaskObject)
+				end
+			end)
 	end
 end
 
