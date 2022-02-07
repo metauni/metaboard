@@ -253,8 +253,8 @@ function MetaBoard.Init()
 			subscriber.CurrentZIndex.Value = 0
 
 			if persistId then
-				-- Mark this persistent board as changed
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
+				subscriber.IsFull.Value = false
 			end
 		end
 	end)
