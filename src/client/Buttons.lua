@@ -670,6 +670,10 @@ function Buttons.SyncShadeFrame(visible, colorName)
 	ShadeFrame.Visible = visible
 	
 	if not ShadeFrame.Visible then return end
+		
+	local button = Toolbar.Colors.SelectShade
+	ShadeFrame.Position = UDim2.new(0, button.AbsolutePosition.X + button.AbsoluteSize.X/2, ShadeFrame.Position.Y.Scale, 0)
+
 	
 	if Drawing.EquippedTool.ToolType ~= "Pen" then
 		colorName = ""
