@@ -168,10 +168,7 @@ local function serialiseCurve(curve)
     local lines = {}
 
     for _, line in ipairs(curve:GetChildren()) do
-        -- In the current implementation, erased lines may
-        -- be just made transparent OR deleted completely
-        -- depending on the status of the undo history
-        if line.Transparency ~= 1 then
+        if not line:GetAttribute("Hidden") then
             table.insert(lines, serialiseLine(line))
         end
     end
