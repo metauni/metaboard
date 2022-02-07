@@ -22,8 +22,7 @@ local CanvasState = {
 	-- the board that is currently displayed on the canvas
 	EquippedBoard = nil,
 
-	IsFullConnection = nil,
-	HasChangedConnection = nil,
+	PersistStatusConnection = nil,
 
 	SurfaceGuiConnections = {},
 
@@ -285,33 +284,27 @@ function CanvasState.OpenBoard(board)
 	local persistId = board:FindFirstChild("PersistId")
 	BoardGui.PersistStatus.Visible = (persistId ~= nil)
 	if persistId then
-		local fullColor = Color3.new(1, 0, 0)
-		local normalColor = Color3.new(0, 0, 0)
+		-- Update the indicator for full or unsaved boards
+		local checkDelay = 1
+		local counter = 0
+		CanvasState.PersistStatusConnection = RunService.Heartbeat:Connect(function(step)
+			counter = counter + step
+			if counter >= checkDelay then
+				counter = counter - checkDelay
+				
+				local isFull = board.IsFull.Value
+				local hasChanged = (board.ChangeUid.Value ~= "")
+				local persistStatus = BoardGui.PersistStatus
 
-		local function reactIsFull(full)
-			if full then
-				BoardGui.PersistStatus.BackgroundColor3 = fullColor
-				BoardGui.PersistStatus.BackgroundTransparency = 0
-			else
-				BoardGui.PersistStatus.BackgroundColor3 = normalColor
-				BoardGui.PersistStatus.BackgroundTransparency = 1
+				if isFull then
+					persistStatus.BackgroundColor3 = Color3.new(1, 0, 0)
+					persistStatus.BackgroundTransparency = 0
+				else
+					persistStatus.BackgroundColor3 = Color3.new(0, 0, 0)
+					persistStatus.BackgroundTransparency = if hasChanged then 0.5 else 1
+				end
 			end
-		end
-
-		reactIsFull(board.IsFull.Value)
-		CanvasState.IsFullConnection = board.IsFull.Changed:Connect(reactIsFull)
-
-		-- TODO maybe slow?
-		local function reactHasChanged(changeUid)
-			if changeUid == "" then
-				BoardGui.PersistStatus.BackgroundTransparency = 1
-			else
-				BoardGui.PersistStatus.BackgroundTransparency = 0.5
-			end
-		end
-
-		reactHasChanged(board.ChangeUid.Value)
-		CanvasState.HasChangedConnection = board.ChangeUid.Changed:Connect(reactHasChanged)
+		end)
 	end
 
 	BoardGui.Enabled = true
@@ -421,14 +414,9 @@ function CanvasState.CloseBoard(board)
 
 	Drawing.OnBoardClose(board)
 
-	if CanvasState.IsFullConnection then
-		CanvasState.IsFullConnection:Disconnect()
-		CanvasState.IsFullConnection = nil
-	end
-
-	if CanvasState.HasChangedConnection then
-		CanvasState.HasChangedConnection:Disconnect()
-		CanvasState.HasChangedConnection = nil
+	if CanvasState.PersistStatusConnection then
+		CanvasState.PersistStatusConnection:Disconnect()
+		CanvasState.PersistStatusConnection = nil
 	end
 	
 	game.StarterGui:SetCore("TopbarEnabled", true)
