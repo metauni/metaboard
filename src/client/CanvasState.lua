@@ -40,6 +40,7 @@ function CanvasState.Init(boardGui)
 
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
+	BoardGui.ShadeSelector.Enabled = false
 
 	local canvasCamera = Instance.new("Camera")
 	canvasCamera.Name = "Camera"
@@ -315,6 +316,7 @@ function CanvasState.OpenBoard(board)
 
 	BoardGui.Enabled = true
 	BoardGui.ModalGui.Enabled = true
+	BoardGui.ShadeSelector.Enabled = true
 
 	-- Replicate all of the curves currently on the board
 	for _, worldCurve in ipairs(board.Canvas.Curves:GetChildren()) do
@@ -413,6 +415,7 @@ function CanvasState.CloseBoard(board)
 
 	BoardGui.Enabled = false
 	BoardGui.ModalGui.Enabled = false
+	BoardGui.ShadeSelector.Enabled = false
 
 	Canvas.BoardClone:Destroy()
 

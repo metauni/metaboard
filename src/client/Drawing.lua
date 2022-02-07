@@ -56,6 +56,18 @@ function Drawing.Init(boardGui)
 	Drawing.PenA = Pen.new(Config.Drawing.Defaults.PenAColor, Config.Drawing.Defaults.PenAThicknessYScale, BoardGui.Toolbar.Pens.PenAButton)
 	Drawing.PenB = Pen.new(Config.Drawing.Defaults.PenBColor, Config.Drawing.Defaults.PenBThicknessYScale, BoardGui.Toolbar.Pens.PenBButton)
 
+	local colorsA = {}
+	local colorsB = {}
+	for _, colorButton in ipairs(boardGui.Toolbar.Colors:GetChildren()) do
+		if colorButton:IsA("TextButton") and colorButton.Name ~= "SelectShade" then 
+			colorsA[colorButton.Name] = colorButton.BackgroundColor3
+			colorsB[colorButton.Name] = colorButton.BackgroundColor3
+		end
+	end
+	
+	Drawing.PenA:SetAllColors(colorsA)
+	Drawing.PenB:SetAllColors(colorsB)
+	
 	Drawing.PenMode = "FreeHand"
 
 	ClientDrawingTasks = require(script.Parent.ClientDrawingTasks)
@@ -149,7 +161,7 @@ function Drawing.WithinBounds(x,y, thicknessYScale)
 end
 
 function Drawing.ToolDown(x,y)
-
+	Buttons.SyncShadeFrame(false, "")
 	Drawing.MouseHeld = true
 
 	local canvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x,y))
