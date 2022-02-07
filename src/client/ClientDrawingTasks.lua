@@ -41,6 +41,11 @@ function ClientDrawingTasks.FreeHand.Init(curve, authorUserId, thicknessYScale, 
 end
 
 function ClientDrawingTasks.FreeHand.Update(curve, pos)
+	if curve == nil then
+		-- BUG: This has happened
+		print("[metaboard] ERROR: Nil curve passed to ClientDrawingTasks.FreeHand.Update")
+		return
+	end
 
 	local lineInfo =
 		LineInfo.new(
