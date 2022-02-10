@@ -42,8 +42,35 @@ local Drawing = {
 	ReservedTool = nil,
 
 	CurrentTaskObject = nil,
+
+	-- The metatable makes StateByBoard weak, which means it won't hold boards
+	-- in memory if they are otherwise ready to be released i.e. they have been
+	-- removed from the DataModel.
+	StateByBoard = setmetatable({}, {__mode = "k"}),
 }
 Drawing.__index = Drawing
+
+local function obtainStateFromBoard(board)
+	local state = Drawing.StateByBoard[board]
+	if not state then
+		state = {}
+		Drawing.StateByBoard[board] = state
+
+		-- The state doesn't already have a record, so we assume the player is
+		-- opening this board for the first time. Let's set to the default
+		-- colours.
+		local defaultPenAColorObj = board:FindFirstChild("DefaultPenAColor")
+		state.penAColor = if defaultPenAColorObj and Drawing.PenA.AllColors[defaultPenAColorObj.Value]
+			then Drawing.PenA.AllColors[defaultPenAColorObj.Value]
+			else Config.Drawing.Defaults.PenAColor
+		local defaultPenBColorObj = board:FindFirstChild("DefaultPenBColor")
+		state.penBColor = if defaultPenBColorObj and Drawing.PenB.AllColors[defaultPenBColorObj.Value]
+			then Drawing.PenB.AllColors[defaultPenBColorObj.Value]
+			else Config.Drawing.Defaults.PenBColor
+	end
+
+	return state
+end
 
 function Drawing.Init(boardGui)
 	BoardGui = boardGui
@@ -139,7 +166,25 @@ function Drawing.Init(boardGui)
 
 end
 
+function Drawing.SetEquippedToolColor(color)
+	Drawing.EquippedTool:SetColor(color)
+	local state = obtainStateFromBoard(CanvasState.EquippedBoard)
+	if Drawing.EquippedTool == Drawing.PenA then
+		state.penAColor = color
+	else
+		state.penBColor = color
+	end
+end
+
 function Drawing.OnBoardOpen(board)
+	local state = obtainStateFromBoard(board)
+
+	Drawing.PenA:SetColor(state.penAColor)
+	Drawing.PenB:SetColor(state.penBColor)
+
+	Buttons.SyncPenButton(Drawing.PenA.GuiButton, Drawing.PenA)
+	Buttons.SyncPenButton(Drawing.PenB.GuiButton, Drawing.PenB)
+
 	Drawing.CursorGui.Enabled = true
 end
 
