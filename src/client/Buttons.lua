@@ -244,7 +244,7 @@ function Buttons.ConnectColorButton(colorButton)
 			ShadeFrame:SetAttribute("ColorButton", colorButton.Name)
 		end
 
-		Drawing.EquippedTool:SetColor(colorButton.BackgroundColor3)
+		Drawing.SetEquippedToolColor(colorButton.BackgroundColor3)
 		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
 
 		-- Unhighlight all erasers
@@ -594,7 +594,7 @@ function Buttons.ConnectSelectShadeButton(button, shadeFrame)
 	
 	local function SetShade(colorName, newColor)
 		Drawing.EquippedTool.AllColors[colorName] = newColor
-		Drawing.EquippedTool:SetColor(newColor)
+		Drawing.SetEquippedToolColor(newColor)
 		Toolbar.Colors[colorName].BackgroundColor3 = newColor
 		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)	
 	end
