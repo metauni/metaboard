@@ -105,9 +105,8 @@ function Persistence.KeyForBoard(board)
 	return boardKey
 end
 
-function Persistence.KeyForBoardCurveSegment(board, segmentId)
-    local boardKey = Persistence.KeyForBoard(board)
-    return boardKey .. ":c" .. segmentId
+function Persistence.SuffixForCurveSegment(segmentId)
+    return ":c" .. segmentId
 end
 
 function Persistence.KeyForHistoricalBoard(board, clearCount)
@@ -251,7 +250,7 @@ function Persistence.Restore(board, boardKey)
         local boardCurvesJSON
 
         for curveSegmentId = 1, boardData.numCurveSegments do
-            local boardCurvesKey = Persistence.KeyForBoardCurveSegment(board, curveSegmentId)
+            local boardCurvesKey = boardKey .. Persistence.SuffixForCurveSegment(curveSegmentId)
 
             success, boardCurvesJSON = pcall(function()
                 return DataStore:GetAsync(boardCurvesKey)
@@ -273,7 +272,7 @@ function Persistence.Restore(board, boardKey)
             print("[Persistence] Empty curveJSON")
             return
         end
-        
+
         curves = HTTPService:JSONDecode(curveJSON)
     end
 
@@ -387,7 +386,7 @@ function Persistence.Store(board, boardKey)
 
     while currPos < string.len(curveJSON) do
         curveSegmentId += 1
-        local boardCurvesKey = Persistence.KeyForBoardCurveSegment(board, curveSegmentId)
+        local boardCurvesKey = boardKey .. Persistence.SuffixForCurveSegment(curveSegmentId)
         local boardCurvesJSON = string.sub(curveJSON, currPos + 1, currPos + segmentSize)
 
         print("[Persistence] Writing to key " .. boardCurvesKey)
