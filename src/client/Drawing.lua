@@ -118,14 +118,6 @@ function Drawing.Init(boardGui)
 	Canvas.Button.MouseButton1Down:Connect(function(x,y)
 		if not CanvasState.HasWritePermission then return end
 
-		-- If the board is persistent and full, no new drawing tasks can be
-		-- initiated by interacting with the board, but you can finish the
-		-- current task in progress (i.e. we allow ToolMoved, ToolLift)
-		if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
-			CanvasState.EquippedBoard.IsFull.Value then
-			return
-		end
-
 		Drawing.UpdateCursor(x,y)
 		Drawing.Cursor.Visible = true
 		Drawing.ToolDown(x,y)

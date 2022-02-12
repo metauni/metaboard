@@ -62,7 +62,6 @@ function MetaBoard.Init()
 		for _, subscriber in ipairs(subscriberFamily) do
 			local persistId = subscriber:FindFirstChild("PersistId")
 			if persistId and not subscriber.HasLoaded.Value then continue end
-			if subscriber.IsFull.Value then continue end
 
 			local taskObject = Instance.new("Folder")
 			taskObject.Name = taskObjectId
@@ -154,8 +153,6 @@ function MetaBoard.Init()
 				if not subscriber.HasLoaded.Value then continue end
 			end
 
-			if subscriber.IsFull.Value then continue end
-
 			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
 			local taskObjectValue = playerHistory.MostRecent.Value
 
@@ -194,8 +191,6 @@ function MetaBoard.Init()
 			if subscriber:FindFirstChild("PersistId") then
 				if not subscriber.HasLoaded.Value then continue end
 			end
-
-			if subscriber.IsFull.Value then continue end
 
 			local playerHistory = subscriber.Canvas.History:FindFirstChild(player.UserId)
 			local taskObjectValue = playerHistory.MostImminent.Value
@@ -254,7 +249,6 @@ function MetaBoard.Init()
 
 			if persistId then
 				subscriber.ChangeUid.Value = HttpService:GenerateGUID(false)
-				subscriber.IsFull.Value = false
 			end
 		end
 	end)
@@ -429,15 +423,6 @@ function MetaBoard.InitBoard(board)
 	hasLoaded.Value = false
 	hasLoaded.Name = "HasLoaded"
 	hasLoaded.Parent = board
-
-	local isFull = board:FindFirstChild("IsFull")
-	if isFull ~= nil then
-		isFull:Destroy()
-	end
-	isFull = Instance.new("BoolValue")
-	isFull.Value = false
-	isFull.Name = "IsFull"
-	isFull.Parent = board
 
 	-- Persistent boards track how many times they have been cleared
 	if board:FindFirstChild("PersistId") then

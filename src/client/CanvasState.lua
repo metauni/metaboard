@@ -292,17 +292,11 @@ function CanvasState.OpenBoard(board)
 			if counter >= checkDelay then
 				counter = counter - checkDelay
 				
-				local isFull = board.IsFull.Value
 				local hasChanged = (board.ChangeUid.Value ~= "")
 				local persistStatus = BoardGui.PersistStatus
 
-				if isFull then
-					persistStatus.BackgroundColor3 = Color3.new(1, 0, 0)
-					persistStatus.BackgroundTransparency = 0
-				else
-					persistStatus.BackgroundColor3 = Color3.new(0, 0, 0)
-					persistStatus.BackgroundTransparency = if hasChanged then 0.5 else 1
-				end
+				persistStatus.BackgroundColor3 = Color3.new(0, 0, 0)
+				persistStatus.BackgroundTransparency = if hasChanged then 0.5 else 1
 			end
 		end)
 	end

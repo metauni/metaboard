@@ -47,9 +47,9 @@ local function storeAll()
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
     
-    if #changedBoards > 0 then
-        print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
-    end
+    --if #changedBoards > 0 then
+    --    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
+    --end
 end
 
 function Persistence.Init()
@@ -199,7 +199,8 @@ function Persistence.Restore(board, boardKey)
 
     -- Get the value stored for the given persistId. Note that this may not
     -- have been set, which is fine
-    local success, boardJSON = pcall(function()
+    local success, boardJSON
+    success, boardJSON = pcall(function()
         return DataStore:GetAsync(boardKey)
     end)
     if not success then
@@ -220,7 +221,36 @@ function Persistence.Restore(board, boardKey)
         return
     end
 
-    local curves = boardData.Curves
+    local curves
+    if not boardData.numCurveSegments then
+        -- For old versions the curve data is stored under the main key
+        -- print("[Persistence] DEBUG: loading from old datastructure")
+        curves = boardData.Curves
+    else
+        -- print("[Persistence] DEBUG: loading from new datastructure")
+        local curveJSON = ""
+        local boardCurvesJSON
+
+        for curveSegmentId = 1, boardData.numCurveSegments do
+            local boardCurvesKey = boardKey .. ":" .. curveSegmentId
+
+            success, boardCurvesJSON = pcall(function()
+                return DataStore:GetAsync(boardCurvesKey)
+            end)
+            if not success then
+                print("[Persistence] GetAsync fail for " .. boardCurvesKey)
+                return
+            end
+
+            if boardCurvesJSON then
+                curveJSON = curveJSON .. boardCurvesJSON
+            else
+                print("[Persistence] Got bad value for " .. boardCurvesKey )
+            end
+        end
+
+        curves = HTTPService:JSONDecode(curveJSON)
+    end
 
     if not curves then
         print("[Persistence] Failed to get curve data")
@@ -255,20 +285,15 @@ function Persistence.Restore(board, boardKey)
     end
 
     board.HasLoaded.Value = true
-    board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
 
     -- Count number of lines
-    local lineCount = 0
+    lineCount = 0
     for curIndex, curveData in ipairs(curves) do
         lineCount += #curveData.Lines
     end
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
     -- print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
-
-    if string.len(boardJSON) > Config.BoardFullThreshold then
-        print("[Persistence] board ".. boardKey .." is full.")
-    end
 end
 
 function Persistence.Save(board)
@@ -310,8 +335,6 @@ function Persistence.Store(board, boardKey)
         end
     end
 
-    boardData.Curves = curves
-
     if board:FindFirstChild("ClearCount") then
         boardData.ClearCount = board.ClearCount.Value
     end
@@ -320,6 +343,43 @@ function Persistence.Store(board, boardKey)
         boardData.CurrentZIndex = board.CurrentZIndex.Value
     end
 
+    local curveJSON = HTTPService:JSONEncode(curves)
+
+    if not curveJSON then
+        print("[Persistence] Curve JSON encoding failed")
+        return
+    end
+
+    local success, errormessage
+
+    -- The curveJSON may be too big to fit in one key, in which
+    -- case we split it across several keys, which have the form
+    -- "boardKey" .. ":" .. curveSegmentId
+    local curveSegmentId = 0
+    local currPos = 0
+    local segmentSize = 3500000 -- max value in a key is 4Mb
+
+    -- print("[Persistence] Length of curveJSON = " .. string.len(curveJSON))
+
+    while currPos < string.len(curveJSON) do
+        curveSegmentId += 1
+        local boardCurvesKey = boardKey .. ":" .. curveSegmentId
+        local boardCurvesJSON = string.sub(curveJSON, currPos + 1, currPos + segmentSize)
+
+        print("[Persistence] Writing to key " .. boardCurvesKey)
+        success, errormessage = pcall(function()
+            return DataStore:SetAsync(boardCurvesKey, boardCurvesJSON)
+        end)
+        if not success then
+            print("[Persistence] SetAsync fail for " .. boardCurvesKey .. " with ".. errormessage)
+            return
+        end
+
+        currPos += segmentSize
+    end
+
+    boardData.numCurveSegments = curveSegmentId
+
     local boardJSON = HTTPService:JSONEncode(boardData)
 
     if not boardJSON then
@@ -327,26 +387,17 @@ function Persistence.Store(board, boardKey)
         return
     end
 
-    -- TODO pre-empt "value too big" error
-    -- print("Persistence: Board JSON length is " .. string.len(boardJSON))
-	
-    local success, errormessage = pcall(function()
+    success, errormessage = pcall(function()
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
         print("[Persistence] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
-        board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
         return
 	end
 
-    board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-    print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
-
-    if board.IsFull.Value then
-        print("[Persistence] board ".. boardKey .." is full.")
-    end
+    print("[Persistence] Stored " .. boardKey .. " in ".. elapsedTime .."s.")
 end
 
 return Persistence

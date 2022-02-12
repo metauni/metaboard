@@ -333,11 +333,6 @@ function Buttons.ConnectUndoButton(undoButton)
 		
 		Buttons.SyncShadeFrame(false, "")
 
-		if CanvasState.EquippedBoard:FindFirstChild("PersistId") and
-			CanvasState.EquippedBoard.IsFull.Value then
-			return
-		end
-
 		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
 		local taskObjectValue = playerHistory.MostRecent.Value
 
