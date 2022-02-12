@@ -12,7 +12,7 @@ local Config = {
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
-	AutoSaveInterval = 30,
+	AutoSaveInterval = 20,
 
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
 

@@ -63,9 +63,8 @@ function Persistence.Init()
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
         if persistId then
-            -- Restore this board and all its subscribers
             local boardKey = Persistence.KeyForBoard(board)
-            task.spawn(Persistence.Restore, board, boardKey, true)
+            task.spawn(Persistence.Restore, board, boardKey)
             task.wait(waitTime)
         end
 	end
@@ -183,9 +182,8 @@ local function serialiseCurve(curve)
 end
 
 -- Restores an empty board to the contents stored in the DataStore
--- with the given persistence ID string. Optionally, it restores the
--- contents to all subscribers of the given board
-function Persistence.Restore(board, boardKey, restoreSubscribers)
+-- with the given persistence ID string.
+function Persistence.Restore(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
     local startTime = tick()
 
@@ -209,27 +207,9 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
         return
     end
 
-    -- If restoreSubscribers is false, we just count the board
-    -- itself as a subscriber
-    local subscriberFamily = {board}
-    if restoreSubscribers then
-        for _, subscriber in ipairs(MetaBoard.GatherSubscriberFamily(board)) do
-            -- If we have a subscriber which is itself persistent, we do not
-            -- restore it using the curves on this board
-            if subscriber ~= board and subscriber:FindFirstChild("PersistId") then
-                continue
-            end
-
-            table.insert(subscriberFamily, subscriber)
-        end
-    end
-
     -- Return if this board has not been stored
     if not boardJSON then
-        for _, subscriber in ipairs(subscriberFamily) do
-            subscriber.HasLoaded.Value = true
-        end
-
+        board.HasLoaded.Value = true
         return
     end
 
@@ -252,36 +232,30 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
     end
 
     if boardData.CurrentZIndex then
-        for _, subscriber in ipairs(subscriberFamily) do
-            if subscriber.CurrentZIndex then
-                subscriber.CurrentZIndex.Value = boardData.CurrentZIndex
-            end
+        if board.CurrentZIndex then
+            board.CurrentZIndex.Value = boardData.CurrentZIndex
         end
     end
 
     -- The board data is a table, each entry of which is a dictionary defining a curve
-    for subIndex, subscriber in ipairs(subscriberFamily) do
-        local lineCount = 0
+    local lineCount = 0
 
-        for curIndex, curveData in ipairs(curves) do
-            local curve = deserialiseCurve(subscriber.Canvas, curveData)
-			curve.Parent = subscriber.Canvas.Curves
-            lineCount += #curveData.Lines
+    for curIndex, curveData in ipairs(curves) do
+        local curve = deserialiseCurve(board.Canvas, curveData)
+        curve.Parent = board.Canvas.Curves
+        lineCount += #curveData.Lines
 
-            if lineCount > Config.LinesLoadedBeforeWait then
-                lineCount = 0
-                -- Give control back to the engine until the next frame,
-                -- then continue loading, to prevent low frame rates on
-                -- server startup with many persistent boards
-                task.wait()
-            end
-		end
-	end
-	
-    for _, subscriber in ipairs(subscriberFamily) do
-        subscriber.HasLoaded.Value = true
-        subscriber.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
+        if lineCount > Config.LinesLoadedBeforeWait then
+            lineCount = 0
+            -- Give control back to the engine until the next frame,
+            -- then continue loading, to prevent low frame rates on
+            -- server startup with many persistent boards
+            task.wait()
+        end
     end
+
+    board.HasLoaded.Value = true
+    board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
 
     -- Count number of lines
     local lineCount = 0

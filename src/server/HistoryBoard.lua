@@ -83,7 +83,7 @@ function HistoryBoard.CreateBoards()
             boardClone.Parent = game.Workspace
             MetaBoard.InitBoard(boardClone)
             
-            Persistence.Restore(boardClone, boardKeyWithCount, false)
+            Persistence.Restore(boardClone, boardKeyWithCount)
             
             local region = Region3.new(boardCFrame.Position - Vector3.new(50,50,50), boardCFrame.Position + Vector3.new(50,50,50))
             workspace.Terrain:ReplaceMaterial(region, 4, Enum.Material.Grass, Enum.Material.LeafyGrass)
