@@ -230,8 +230,7 @@ function MetaBoard.Init()
 				subscriber.ClearCount.Value = subscriber.ClearCount.Value + 1
 
 				-- Store this as a historical version of the board
-				local boardKey = Persistence.KeyForBoard(subscriber)
-				boardKey = boardKey .. ":" .. subscriber.ClearCount.Value
+				local boardKey = Persistence.KeyForHistoricalBoard(subscriber, subscriber.ClearCount.Value)
 				Persistence.Store(subscriber, boardKey)
 			end
 

@@ -1,3 +1,12 @@
+-- NOTES
+-- On server shutdown there is a `30sec` hard limit, within which all boards which have changed
+-- after the last autosave must be saved if we are to avoid dataloss. Given that `SetAsync` has a rate
+-- limit of `60 + numPlayers * 10` calls per minute, and assuming we can spend at most `20sec` on boards,
+-- that means we can support at most `20 + numPlayers * 3` changed boards since the last autosave if we are
+-- to avoid dataloss, purely due to rate limits. A full board costs about `1.2sec` to save under adversarial
+-- conditions (i.e. many other full boards). So to be safe we can afford at most `16` changed boards per
+-- autosave period.
+
 local CollectionService = game:GetService("CollectionService")
 local HTTPService = game:GetService("HttpService")
 local PlayersService = game:GetService("Players")
@@ -94,6 +103,16 @@ function Persistence.KeyForBoard(board)
     end
 
 	return boardKey
+end
+
+function Persistence.KeyForBoardCurveSegment(board, segmentId)
+    local boardKey = Persistence.KeyForBoard(board)
+    return boardKey .. ":c" .. segmentId
+end
+
+function Persistence.KeyForHistoricalBoard(board, clearCount)
+    local boardKey = Persistence.KeyForBoard(board)
+    return boardKey .. ":" .. clearCount
 end
 
 local function serialiseVector2(v)
@@ -232,7 +251,7 @@ function Persistence.Restore(board, boardKey)
         local boardCurvesJSON
 
         for curveSegmentId = 1, boardData.numCurveSegments do
-            local boardCurvesKey = boardKey .. ":" .. curveSegmentId
+            local boardCurvesKey = Persistence.KeyForBoardCurveSegment(board, curveSegmentId)
 
             success, boardCurvesJSON = pcall(function()
                 return DataStore:GetAsync(boardCurvesKey)
@@ -246,9 +265,15 @@ function Persistence.Restore(board, boardKey)
                 curveJSON = curveJSON .. boardCurvesJSON
             else
                 print("[Persistence] Got bad value for " .. boardCurvesKey )
+                return
             end
         end
 
+        if string.len(curveJSON) == 0 then
+            print("[Persistence] Empty curveJSON")
+            return
+        end
+        
         curves = HTTPService:JSONDecode(curveJSON)
     end
 
@@ -353,8 +378,7 @@ function Persistence.Store(board, boardKey)
     local success, errormessage
 
     -- The curveJSON may be too big to fit in one key, in which
-    -- case we split it across several keys, which have the form
-    -- "boardKey" .. ":" .. curveSegmentId
+    -- case we split it across several keys
     local curveSegmentId = 0
     local currPos = 0
     local segmentSize = 3500000 -- max value in a key is 4Mb
@@ -363,7 +387,7 @@ function Persistence.Store(board, boardKey)
 
     while currPos < string.len(curveJSON) do
         curveSegmentId += 1
-        local boardCurvesKey = boardKey .. ":" .. curveSegmentId
+        local boardCurvesKey = Persistence.KeyForBoardCurveSegment(board, curveSegmentId)
         local boardCurvesJSON = string.sub(curveJSON, currPos + 1, currPos + segmentSize)
 
         print("[Persistence] Writing to key " .. boardCurvesKey)

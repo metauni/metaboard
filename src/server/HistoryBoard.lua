@@ -34,42 +34,21 @@ function HistoryBoard.CreateBoards()
         while not board.HasLoaded.Value do
             task.wait(2)
         end
-        
-        local boardKey = Persistence.KeyForBoard(board)
-        local clearCount = 1
-        
-        while true do
-            local boardKeyWithCount = boardKey .. ":" .. clearCount
-            
-            local success, boardJSON = pcall(function()
-                return DataStore:GetAsync(boardKeyWithCount)
-            end)
-            if not success then
-                print("GetAsync fail for " .. boardKeyWithCount)
-                break
-            end
-            
-            -- We have hit the last historical board
-            if boardJSON == nil then break end
-            
-            clearCount += 1
-            task.wait(waitTime)
-        end
-        
-        local clearCountMax = clearCount - 1
-        if clearCountMax == 0 then continue end
-        
-        -- Load the boards in reverse order
-        clearCount = clearCountMax
-        
+
+        if not board:FindFirstChild("ClearCount") then continue end
+        local clearCount = board.ClearCount.Value
+        if clearCount == 0 then continue end
+
         -- Create a blank board to be replicated
         local blankBoard = if board:IsA("BasePart") then board:Clone() else board.PrimaryPart:Clone()
         local light = blankBoard:FindFirstChild("SurfaceLight"):Clone()
         blankBoard:ClearAllChildren()
         light.Parent = blankBoard
 
+        local clearCountMax = clearCount
+
         while clearCount >= 1 do
-            local boardKeyWithCount = boardKey .. ":" .. clearCount
+            local boardKeyWithCount = Persistence.KeyForHistoricalBoard(board, clearCount)
             
             local boardClone = blankBoard:Clone()
             boardClone.Name = board.Name .. ":" .. clearCount
