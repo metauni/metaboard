@@ -2,7 +2,7 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
-local AbstractDrawingTask = require(script.Parent)
+local AbstractDrawingTask = require(script.Parent.AbstractDrawingTask)
 
 -- Erase Module
 local Erase = setmetatable({}, AbstractDrawingTask)

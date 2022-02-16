@@ -22,14 +22,17 @@ do
 	end
 end
 
-local MetaBoard = require(script.Parent.MetaBoard)
-local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
-local ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
-local Persistence = require(script.Parent.Persistence)
+-- local MetaBoard = require(script.Parent.MetaBoard)
+-- local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
+-- local ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
+-- local Persistence = require(script.Parent.Persistence)
+local BoardServer = require(script.Parent.BoardServer)
 
-MetaBoard.Init()
-PersonalBoardManager.Init()
-ServerDrawingTasks.Init()
+BoardServer.Init()
 
--- Delay loading persistent boards so as to avoid delaying server startup
-task.delay( 5, Persistence.Init )
+-- MetaBoard.Init()
+-- PersonalBoardManager.Init()
+-- ServerDrawingTasks.Init()
+
+-- -- Delay loading persistent boards so as to avoid delaying server startup
+-- task.delay( 5, Persistence.Init )

@@ -1,18 +1,22 @@
 local Line = {}
 Line.__index = Line
 
-function Line.new(start: Vector2, stop: Vector2, thicknessYScale: number, color: Color3)
+function Line.new(start: Vector2, stop: Vector2, thicknessYScale: number, color: Color3, zIndex: number)
 	return setmetatable({ 
 		Start = start,
 		Stop = stop,
 		Color = color,
-		Length = (stop-start).Magnitude,
 		ThicknessYScale = thicknessYScale,
+		ZIndex = zIndex,
 	}, Line)
 end
 
 function Line:Centre()
   return (self.Start + self.Stop)/2
+end
+
+function Line:Length()
+	return (self.Stop - self.Start).Magnitude
 end
 
 function Line:RotationRadians()
@@ -23,7 +27,7 @@ function Line:RotationDegrees()
   return math.deg(self:RotationRadians())
 end
 
-function Line:Update(start: Vector2, stop: Vector2, thicknessYScale: number, color: Color3)
+function Line:Update(start: Vector2, stop: Vector2, thicknessYScale: number, color: Color3, zIndex)
   self.Start= start
   self.Stop= stop
   self.ThicknessYScale = thicknessYScale

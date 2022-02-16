@@ -17,6 +17,7 @@ end
 -- This should be created by the server and waited for by the clients
 function BoardRemotes.new(instance : Model | Part)
   local remotesFolder = Instance.new("Folder")
+  remotesFolder.Name = "Remotes"
   local self = setmetatable({
     InitDrawingTask = createRemoteEvent("InitDrawingTask", remotesFolder),
     UpdateDrawingTask = createRemoteEvent("UpdateDrawingTask", remotesFolder),
@@ -41,3 +42,5 @@ function BoardRemotes.WaitForRemotes(instance)
     Clear = remotesFolder:WaitForChild("Clear"),
   }, BoardRemotes)
 end
+
+return BoardRemotes

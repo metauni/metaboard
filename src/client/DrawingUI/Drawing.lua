@@ -6,8 +6,6 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 -- Imports
 local Config = require(Common.Config)
 local GuiPositioning = require(Common.GuiPositioning)
-local Pen = require(Common.DrawingTool.Pen)
-local Eraser = require(Common.DrawingTool.Eraser)
 local Destructor = require(Common.Packages.Destructor)
 
 -- Gui Objects
@@ -21,11 +19,7 @@ function Drawing.Init(boardGui)
 	BoardGui = boardGui
 	
 	Drawing._maid = Destructor.new()
-	Drawing.PenA = Pen.new(Config.Drawing.Defaults.PenAColor, Config.Drawing.Defaults.PenAThicknessYScale, "FreeHand")
-	Drawing.PenB = Pen.new(Config.Drawing.Defaults.PenBColor, Config.Drawing.Defaults.PenBThicknessYScale, "FreeHand")
-	Drawing.Eraser = Eraser.new(Config.Drawing.Defaults.EraserThicknessYScale)
-	Drawing.EquippedTool = Drawing.PenA
-	Drawing.LastUsedPen = Drawing.PenA
+	
 
 	Drawing.InitCursor()
 end

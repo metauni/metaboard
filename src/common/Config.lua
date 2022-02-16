@@ -29,25 +29,29 @@ Config.Drawing = {
 	-- "DouglasPeucker", "CatRom", or nil (no smoothing)
 	SmoothingAlgorithm = nil,
 
-	MinLineLengthYScale = 0,
-	MaxLineLengthTouch = 100,
+	MinLineLengthPixels = 0,
+	MaxLineLengthTouchPixels = 100,
 
-	MinThicknessYScale = 1.5/1000,
-	MaxThicknessYScale = 40/1000,
+	MinThicknessPixels = 1.5,
+	MaxThicknessPixels = 40,
 
-	LineSubdivisionLength = 20/1000,
+	LineSubdivisionLengthYScale = 20/1000,
 
-	EraserSmallThicknessYScale = 10/1000,
-	EraserMediumThicknessYScale = 80/1000,
-	EraserLargeThicknessYScale = 250/1000,
+	EraserSmallThicknessPixels = 10,
+	EraserMediumThicknessPixels = 80,
+	EraserLargeThicknessPixels = 250,
+}
+
+Config.Toolbar = {
+
 }
 
 Config.Drawing.Defaults = {
 	PenAColor = Color3.new(0, 122/255, 255/255),
 	PenBColor = Color3.new(0, 122/255, 255/255),
-	PenAThicknessYScale = 2/1000,
-	PenBThicknessYScale  = 10/1000,
-	EraserThicknessYScale = Config.Drawing.EraserSmallThicknessYScale,
+	PenAThicknessPixels = 2,
+	PenBThicknessPixels  = 10,
+	EraserThicknessPixels = Config.Drawing.EraserSmallThicknessPixels,
 }
 
 Config.Gui = {
@@ -59,9 +63,7 @@ Config.Gui = {
 	MuteButtonNearPlaneZOffset = 0.5,
 }
 
-Config.WorldBoard = {
-	-- "HandleAdornments" or "Parts" or "RoundedParts"
-	LineType = "Parts",
+Config.Canvas = {
 	-- The line z-thickness (in studs) on the axis normal to the board
 	ZThicknessStuds = 0.02,
 	-- How far above the previous curve to draw the next one, in studs
@@ -71,7 +73,7 @@ Config.WorldBoard = {
 	-- studs (not z-thickness) will have circles (cylinder parts) at each end
 	-- of the line
 	RoundThresholdStuds = 0.05,
-	-- The thickness of the invisible canvas that is spawned on top of the 
+	-- The thickness of the invisible canvas that is spawned on top of the
 	-- drawing surface
 	-- Will be able to draw n = (CanvasThickness - ZThicknessStuds)/StudsPerIndex
 	-- many curves before the curves appear above the SurfaceGui button
