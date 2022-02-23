@@ -276,12 +276,6 @@ function Drawing.ToolMoved(x,y)
 	if Drawing.MouseHeld then
 
 		local newCanvasPos = CanvasState.GetScalePositionOnCanvas(Vector2.new(x, y))
-		
-		-- Simple palm rejection
-		if UserInputService.TouchEnabled then
-			local diff = Vector2.new(x,y) - Drawing.MousePixelPos
-			if diff.Magnitude > Config.Drawing.MaxLineLengthTouch then return end
-		end
 
 		if Drawing.EquippedTool.ToolType == "Eraser" then
 			ClientDrawingTasks.Erase.Update(Drawing.CurrentTaskObject, newCanvasPos)
@@ -292,6 +286,18 @@ function Drawing.ToolMoved(x,y)
 			if not Drawing.WithinBounds(x,y, Drawing.EquippedTool.ThicknessYScale) then
 				Drawing.MousePixelPos = Vector2.new(x, y)
 				return
+			end
+
+			-- Simple palm rejection
+			if UserInputService.TouchEnabled then
+				local diff = Vector2.new(x,y) - Drawing.MousePixelPos
+				if diff.Magnitude > Config.Drawing.MaxLineLengthTouch then
+					return
+				end
+				--if diff.Magnitude < Config.Drawing.MinLineLengthTouch then
+				--	print("[metaboard] ToolMoved palm rejection, line length "..tostring(diff.Magnitude))
+				--	return
+				--end
 			end
 
 			ClientDrawingTasks[Drawing.PenMode].Update(Drawing.CurrentTaskObject, newCanvasPos)
@@ -312,6 +318,14 @@ function Drawing.ToolLift(x,y)
 		ClientDrawingTasks.Erase.Finish(Drawing.CurrentTaskObject)
 		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, "Erase", Drawing.CurrentTaskObject.Name)
 	elseif Drawing.EquippedTool.ToolType == "Pen" then
+		-- Simple palm rejection
+		if UserInputService.TouchEnabled then
+			local diff = Vector2.new(x,y) - Drawing.MousePixelPos
+			if diff.Magnitude < Config.Drawing.MinLineLengthTouch then
+				print("[metaboard] ToolLift palm rejection line length "..tostring(diff.Magnitude))
+			end
+		end
+
 		-- BUG: the next line has crashed with "attempt to call nil value"
 		ClientDrawingTasks[Drawing.PenMode].Finish(Drawing.CurrentTaskObject)
 		DrawingTask.FinishRemoteEvent:FireServer(CanvasState.EquippedBoard, Drawing.PenMode, Drawing.CurrentTaskObject.Name)

@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.11.0",
+	Version = "v0.11.1",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -26,8 +26,8 @@ Config.Drawing = {
 	-- "DouglasPeucker", "CatRom", or nil (no smoothing)
 	SmoothingAlgorithm = nil,
 
-	MinLineLengthYScale = 0,
-	MaxLineLengthTouch = 100,
+	MinLineLengthTouch = 0.1,
+	MaxLineLengthTouch = 80,
 
 	MinThicknessYScale = 1.5/1000,
 	MaxThicknessYScale = 40/1000,
