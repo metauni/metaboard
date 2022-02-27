@@ -53,7 +53,9 @@ For more customised positioning of the board, make an invisible part for the boa
 
 ## Persistent Boards
 
-Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set the value to an integer specific to that board. Since persistent boards use the Roblox DataStore API there are several limitations you should be aware of:
+Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set the value to an integer specific to that board. If you want the persistent board to work in Roblox Studio, make sure to `Enable Studio Access to API Services` under `Game Settings > Security`.
+
+Since persistent boards use the Roblox DataStore API there are several limitations you should be aware of:
 
 - In private servers the DataStore key for a board is of the form "ps\<ownerId>:metaboard\<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less.
 
