@@ -1,13 +1,9 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
-local InsertService = game:GetService("InsertService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
--- local PersonalBoardOriginal = Common.PersonalBoardModel
-local MetaBoard = require(script.Parent.MetaBoard)
-local PersonalBoardOriginal
-
+local PersonalBoardOriginal = Common.Boards.PersonalBoard
 
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
@@ -19,11 +15,7 @@ local PersonalBoardManager = {
 PersonalBoardManager.__index = PersonalBoardManager
 
 function PersonalBoardManager.Init()
-
-	local asset = InsertService:LoadAsset(Config.PersonalBoard.AssetId)
-	PersonalBoardOriginal = asset:FindFirstChildWhichIsA("Model") or asset:FindFirstAncestorWhichIsA("BasePart")
-
-	assert(PersonalBoardOriginal, "Personal Board Asset must be Model or BasePart")
+	if not Config.PersonalBoard.Enabled then return end
 
 	Players.PlayerAdded:Connect(PersonalBoardManager.OnPlayerAdded)
 	for _, player in ipairs(Players:GetChildren()) do

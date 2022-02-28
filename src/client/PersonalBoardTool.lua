@@ -8,6 +8,8 @@ local PersonalBoardTool = {}
 PersonalBoardTool.__index = PersonalBoardTool
 
 function PersonalBoardTool.Init(localCharacter)
+	if not Config.PersonalBoard.Enabled then return end
+
 	PersonalBoardTool.LocalCharacter = localCharacter
 	
 	PersonalBoardTool.Tool = Instance.new("Tool")

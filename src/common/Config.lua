@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.11.1",
+	Version = "v0.11.2",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -77,12 +77,6 @@ Config.WorldBoard = {
 }
 
 Config.PersonalBoard = {
-	-- Grab the assetId of a board to use as the personal board from the toolbox
-	-- If it's a model, make sure the model is tagged as the metaboard
-	-- Examples:
-	-- 	WhiteBoardMini: "8545133318"
-	-- 	BlackBoardMini: "8545118621"
-	AssetId = "8545118621",
 	Enabled = true,
 	-- Position of where the board will spawn relative to the HumanoidRootPart
 	-- Increase y-value for larger boards
