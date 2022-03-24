@@ -45,6 +45,7 @@ Config.Drawing.Defaults = {
 	PenAThicknessYScale = 2/1000,
 	PenBThicknessYScale  = 10/1000,
 	EraserThicknessYScale = Config.Drawing.EraserSmallThicknessYScale,
+	AttentionPenDelayTime = 1
 }
 
 Config.Gui = {

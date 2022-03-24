@@ -41,6 +41,9 @@ end
 
 -- Make sure to ForgetFuture before calling this function
 function History.RecordTaskToHistory(playerHistory, taskObject)
+	if taskObject:GetAttribute("TaskType") == "Attention" then
+		return
+	end
 
 	local newTaskObjectValue = Instance.new("ObjectValue")
 	newTaskObjectValue.Name = taskObject.Name
@@ -68,7 +71,7 @@ function History.ForgetOldestUntilSize(playerHistory, targetSize, committer)
   while taskObjectValue and size > targetSize do
     committer(taskObjectValue.Value)
     local nextTaskObjectValue = taskObjectValue:FindFirstChildOfClass("ObjectValue")
-    
+
     if nextTaskObjectValue then
       nextTaskObjectValue.Parent = playerHistory
     end

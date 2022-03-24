@@ -29,7 +29,7 @@ function ServerDrawingTasks.FreeHand.Init(board, curve, authorUserId, thicknessY
 	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, zIndex)
 	worldLine.Name = "0"
 	worldLine.Parent = curve
-	
+
 	board.CurrentZIndex.Value += 1
 end
 
@@ -40,7 +40,7 @@ function ServerDrawingTasks.FreeHand.Update(board, curve, pos)
 			pos,
 			curve:GetAttribute("ThicknessYScale"),
 			curve:GetAttribute("Color"))
-	
+
 	local numPoints = curve:GetAttribute("NumPoints")
 
 	if numPoints == 1 then
@@ -76,6 +76,81 @@ function ServerDrawingTasks.FreeHand.Commit(board, curve)
 	end
 end
 
+
+ServerDrawingTasks.Attention = {}
+ServerDrawingTasks.Attention.__index = ServerDrawingTasks.Attention
+
+function ServerDrawingTasks.Attention.Init(board, curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "Attention")
+
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	curve:SetAttribute("ZIndex", zIndex)
+
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", 1)
+
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, zIndex)
+	worldLine.Name = "0"
+	worldLine.Parent = curve
+
+	board.CurrentZIndex.Value += 1
+end
+
+function ServerDrawingTasks.Attention.Update(board, curve, pos)
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStop"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+
+	local numPoints = curve:GetAttribute("NumPoints")
+
+	if numPoints == 1 then
+		-- The zero line is the dot that is created when the user first puts the
+		-- tool down. It's a zero length line and makes non-rounded lines look gross,
+		-- because they have an unrotated square at the start of the line
+		local zeroLine = curve:FindFirstChild("0")
+		-- We update it to be the new line, instead of a making a new line
+		MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, zeroLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+		zeroLine.Name = "1"
+
+		-- Show it in case someone already erased the zero line
+		MetaBoard.ShowWorldLine(Config.WorldBoard.LineType, zeroLine)
+	else
+		-- Draw the next line
+		local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
+		worldLine.Parent = curve
+		worldLine.Name = tostring(numPoints)
+	end
+
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", numPoints + 1)
+end
+
+
+
+function ServerDrawingTasks.Attention.Finish(board, curve)
+	task.delay(Config.Drawing.Defaults.AttentionPenDelayTime, function ()
+		for _, child in ipairs(curve:GetChildren()) do
+			child:Destroy()
+			ServerDrawingTasks.Attention.Commit(curve)
+		end
+	end)
+end
+function ServerDrawingTasks.Attention.Undo(curve) end
+function ServerDrawingTasks.Attention.Redo(curve) end
+function ServerDrawingTasks.Attention.Commit(curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	else
+		curve:SetAttribute("Committed", true)
+	end
+end
+
 ServerDrawingTasks.StraightLine = {}
 ServerDrawingTasks.StraightLine.__index = ServerDrawingTasks.StraightLine
 
@@ -102,7 +177,7 @@ function ServerDrawingTasks.StraightLine.Update(board, curve, pos)
 			pos,
 			curve:GetAttribute("ThicknessYScale"),
 			curve:GetAttribute("Color"))
-	
+
 	local worldLine = curve:FindFirstChild("1")
 	MetaBoard.UpdateWorldLine(Config.WorldBoard.LineType, worldLine, board.Canvas, lineInfo, curve:GetAttribute("ZIndex"))
 end
@@ -110,7 +185,7 @@ end
 function ServerDrawingTasks.StraightLine.Finish(board, curve)
 	local wholeLine = curve:FindFirstChild("1")
 	local wholeLineInfo = LineInfo.ReadInfo(wholeLine)
-	
+
 	if wholeLineInfo.Length > Config.Drawing.LineSubdivisionLength then
 		wholeLine:Destroy()
 
@@ -164,9 +239,12 @@ function ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, radiu
 	local linesSeen = 0
 
 	for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
-		
+		if curve:GetAttribute("TaskType") == "Attention" then
+			continue
+		end
+
 		local erasedLineNames = {}
-		
+
 		for _, worldLine in ipairs(curve:GetChildren()) do
 			if linesSeen >= Config.LinesSeenBeforeWait then
 				linesSeen = 0
@@ -177,7 +255,7 @@ function ServerDrawingTasks.Erase.CollectAndHide(board, erasedCurves, pos, radiu
 
 			local lineInfo = LineInfo.ReadInfo(worldLine)
 			if LineInfo.Intersects(pos, radius, lineInfo) then
-				
+
 				MetaBoard.HideWorldLine(Config.WorldBoard.LineType, worldLine)
 
 				table.insert(erasedLineNames, worldLine.Name)
