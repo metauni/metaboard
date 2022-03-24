@@ -7,7 +7,7 @@
 			<BinaryString name="AttributesSerialize"></BinaryString>
 			<bool name="AutoLocalize">true</bool>
 			<int name="DisplayOrder">0</int>
-			<bool name="Enabled">false</bool>
+			<bool name="Enabled">true</bool>
 			<bool name="IgnoreGuiInset">true</bool>
 			<string name="Name">BoardGui</string>
 			<bool name="ResetOnSpawn">false</bool>
