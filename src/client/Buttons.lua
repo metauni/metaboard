@@ -28,13 +28,13 @@ function Buttons.Init(boardGui)
 	ModalGui = boardGui.ModalGui
 	ShadeFrame = BoardGui.ShadeSelector.ColorShades
 	ShadeButtonHighlight = ShadeFrame.Shades["Shade3"].UIStroke
-	
+
 	for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
 		if colorButton:IsA("TextButton") and colorButton.Name ~= "SelectShade" then
 			Buttons.ConnectColorButton(colorButton)
 		end
 	end
-	
+
 	Buttons.ConnectSelectShadeButton(Toolbar.Colors.SelectShade, ShadeFrame)
 	Buttons.ConnectPenModeButton(Toolbar.PenModeButton)
 	Buttons.ConnectSlider(Toolbar.Pens.Slider.Rail, Toolbar.Pens.Slider.Rail.Knob)
@@ -185,31 +185,31 @@ function Buttons.ConnectPenButton(penButton, penTool)
 		penButton.BackgroundTransparency = Config.Gui.HighlightTransparency
 	end)
 
-	penButton.MouseLeave:Connect(function(x,y) 
+	penButton.MouseLeave:Connect(function(x,y)
 		if Drawing.EquippedTool.GuiButton ~= penButton then
 			penButton.BackgroundTransparency = 1
 		end
 	end)
 
-	penButton.Activated:Connect(function(input, clickCount)		
+	penButton.Activated:Connect(function(input, clickCount)
 		Drawing.EquippedTool = penTool
 		Drawing.ReservedTool = Drawing.Eraser
 		Buttons.SyncSlider(penTool)
-		
+
 		local selectedColorName = ""
-		
+
 		for _, colorButton in ipairs(Toolbar.Colors:GetChildren()) do
 			if colorButton:IsA("TextButton") and colorButton.Name ~= "SelectShade" then
 				colorButton.BackgroundColor3 = penTool.AllColors[colorButton.Name]
-				if Drawing.EquippedTool.Color == colorButton.BackgroundColor3 then 
+				if Drawing.EquippedTool.Color == colorButton.BackgroundColor3 then
 					selectedColorName = colorButton.Name
 				end
 			end
 		end
-		
+
 		ShadeFrame:SetAttribute("ColorButton", selectedColorName)
-		
-		if ShadeFrame.Visible then 
+
+		if ShadeFrame.Visible then
 			Buttons.SyncShadeFrame(true, selectedColorName)
 		end
 		Buttons.HighlightJustColor(Drawing.EquippedTool.Color)
@@ -224,7 +224,7 @@ function Buttons.ConnectColorButton(colorButton)
 	colorButton.MouseLeave:Connect(function(x,y)
 		if Drawing.EquippedTool.ToolType ~= "Pen" or Drawing.EquippedTool.Color ~= colorButton.BackgroundColor3 then
 			colorButton.Highlight.Visible = false
-		end 
+		end
 	end)
 
 	colorButton.Activated:Connect(function(input, clickCount)
@@ -240,7 +240,7 @@ function Buttons.ConnectColorButton(colorButton)
 			Drawing.ReservedTool = tmp
 		end
 
-		if Drawing.EquippedTool.ToolType == "Pen" then 			
+		if Drawing.EquippedTool.ToolType == "Pen" then
 			ShadeFrame:SetAttribute("ColorButton", colorButton.Name)
 		end
 
@@ -266,7 +266,7 @@ function Buttons.ConnectEraserIconButton(eraserIconButton)
 			local tmp = Drawing.EquippedTool
 			Drawing.EquippedTool = Drawing.ReservedTool
 			Drawing.ReservedTool = tmp
-			
+
 			-- Highlight just the eraser and unhighlight all colors and pens
 			Buttons.HighlightJustEraserButton(Drawing.EquippedTool.GuiButton)
 			Buttons.HighlightJustColor()
@@ -282,13 +282,13 @@ function Buttons.ConnectEraserSizeButton(eraserSizeButton, eraserThicknessYScale
 	eraserSizeButton.MouseLeave:Connect(function(x,y)
 		if Drawing.EquippedTool.ToolType ~= "Eraser" or Drawing.EquippedTool.GuiButton ~= eraserSizeButton then
 			eraserSizeButton.BackgroundTransparency = 1
-		end 
+		end
 	end)
 
 	eraserSizeButton.Activated:Connect(function(input, clickCount)
 		ShadeFrame:SetAttribute("ColorButton", "")
 		Buttons.SyncShadeFrame(false, "")
-		
+
 		eraserSizeButton.BackgroundTransparency = Config.Gui.HighlightTransparency
 		if Drawing.EquippedTool.ToolType ~= "Eraser" then
 			assert(Drawing.EquippedTool.ToolType == "Pen")
@@ -330,7 +330,7 @@ function Buttons.ConnectUndoButton(undoButton)
 		if not undoButton.AutoButtonColor then return end
 
 		if not CanvasState.HasWritePermission then return end
-		
+
 		Buttons.SyncShadeFrame(false, "")
 
 		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
@@ -381,7 +381,7 @@ function Buttons.ConnectRedoButton(redoButton)
 		if not redoButton.AutoButtonColor then return end
 
 		if not CanvasState.HasWritePermission then return end
-		
+
 		Buttons.SyncShadeFrame(false, "")
 
 		local playerHistory = BoardGui.History:FindFirstChild(LocalPlayer.UserId)
@@ -414,7 +414,7 @@ function Buttons.ConnectRedoButton(redoButton)
 		end
 		playerHistory.MostRecent.Value = taskObjectValue
 		Buttons.SyncUndoButton(playerHistory)
-		Buttons.SyncRedoButton(playerHistory)		
+		Buttons.SyncRedoButton(playerHistory)
 	end
 
 	redoButton.Activated:Connect(Redo)
@@ -432,6 +432,9 @@ function Buttons.ConnectPenModeButton(penModeButton)
 		if Drawing.PenMode == "FreeHand" then
 			Buttons.SyncPenModeButton(penModeButton, "StraightLine")
 			Drawing.PenMode = "StraightLine"
+		elseif Drawing.PenMode == "StraightLine" then
+			Buttons.SyncPenModeButton(penModeButton, "Attention")
+			Drawing.PenMode = "Attention"
 		else
 			Buttons.SyncPenModeButton(penModeButton, "FreeHand")
 			Drawing.PenMode = "FreeHand"
@@ -462,6 +465,8 @@ function Buttons.SyncPenModeButton(penModeButton, mode)
 		penModeButton.Image = "rbxassetid://8260808744"
 	elseif mode == "StraightLine" then
 		penModeButton.Image = "rbxassetid://8260809648"
+	elseif mode == "Attention" then
+		penModeButton.Image = "rbxassetid://8642427282"
 	end
 end
 
@@ -492,7 +497,7 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 		return
 	end
 
-	local function CreateToolTip(position, text)		
+	local function CreateToolTip(position, text)
 		local Label = Instance.new("TextLabel")
 		Label.Name = "ToolTip"
 		Label.AnchorPoint = Vector2.new(.5, 0)
@@ -533,8 +538,8 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 		{ Visible = true }
 	)
 
-	local function InitiateHoverEffect(button, text)		
-		button.MouseEnter:Connect(function()			
+	local function InitiateHoverEffect(button, text)
+		button.MouseEnter:Connect(function()
 			local offset = toolbar.Parent.IgnoreGuiInset and Vector2.new(0, 36) or Vector2.new()
 			local position = button.AbsolutePosition + Vector2.new(button.AbsoluteSize.X/2, button.AbsoluteSize.Y + 10) + offset
 
@@ -547,7 +552,7 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 
 		button.MouseLeave:Connect(function()
 			ToolTip.Visible = false
-			if ShowToolTip.PlaybackState == Enum.PlaybackState.Playing then 
+			if ShowToolTip.PlaybackState == Enum.PlaybackState.Playing then
 				ShowToolTip:Cancel()
 			end
 		end)
@@ -560,12 +565,12 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 	InitiateHoverEffect(Pens.PenBButton, "Pen B")
 
 	-- Color buttons
-	for _, object in ipairs(toolbar.Colors:GetChildren()) do 
-		if object:IsA("TextButton") then 
+	for _, object in ipairs(toolbar.Colors:GetChildren()) do
+		if object:IsA("TextButton") then
 			InitiateHoverEffect(object, object.Name)
 		end
 	end
-	
+
 	InitiateHoverEffect(toolbar.Colors.SelectShade, "Select Shade")
 
 	-- Erasers
@@ -578,7 +583,7 @@ function Buttons.ApplyToolbarHoverEffects(toolbar)
 	-- Misc
 	InitiateHoverEffect(toolbar.ClearButton, "Clear Board")
 	InitiateHoverEffect(toolbar.CloseButton, "Close")
-	InitiateHoverEffect(toolbar.PenModeButton, "Pen/Line Mode")
+	InitiateHoverEffect(toolbar.PenModeButton, "Pen Mode")
 	InitiateHoverEffect(toolbar.RedoButton, "Redo")
 	InitiateHoverEffect(toolbar.UndoButton, "Undo")
 end
@@ -586,15 +591,15 @@ end
 function Buttons.ConnectSelectShadeButton(button, shadeFrame)
 	ShadeButtonHighlight.Thickness = 3
 	local totalShadesForEachColor = 7
-	
+
 	local function SetShade(colorName, newColor)
 		Drawing.EquippedTool.AllColors[colorName] = newColor
 		Drawing.SetEquippedToolColor(newColor)
 		Toolbar.Colors[colorName].BackgroundColor3 = newColor
-		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)	
+		Buttons.SyncPenButton(Drawing.EquippedTool.GuiButton, Drawing.EquippedTool)
 	end
-	
-	for i = 1, totalShadesForEachColor do 
+
+	for i = 1, totalShadesForEachColor do
 		local shadeButton = shadeFrame.Shades["Shade"..i]
 
 		shadeButton.Activated:Connect(function()
@@ -602,7 +607,7 @@ function Buttons.ConnectSelectShadeButton(button, shadeFrame)
 			ShadeButtonHighlight = shadeButton.UIStroke
 			ShadeButtonHighlight.Thickness = 3
 
-			if Drawing.EquippedTool.ToolType == "Pen" then 	
+			if Drawing.EquippedTool.ToolType == "Pen" then
 				local newColor = shadeButton.BackgroundColor3
 				local colorName = shadeFrame:GetAttribute("ColorButton")
 
@@ -610,12 +615,12 @@ function Buttons.ConnectSelectShadeButton(button, shadeFrame)
 					SetShade(colorName, newColor)
 				end
 			end
-		end)	
+		end)
 	end
-	
+
 	ShadeFrame.Reset.Activated:Connect(function()
 		local colorName = shadeFrame:GetAttribute("ColorButton")
-		
+
 		if Config.ColorShades[colorName] then
 			local newColor = Config.ColorShades[colorName][3]
 			SetShade(colorName, newColor)
@@ -634,26 +639,26 @@ function Buttons.ConnectSelectShadeButton(button, shadeFrame)
 				break
 			end
 		end
-	end	
-	
+	end
+
 	shadeFrame:GetAttributeChangedSignal("ColorButton"):Connect(function()
 		local colorName = shadeFrame:GetAttribute("ColorButton")
-		
+
 		if Config.ColorShades[colorName] then
-			button.ImageColor3 = 
-				if colorName == "Black" or colorName == "White" then 
+			button.ImageColor3 =
+				if colorName == "Black" or colorName == "White" then
 					Color3.new(1, 1, 1)
-				else 
+				else
 					Config.ColorShades[colorName][3]
-		else 
+		else
 			button.ImageColor3 = Color3.new(1, 1, 1)
 		end
-		
-		if shadeFrame.Visible then 
+
+		if shadeFrame.Visible then
 			Buttons.SyncShadeFrame(true, colorName)
 		end
-	end)	
-	
+	end)
+
 	shadeFrame:SetAttribute("ColorButton", c)
 
 	button.Activated:Connect(function()
@@ -663,18 +668,18 @@ end
 
 function Buttons.SyncShadeFrame(visible, colorName)
 	ShadeFrame.Visible = visible
-	
+
 	if not ShadeFrame.Visible then return end
-		
+
 	local button = Toolbar.Colors.SelectShade
 	ShadeFrame.Position = UDim2.new(0, button.AbsolutePosition.X + button.AbsoluteSize.X/2, ShadeFrame.Position.Y.Scale, 0)
 
-	
+
 	if Drawing.EquippedTool.ToolType ~= "Pen" then
 		colorName = ""
 	end
-	
-	if not Config.ColorShades[colorName] then 
+
+	if not Config.ColorShades[colorName] then
 		ShadeFrame.Shades.Visible = false
 		ShadeFrame.Reset.Visible = false
 		ShadeFrame.Note.Visible = true
@@ -686,15 +691,15 @@ function Buttons.SyncShadeFrame(visible, colorName)
 		local colors = Config.ColorShades[colorName]
 
 		if colors then
-			for i, color in ipairs(colors) do 
+			for i, color in ipairs(colors) do
 				local shadeButton = ShadeFrame.Shades["Shade"..i]
 				shadeButton.BackgroundColor3 = color
 			end
-			
+
 			ShadeButtonHighlight.Thickness = 1
-			for _, shadeButton in ipairs(ShadeFrame.Shades:GetChildren()) do 
+			for _, shadeButton in ipairs(ShadeFrame.Shades:GetChildren()) do
 				if shadeButton:IsA("TextButton") then
-					if shadeButton.BackgroundColor3 == Toolbar.Colors[colorName].BackgroundColor3 then 
+					if shadeButton.BackgroundColor3 == Toolbar.Colors[colorName].BackgroundColor3 then
 						ShadeButtonHighlight = shadeButton.UIStroke
 						break
 					end
