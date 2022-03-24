@@ -86,6 +86,80 @@ function ClientDrawingTasks.FreeHand.Commit(curve)
 	end
 end
 
+ClientDrawingTasks.Attention = {}
+ClientDrawingTasks.Attention.__index = ClientDrawingTasks.Attention
+
+function ClientDrawingTasks.Attention.Init(curve, authorUserId, thicknessYScale, color, zIndex, pos)
+	curve:SetAttribute("TaskType", "Attention")
+
+	curve:SetAttribute("AuthorUserId", authorUserId)
+	curve:SetAttribute("Color", color)
+	curve:SetAttribute("ThicknessYScale", thicknessYScale)
+	CanvasState.SetZIndex(curve, zIndex)
+
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", 1)
+
+	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
+	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+	lineFrame.Name = "0"
+
+	CanvasState.AttachLine(lineFrame, curve)
+end
+
+function ClientDrawingTasks.Attention.Update(curve, pos)
+	if curve == nil then
+		-- BUG: This has happened
+		print("[metaboard] ERROR: Nil curve passed to ClientDrawingTasks.Attention.Update")
+		return
+	end
+
+	local lineInfo =
+		LineInfo.new(
+			curve:GetAttribute("CurveStop"),
+			pos,
+			curve:GetAttribute("ThicknessYScale"),
+			curve:GetAttribute("Color"))
+
+	local numPoints = curve:GetAttribute("NumPoints")
+
+	if numPoints == 1 then
+		-- The zero line is the dot that is created when the user first puts the
+		-- tool down. It's a zero length line and makes non-rounded lines look gross,
+		-- because they have an unrotated square at the start of the line
+		local zeroLine = CanvasState.GetLinesContainer(curve):FindFirstChild("0")
+		-- We update it to be the new line, instead of a making a new line
+		CanvasState.UpdateLineFrame(zeroLine, lineInfo)
+		zeroLine.Name = "1"
+		-- Show it in case someone already erased the zero line
+		zeroLine.Visible = true
+	else
+		-- Draw the next line
+		local lineFrame = CanvasState.CreateLineFrame(lineInfo)
+		lineFrame.Name = tostring(numPoints)
+		CanvasState.AttachLine(lineFrame, curve)
+	end
+
+	curve:SetAttribute("CurveStop", pos)
+	curve:SetAttribute("NumPoints", numPoints + 1)
+end
+
+function ClientDrawingTasks.Attention.Finish(curve)
+	task.delay(Config.Drawing.Defaults.AttentionPenDelayTime, function ()
+		for _, child in ipairs(curve:GetChildren()) do
+			child:Destroy()
+			ClientDrawingTasks.Attention.Commit(curve)
+		end
+	end)
+end
+function ClientDrawingTasks.Attention.Undo(curve) end
+function ClientDrawingTasks.Attention.Redo(curve) end
+function ClientDrawingTasks.Attention.Commit(curve)
+	if #curve:GetChildren() == 0 then
+		curve:Destroy()
+	end
+end
+
 ClientDrawingTasks.StraightLine = {}
 ClientDrawingTasks.StraightLine.__index = ClientDrawingTasks.StraightLine
 
@@ -100,7 +174,7 @@ function ClientDrawingTasks.StraightLine.Init(curve, authorUserId, thicknessYSca
 
 	local lineInfo = LineInfo.new(pos, pos, thicknessYScale, color)
 	local lineFrame = CanvasState.CreateLineFrame(lineInfo)
-	
+
 	lineFrame.Name = "1"
 	CanvasState.AttachLine(lineFrame, curve)
 end
@@ -112,7 +186,7 @@ function ClientDrawingTasks.StraightLine.Update(curve, pos)
 			pos,
 			curve:GetAttribute("ThicknessYScale"),
 			curve:GetAttribute("Color"))
-	
+
 	local lineFrame = CanvasState.GetLinesContainer(curve):FindFirstChild("1")
 	CanvasState.UpdateLineFrame(lineFrame, lineInfo)
 end
@@ -120,7 +194,7 @@ end
 function ClientDrawingTasks.StraightLine.Finish(curve)
 	local wholeLine = CanvasState.GetLinesContainer(curve):FindFirstChild("1")
 	local wholeLineInfo = LineInfo.ReadInfo(wholeLine)
-	
+
 	if wholeLineInfo.Length > Config.Drawing.LineSubdivisionLength then
 		wholeLine:Destroy()
 
@@ -171,15 +245,18 @@ ClientDrawingTasks.Erase.__index = ClientDrawingTasks.Erase
 function ClientDrawingTasks.Erase.CollectAndHide(erasedCurves, pos, radius)
 
 	for _, curve in ipairs(Curves:GetChildren()) do
-		
+		if curve:GetAttribute("TaskType") == "Attention" then
+			continue
+		end
+
 		local erasedLineNames = {}
-		
+
 		for _, lineFrame in ipairs(CanvasState.GetLinesContainer(curve):GetChildren()) do
 			if lineFrame.Visible == false then continue end
 
 			local lineInfo = LineInfo.ReadInfo(lineFrame)
 			if LineInfo.Intersects(pos, radius, lineInfo) then
-				
+
 				-- Hide the lineFrame
 				lineFrame.Visible = false
 
