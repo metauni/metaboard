@@ -22,7 +22,7 @@ local Persistence = {}
 Persistence.__index = Persistence
 
 local function isPrivateServer()
-	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
+	return game.PrivateServerId ~= ""
 end
 
 -- GetAsync and SetAsync have a rate limit of 60 + numPlayers * 10 calls per minute
@@ -95,7 +95,19 @@ function Persistence.KeyForBoard(board)
 	-- If we are in a private server the key is prefixed by the 
 	-- private server's ID
 	if isPrivateServer() then
-		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+        if game.PrivateServerOwnerId ~= 0 then
+		    boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+        else
+            -- We are in a private server created using TeleportService:ReserveServer
+            -- we assume in this case that someone has created a StringValue in the workspace
+            -- called PrivateServerKey
+            local idValue = workspace:FindFirstChild("PrivateServerKey")
+            if idValue and idValue:IsA("StringValue") then
+                boardKey = "ps" .. idValue.Value .. ":" .. boardKey
+            else
+                boardKey = "ps:" .. boardKey
+            end
+        end
 	end
 
     if string.len(boardKey) > 50 then
