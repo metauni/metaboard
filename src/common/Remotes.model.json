@@ -32,6 +32,10 @@
 		{
 			"Name": "WatchingBoard",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "AnnouncePlayer",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }

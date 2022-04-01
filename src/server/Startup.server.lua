@@ -32,10 +32,17 @@ MetaBoard.Init()
 PersonalBoardManager.Init()
 ServerDrawingTasks.Init()
 
--- Delay loading persistent boards so as to avoid delaying server startup
-local function delayedStartup()
-	Persistence.Init()
-	HistoryBoard.Init()
-end
+-- Persistent boards initialisation is triggered by the first player joining
+local PersistenceInit = false
 
-task.delay( 5, delayedStartup )
+local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Remotes = Common.Remotes
+
+Remotes.AnnouncePlayer.OnServerEvent:Connect(function(plr)
+    if not PersistenceInit then
+        Persistence.Init()
+        HistoryBoard.Init()
+        
+        PersistenceInit = true
+    end 
+end)
