@@ -35,7 +35,7 @@ jobs:
 
       - name: Build project
         run: |
-          rojo build release.project.json -o metaboard.rbxlx
+          rojo build release.project.json -o metaboard.rbxmx
           
       - name: Upload build
         uses: actions/upload-artifact@v3.0.0
