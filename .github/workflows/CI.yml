@@ -21,3 +21,24 @@ jobs:
 
       - name: Run Selene
         run: selene src
+        
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.0.0
+      
+      - name: Setup Foreman
+        uses: rojo-rbx/setup-foreman@v1.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build project
+        run: |
+          rojo build release.project.json -o metaboard.rbxmx
+          
+      - name: Upload build
+        uses: actions/upload-artifact@v3.0.0
+        with:
+          name: build
+          path: metaboard.rbxmx
