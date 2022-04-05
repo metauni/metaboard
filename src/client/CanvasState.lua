@@ -84,14 +84,14 @@ function CanvasState.Init(boardGui)
 	-- overwrites the default "true" state of HasWritePermission
 	local adminEvents = game:GetService("ReplicatedStorage"):FindFirstChild("MetaAdmin")
 	if adminEvents then
-		local canWriteRF = adminEvents:FindFirstChild("CanWrite")
+		local canWriteRF = adminEvents:WaitForChild("CanWrite")
 
 		if canWriteRF then
 			CanvasState.HasWritePermission = canWriteRF:InvokeServer()
 		end
 
 		-- Listen for updates to the permissions
-		local permissionUpdateRE = adminEvents:FindFirstChild("PermissionsUpdate")
+		local permissionUpdateRE = adminEvents:WaitForChild("PermissionsUpdate")
 		permissionUpdateRE.OnClientEvent:Connect(function()
 			-- Request the new permission
 			if canWriteRF then
@@ -101,8 +101,6 @@ function CanvasState.Init(boardGui)
 	end
 
 	CanvasState.ConnectDrawingTaskEvents()
-
-	--print("CanvasState initialized")
 end
 
 function CanvasState.ConnectOpenBoardButton(board, button)

@@ -69,9 +69,19 @@ function Persistence.Init()
 
     local waitTime = asyncWaitTime()
 
+    -- We do boards on pocket portals first
+    for _, board in ipairs(boards) do
+        local persistId = board:FindFirstChild("PersistId")
+        if persistId and CollectionService:HasTag(board.Parent, "metapocket") then
+            local boardKey = Persistence.KeyForBoard(board)
+            task.spawn(Persistence.Restore, board, boardKey)
+            task.wait(waitTime)
+        end
+    end
+        
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
-        if persistId then
+        if persistId and not CollectionService:HasTag(board.Parent, "metapocket") then
             local boardKey = Persistence.KeyForBoard(board)
             task.spawn(Persistence.Restore, board, boardKey)
             task.wait(waitTime)
