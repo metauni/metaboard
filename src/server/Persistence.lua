@@ -67,15 +67,28 @@ function Persistence.Init()
     -- Restore all boards
     local boards = CollectionService:GetTagged(Config.BoardTag)
 
+    -- We are guaranteed that any requests made at this rate
+    -- will not decrease our budget, so our strategy is on startup
+    -- to spend down our budget to near zero and then throttle to this speed
     local waitTime = asyncWaitTime()
+    local fastWaitTime = 0.05
 
     -- We do boards on pocket portals first
+    local budget
+
     for _, board in ipairs(boards) do
         local persistId = board:FindFirstChild("PersistId")
         if persistId and CollectionService:HasTag(board.Parent, "metapocket") then
             local boardKey = Persistence.KeyForBoard(board)
             task.spawn(Persistence.Restore, board, boardKey)
-            task.wait(waitTime)
+
+            budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
+            if budget < 100 then
+                print("[Persistence] GetAsync budget hit, throttling")
+                task.wait(waitTime)
+            else
+                task.wait(fastWaitTime)
+            end
         end
     end
         
@@ -84,7 +97,14 @@ function Persistence.Init()
         if persistId and not CollectionService:HasTag(board.Parent, "metapocket") then
             local boardKey = Persistence.KeyForBoard(board)
             task.spawn(Persistence.Restore, board, boardKey)
-            task.wait(waitTime)
+
+            budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
+            if budget < 100 then
+                print("[Persistence] GetAsync budget hit, throttling")
+                task.wait(waitTime)
+            else
+                task.wait(fastWaitTime)
+            end
         end
 	end
 
