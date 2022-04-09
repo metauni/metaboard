@@ -14,8 +14,8 @@ local Config = {
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 20,
 
-	LinesLoadedBeforeWait = 150, -- Number of lines to load in Restore before task.wait
-	WaitTimeForLineLoading = 0.1,
+	LinesLoadedBeforeWait = 100, -- Number of lines to load in Restore before task.wait
+	WaitTimeForLineLoading = 0.2,
 
 	-- Number of lines to iterate over while erasing before task.wait
 	LinesSeenBeforeWait = 50,

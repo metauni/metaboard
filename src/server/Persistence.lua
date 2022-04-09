@@ -48,19 +48,20 @@ local function storeAll()
 	end
 
     local waitTime = asyncWaitTime()
-    local fastWaitTime = 0.1
+    --local fastWaitTime = 0.1
     local budget
     
 	for _, board in ipairs(changedBoards) do
-        budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetAsync)
+        budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
+        print("[Persistence] SetAsync budget is ".. budget)
         task.spawn(Persistence.Save, board)
 
-        if budget < 100 then
-            print("[Persistence] SetAsync budget hit, throttling")
-            task.wait(waitTime)
-        else
-            task.wait(fastWaitTime)
-        end
+        --if budget < 100 then
+        --    print("[Persistence] SetAsync budget hit, throttling")
+        task.wait(waitTime)
+        --else
+        --    task.wait(fastWaitTime)
+        --end
 	end
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
@@ -99,6 +100,8 @@ function Persistence.Init()
             end
         end
     end
+
+    fastWaitTime = 0.5
         
     for _, board in ipairs(boards) do
 		local persistId = board:FindFirstChild("PersistId")
