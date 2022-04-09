@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.12.4",
+	Version = "v0.12.5",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -14,7 +14,8 @@ local Config = {
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 20,
 
-	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
+	LinesLoadedBeforeWait = 150, -- Number of lines to load in Restore before task.wait
+	WaitTimeForLineLoading = 0.1,
 
 	-- Number of lines to iterate over while erasing before task.wait
 	LinesSeenBeforeWait = 50,

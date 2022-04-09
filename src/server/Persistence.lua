@@ -48,10 +48,19 @@ local function storeAll()
 	end
 
     local waitTime = asyncWaitTime()
+    local fastWaitTime = 0.1
+    local budget
     
 	for _, board in ipairs(changedBoards) do
-		task.spawn(Persistence.Save, board)
-        task.wait(waitTime)
+        budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetAsync)
+        task.spawn(Persistence.Save, board)
+
+        if budget < 100 then
+            print("[Persistence] SetAsync budget hit, throttling")
+            task.wait(waitTime)
+        else
+            task.wait(fastWaitTime)
+        end
 	end
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
@@ -72,10 +81,9 @@ function Persistence.Init()
     -- to spend down our budget to near zero and then throttle to this speed
     local waitTime = asyncWaitTime()
     local fastWaitTime = 0.05
-
-    -- We do boards on pocket portals first
     local budget
 
+    -- We do boards on pocket portals first
     for _, board in ipairs(boards) do
         local persistId = board:FindFirstChild("PersistId")
         if persistId and CollectionService:HasTag(board.Parent, "metapocket") then
@@ -346,7 +354,7 @@ function Persistence.Restore(board, boardKey)
             -- Give control back to the engine until the next frame,
             -- then continue loading, to prevent low frame rates on
             -- server startup with many persistent boards
-            task.wait()
+            task.wait(Config.WaitTimeForLineLoading)
         end
     end
 
