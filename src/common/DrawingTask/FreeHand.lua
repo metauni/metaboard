@@ -3,78 +3,82 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
 local AbstractDrawingTask = require(script.Parent.AbstractDrawingTask)
-local Line = require(Common.Line)
+local Curve = require(Common.Figure.Curve)
 
 -- FreeHand
 local FreeHand = setmetatable({}, AbstractDrawingTask)
 FreeHand.__index = FreeHand
 
-function FreeHand.new(taskId: string, color: Color3, thicknessYScale: number, zIndex: number)
-  local self = setmetatable(AbstractDrawingTask.new(taskId), FreeHand)
+function FreeHand.new(board, taskId: string, provisional: boolean, color: Color3, thicknessYScale: number)
+  local self = setmetatable(AbstractDrawingTask.new(taskId, provisional), FreeHand)
 
+  self.TaskType = "FreeHand"
   self.Color = color
   self.ThicknessYScale = thicknessYScale
-  self.ZIndex = zIndex
 
   return self
 end
 
-function FreeHand:Init(board, pos: Vector2)
-  self.Lines = {}
-  table.insert(self.Lines, Line.new(pos, pos, self.ThicknessYScale, self.Color, self.ZIndex))
-  self.FirstUpdate = true
-
-  if board.Canvas then
-    board.Canvas:AddCurve(self.TaskId)
-    board.Canvas:AddLine(self.Lines[1], "1", self.TaskId)
-  end
-end
-
-function FreeHand:Update(board, pos: Vector2)
-  local lastLine = self.Lines[#self.Lines]
-  local curveStop = lastLine.Stop
-
-  if self.FirstUpdate then
-    lastLine = lastLine:Update(lastLine.Start, pos, self.ThicknessYScale, self.Color, self.ZIndex)
-
-    if board.Canvas then
-      board.Canvas:UpdateLine(lastLine, "1", self.TaskId)
-    end
-
+function FreeHand:Init(board, pos: Vector2, canvas)
+  if self.Provisional then
+    self.ZIndex = board:PeekZIndex()
   else
-    local nextLine = Line.new(curveStop, pos, self.ThicknessYScale, self.Color, self.ZIndex)
-    table.insert(self.Lines, nextLine)
-
-    if board.Canvas then
-      board.Canvas:AddLine(nextLine, #self.Lines, self.TaskId)
-    end
+    self.ZIndex = board:NextZIndex()
   end
 
-  self.FirstUpdate = nil
+  self.Curve = Curve.new(self.ThicknessYScale, self.Color, self.ZIndex)
+
+  if canvas then
+    canvas:NewCurve(self.TaskId)
+    canvas:UpdateCurvePoint(self.TaskId, nil, self.Curve, 1, pos)
+  end
+
+  self.Curve:Extend(pos)
 end
 
-function FreeHand:Finish(board, pos: Vector2)
+function FreeHand:Update(board, pos: Vector2, canvas)
+  if canvas then
+    canvas:UpdateCurvePoint(self.TaskId, nil, self.Curve, #self.Curve.Points+1, pos)
+  end
+
+  self.Curve:Extend(pos)
+end
+
+function FreeHand:Finish(board, canvas)
   -- Nothing I guess, unless for smoothing?
 end
 
-function FreeHand:Render(board)
+function FreeHand:Render(board, canvas)
   -- TODO
 end
 
-function FreeHand:Undo(board)
-  self._cache = board.Canvas:DetachCurve(self.TaskId)
+function FreeHand:Undo(board, canvas)
+  if canvas then
+    canvas:DeleteCurve(self.TaskId, nil)
+  end
 end
 
-function FreeHand:Redo(board)
-  if self._cache then
-    board.Canvas:AttachCurve(self._cache)
-  else
-    self:Render(board, board.Canvas)
+function FreeHand:Redo(board, canvas)
+  if canvas then
+    canvas:WriteCurve(self.TaskId, nil, self.Curve)
   end
 end
 
 function FreeHand:Commit(board, canvas)
-  self._cache:Destroy()
+
+end
+
+function FreeHand:RenderGhost(board, ghostGroupId, intersectedIds, canvas)
+
+  local ghostCurve = self.Curve:ShallowClone()
+  ghostCurve.Color = Color3.new(0,0,0)
+
+  canvas:AddSubCurve(ghostGroupId, self.TaskId, ghostCurve, intersectedIds)
+
+end
+
+function FreeHand:EraseFigures(board, intersectedIds, canvas)
+  canvas:SubtractSubCurve(nil, self.TaskId, self.Curve, intersectedIds)
 end
 
 return FreeHand

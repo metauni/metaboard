@@ -36,10 +36,15 @@ AbstractDrawingTask.__index = AbstractDrawingTask
 -- The :Commit() method is called when the history decides that it will
 -- never undo this task again, so unneeded information can be discarded
 
-function AbstractDrawingTask.new(taskId)
+function AbstractDrawingTask.new(taskId, provisional)
   return setmetatable({
     TaskId = taskId,
+    Provisional = provisional,
   }, AbstractDrawingTask)
+end
+
+function AbstractDrawingTask:RenewVerified(board)
+  self.Provisional = false
 end
 
 function AbstractDrawingTask:Init(board, pos: Vector2)
@@ -50,7 +55,7 @@ function AbstractDrawingTask:Update(board, pos: Vector2)
   error("Update method not implemented for subclass of DrawingTask")
 end
 
-function AbstractDrawingTask:Finish(board, pos: Vector2)
+function AbstractDrawingTask:Finish(board)
   error("Finish method not implemented for subclass of DrawingTask")
 end
 

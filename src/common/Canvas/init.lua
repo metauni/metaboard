@@ -17,9 +17,10 @@ board in response to changes in the data that defines the board
 This is not the source of truth of the state of the board, just a
 a representation of that state according to how the client wants to see it.
 --]]
-function Canvas.new()
+function Canvas.new(board)
 	local self = setmetatable({
-		_destructor = Destructor.new()
+		_destructor = Destructor.new(),
+		_board = board,
 	}, Canvas)
 
 	return self

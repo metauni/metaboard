@@ -2,6 +2,7 @@
 local Common = script.Parent
 
 -- Imports
+local EraseGrid = require(Common.EraseGrid)
 
 -- Board
 local Board = {}
@@ -13,7 +14,9 @@ function Board.new(instance: Model | Part, boardRemotes)
 		_surfacePart = instance:IsA("Model") and instance.PrimaryPart or instance,
 		Remotes = boardRemotes,
 		PlayerHistory = {},
-		Queue = {},
+		DrawingTasks = {},
+		_eraseGrid = EraseGrid.new(),
+		_zIndex = 0
 	}, Board)
 
 	do
@@ -67,6 +70,15 @@ local _faceDimensionsGetter = {
 
 function Board:SurfaceSize()
 	return _faceDimensionsGetter[self.Face](self._surfacePart.Size)
+end
+
+function Board:NextZIndex()
+	self._zIndex += 1
+	return self._zIndex - 1
+end
+
+function Board:PeekZIndex()
+	return self._zIndex
 end
 
 return Board

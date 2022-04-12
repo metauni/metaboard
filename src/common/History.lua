@@ -77,13 +77,14 @@ Note that the positions of the start of the past and the end of the future
 can be calculated from _next, _ahead, _behind, using modular arithmetic.
 --]]
 
-function History.new(capacity: number)
+function History.new(capacity: number, itemToString)
   return setmetatable({
     _capacity = capacity,
     _next = 1,
     _behind = 0,
     _ahead = 0,
-    _table = {},
+    _table = table.create(capacity, nil),
+    _itemToString = itemToString or tostring,
   }, History)
 end
 
@@ -170,7 +171,7 @@ function History:ToDebugString()
   local output = "("..self._behind..","..self._next..","..self._ahead..",".."{"
 
   for i=1, self._capacity do
-    output = output..tostring(self._table[i])..(i < self._capacity and "," or "")
+    output = output..self._itemToString(self._table[i])..(i < self._capacity and "," or "")
   end
 
   return output.."})"
@@ -179,12 +180,12 @@ end
 function History:ToFormattedString()
   local past = ""
   for j=1, self._behind do
-    past = tostring(self._table[wrap(self._next - j, self._capacity)])..(j > 1 and "," or "")..past
+    past = self._itemToString(self._table[wrap(self._next - j, self._capacity)])..(j > 1 and "," or "")..past
   end
 
   local future = ""
   for j=1, self._ahead do
-    future = future..(j > 1 and "," or "")..tostring(self._table[wrap(self._next - 1 + j, self._capacity)])
+    future = future..(j > 1 and "," or "")..self._itemToString(self._table[wrap(self._next - 1 + j, self._capacity)])
   end
 
   return "<"..past.."|"..future..">"
@@ -235,6 +236,10 @@ function History:Expand(capacity)
   end
 
   self._capacity = capacity
+end
+
+function History:MapPrint(f)
+  return 
 end
 
 return History

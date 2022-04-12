@@ -15,7 +15,6 @@
 			"$ignoreUnknownInstances": true,
 			"$className": "ServerScriptService",
 			"metaboard": {
-				"$className": "Folder",
 				"$path": "src/server"
 			}
 		},
@@ -30,12 +29,7 @@
 					"$path": "src/client"
 				}
 			}
-		},
-
-		"StarterGui": {
-			"$className": "StarterGui",
-			"$ignoreUnknownInstances": true,
-			"$path": "src/gui"
 		}
+
 	}
 }

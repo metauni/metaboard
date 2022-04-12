@@ -2,28 +2,30 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
-local DrawingTool = require(script.Parent)
+local Config = require(Common.Config)
 local Erase = require(Common.DrawingTask.Erase)
 
 -- Eraser
-local Eraser = setmetatable({IsEraser = true}, DrawingTool)
+local Eraser = setmetatable({IsEraser = true, HasStroke = false}, {})
 Eraser.__index = Eraser
 
-function Eraser.new(thicknessYScale: number)
-  local self = setmetatable(DrawingTool.new(), Eraser)
+local nameToWidth = {
+  Small = Config.Drawing.EraserSmallStrokeWidth,
+  Medium = Config.Drawing.EraserMediumStrokeWidth,
+  Large = Config.Drawing.EraserLargeStrokeWidth,
+}
 
-  self.ThicknessYScale = thicknessYScale
+function Eraser.new(sizeName: string)
+  local self = setmetatable({}, Eraser)
+
+  self.Width = nameToWidth[sizeName]
 
   return self
 end
 
-function Eraser:CreateDrawingTask(board, taskId)
-  return Erase.new(taskId)
-end
-
-function Eraser:Update(thicknessYScale)
-  self.ThicknessYScale = thicknessYScale or self.ThicknessYScale
-  DrawingTool.Update(self)
+function Eraser:NewDrawingTask(board, canvasHeightPixels)
+  local taskId = Config.GenerateUUID()
+  return Erase.new(board, taskId, true, self.Width / canvasHeightPixels)
 end
 
 return Eraser

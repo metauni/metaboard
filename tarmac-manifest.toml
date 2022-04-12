@@ -1,0 +1,74 @@
+[inputs."assets/eraser-deselected.png"]
+hash = "7c8137029543a5c586af0abb3540519bde11a261af867b861e0d7fe125c47c44"
+id = 9278421842
+packable = false
+
+[inputs."assets/eraser-large-deselected.png"]
+hash = "8ee5165dc37a3e6624551288a33bb5a6ad5d55f5a2b7f3df9795c9ce0e108f72"
+id = 9284989060
+packable = false
+
+[inputs."assets/eraser-large-selected.png"]
+hash = "2a5ce6beeec71ad8abca9c4f95f94c268a7dce332c2dd47b67812859678d5afd"
+id = 9284989120
+packable = false
+
+[inputs."assets/eraser-medium-deselected.png"]
+hash = "d4ff238ef253b8f6f07c721bc9f9591574ed322a1ab5102398831d6e4c544181"
+id = 9284989194
+packable = false
+
+[inputs."assets/eraser-medium-selected.png"]
+hash = "e4d6a909437661845b951a1ab5f14a1ed22ff67760354add28ba4d7423d30720"
+id = 9284989298
+packable = false
+
+[inputs."assets/eraser-selected.png"]
+hash = "86274054dfbb7bfa8a92e8b72e8a1f2c1b5f10f9567ce9c95f97da9a3ce6ea67"
+id = 9278421896
+packable = false
+
+[inputs."assets/eraser-small-deselected.png"]
+hash = "19f5b319b99a465ea00444aea97369421d63b402ad9351314febdccee89e0fb0"
+id = 9284989407
+packable = false
+
+[inputs."assets/eraser-small-selected.png"]
+hash = "cdd325f3234932f4903afd8a6ee3430d0deddd1d686fde3d55624e86cad1ed2c"
+id = 9284989669
+packable = false
+
+[inputs."assets/expand-down.png"]
+hash = "dfc3fa18afc62234405d1484ef003d60bebff9bdce8967640a9598fdf1c5ddaf"
+id = 9285467282
+packable = false
+
+[inputs."assets/pen-deselected.png"]
+hash = "0eb2e079e9db38f80a34c09e8ec9a5c12ff4a7994fbc0e058d239e4d3ebca8ad"
+id = 9278018574
+packable = false
+
+[inputs."assets/pen-selected.png"]
+hash = "1b047188a02ca7e635918e4a58c5abfc12af72fe607dcbe7321bd37d47365e00"
+id = 9278018628
+packable = false
+
+[inputs."assets/redo.png"]
+hash = "edb0d64d91bce1d00d0e89fdfdd4e33320ea66bdb3efcef55fdd84deb74b1abe"
+id = 9276894292
+packable = false
+
+[inputs."assets/straightedge-deselected.png"]
+hash = "5e6dfed7f00d83d0cd0aa643feed55b95e563fb4843237c1d1aea3f8c4800b7d"
+id = 9278385380
+packable = false
+
+[inputs."assets/straightedge-selected.png"]
+hash = "a9a9931734ed299db16250f4c2ddc71dce36c8380f38c9668f842d8f1ac1e15e"
+id = 9278137537
+packable = false
+
+[inputs."assets/undo.png"]
+hash = "a49d43bbb29792b4c306b77f94ae7f33fb26db73867d247280b812a4734ea87f"
+id = 9276894383
+packable = false

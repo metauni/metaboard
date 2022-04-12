@@ -11,24 +11,26 @@ do
 		metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
 	end
 
-	local metaBoardGui = script.Parent:FindFirstChild("MetaBoardGui")
-	if metaBoardGui then
-		local StarterGui = game:GetService("StarterGui")
-		-- Gui's need to be top level children of StarterGui in order for
-		-- ResetOnSpawn=false to work properly
-		for _, guiObject in ipairs(metaBoardGui:GetChildren()) do
-			guiObject.Parent = StarterGui
-		end
-	end
 end
+
+-- Services
+local CollectionService = game:GetService("CollectionService")
+local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+
+-- Imports
+local Config = require(Common.Config)
+local BoardServer = require(script.BoardServer)
 
 -- local MetaBoard = require(script.Parent.MetaBoard)
 -- local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
 -- local ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
 -- local Persistence = require(script.Parent.Persistence)
-local BoardServer = require(script.Parent.BoardServer)
 
-BoardServer.Init()
+BoardServer.TagConnection = CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(BoardServer.InstanceBinder)
+	
+for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+	BoardServer.InstanceBinder(instance)
+end
 
 -- MetaBoard.Init()
 -- PersonalBoardManager.Init()

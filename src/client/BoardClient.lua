@@ -1,60 +1,127 @@
 -- Services
 local CollectionService = game:GetService("CollectionService")
-local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
 -- Import
+local RunService = game:GetService("RunService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Board = require(Common.Board)
-local WorkspaceCanvas = require(Common.Canvas.WorkspaceCanvas)
+local PartCanvas = require(Common.Canvas.PartCanvas)
 local BoardRemotes = require(Common.BoardRemotes)
 local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
+local Pen = require(Common.DrawingTool.Pen)
+local Eraser = require(Common.DrawingTool.Eraser)
+local History = require(Common.History)
+local JobQueue = require(Common.JobQueue)
+local Signal = require(Common.Packages.GoodSignal)
+
+local DrawingUI = require(script.Parent.DrawingUI)
 
 -- BoardClient
 local BoardClient = setmetatable({}, Board)
 BoardClient.__index = BoardClient
 
-function BoardClient.new(instance: Model | Part, boardRemotes, canvas)
-	local self = setmetatable(Board.new(instance, boardRemotes, canvas), BoardClient)
+function BoardClient.new(instance: Model | Part, boardRemotes)
+	local self = setmetatable(Board.new(instance, boardRemotes), BoardClient)
+
+	self._jobQueue = JobQueue.new()
+
+	self._provisionalJobQueue = JobQueue.new()
+	self._provisionalDrawingTasks = {}
 
 	local destructor = Destructor.new()
 	self._destructor = destructor
 
-	destructor:Add(self.Remotes.InitDrawingTask.OnClientEvent:Connect(function(player: Player, taskType: string, taskId, drawingTask, pos: Vector2)
+	self.LocalHistoryChangedSignal = Signal.new()
+
+	-- Connect remote event callbacks to respond to init/update/finish's of a drawing task.
+	-- The callbacks queue the changes to be made in the order they are triggered
+	-- The order these remote events are received is the globally agreed order
+
+	destructor:Add(self.Remotes.InitDrawingTask.OnClientEvent:Connect(function(player: Player, taskType: string, drawingTask, pos: Vector2)
 		drawingTask = setmetatable(drawingTask, DrawingTask[taskType])
 
-		self.PlayerHistory[player]:Append(taskId, drawingTask)
-		drawingTask:Init(self, pos)
+		self._jobQueue:Enqueue(function(yielder)
+			local playerHistory = self.PlayerHistory[player]
+			if playerHistory == nil then
+				playerHistory = History.new(Config.History.Capacity, function(dTask)
+					return dTask.TaskId
+				end)
+				self.PlayerHistory[player] = playerHistory
+			end
+
+			do
+				local pastForgetter = function(pastDrawingTask)
+					pastDrawingTask:Commit(self, self.Canvas)
+				end
+				playerHistory:Push(drawingTask, pastForgetter)
+			end
+			
+			drawingTask:Init(self, pos, self.Canvas)
+
+			if player == Players.LocalPlayer then
+				self.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
+			end
+		end)
 	end))
 
-	destructor:Add(self.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, pos)
-		local drawingTask = self.PlayerHistory[player]:GetCurrent()
-		assert(drawingTask)
-		drawingTask:Update(self, pos)
+	destructor:Add(self.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, pos: Vector2)
+		self._jobQueue:Enqueue(function(yielder)
+			local drawingTask = self.PlayerHistory[player]:MostRecent()
+			assert(drawingTask)
+			drawingTask:Update(self, pos, self.Canvas)
+		end)
 	end))
 
-	destructor:Add(self.Remotes.FinishDrawingTask.OnClientEvent:Connect(function(player: Player, pos)
-		local drawingTask = self.PlayerHistory[player]:GetCurrent()
-		assert(drawingTask)
-		drawingTask:Finish(self, pos)
+	destructor:Add(self.Remotes.FinishDrawingTask.OnClientEvent:Connect(function(player: Player)
+		self._jobQueue:Enqueue(function(yielder)
+			local drawingTask = self.PlayerHistory[player]:MostRecent()
+			assert(drawingTask)
+			drawingTask:Finish(self, self.Canvas)
+
+			if player == Players.LocalPlayer then
+				local provisionalDrawingTask = self._provisionalDrawingTasks[drawingTask.TaskId]
+    		provisionalDrawingTask:Undo(self, self._provisionalCanvas)
+			end
+		end)
 	end))
+
 
 	destructor:Add(self.Remotes.Undo.OnClientEvent:Connect(function(player: Player)
-		--TODO not sure who alters PlayerHistory (here or inside drawing task)
-		local drawingTask = self.PlayerHistory[player]:GetCurrent()
-		assert(drawingTask)
-		drawingTask:Undo(self)
+		self._jobQueue:Enqueue(function(yielder)
+			local playerHistory = self.PlayerHistory[player]
+			local drawingTask = playerHistory:StepBackward()
+			assert(drawingTask)
+			drawingTask:Undo(self, self.Canvas)
+			
+			if player == Players.LocalPlayer then
+				self.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
+			end
+		end)
 	end))
 
 	destructor:Add(self.Remotes.Redo.OnClientEvent:Connect(function(player: Player)
-		--TODO not sure who alters PlayerHistory (here or inside drawing task)
-		local drawingTask = self.PlayerHistory[player]:GetCurrent()
-		assert(drawingTask)
-		drawingTask:Redo(self)
+		self._jobQueue:Enqueue(function(yielder)
+			local playerHistory = self.PlayerHistory[player]
+			local drawingTask = self.PlayerHistory[player]:StepForward()
+			assert(drawingTask)
+			drawingTask:Redo(self, self.Canvas)
+
+			if player == Players.LocalPlayer then
+				self.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
+			end
+		end)
 	end))
+
+	RunService:BindToRenderStep("JobQueueProcessor", Enum.RenderPriority.Input.Value + 1, function()
+		self._jobQueue:RunJobsUntilYield()
+	end)
+
+	destructor:Add(function()
+		RunService:UnbindFromRenderStep("JobQueueProcessor")
+	end)
 
 	return self
 end
@@ -65,80 +132,61 @@ function BoardClient.InstanceBinder(instance)
 
 	local board = BoardClient.new(instance, boardRemotes)
 
-	local canvas = WorkspaceCanvas.new(board)
+	local canvas = PartCanvas.new(board, true, "MainCanvas")
 	board:SetCanvas(canvas)
 	canvas._instance.Parent = board._instance
 
 	canvas.ClickedSignal:Connect(function()
 
-		canvas._instance.Archivable = false
-		local clone = board._instance:Clone()
-		canvas._instance.Archivable = true
+		board._provisionalCanvas = PartCanvas.new(board, false, "ProvisionalCanvas")
 
-		-- TODO: is this overkill?
-		for _, tag in ipairs(CollectionService:GetTags(clone)) do
-			CollectionService:RemoveTag(clone, tag)
-		end
-
-		canvas._instance.Parent = clone
-
-		local camera = BoardClient.BoardViewportFrame.CurrentCamera
-		camera.CFrame = Workspace.CurrentCamera.CFrame
-		local startCFrame = camera.CFrame
-
-		local cframeValue = Instance.new("CFrameValue")
-		cframeValue.Value = canvas:GetCFrame()
-
-		local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 0, false, 0)
-		local targetCFrame = camera.CFrame
-			* CFrame.new(0, 0, -canvas:Size().Y/2 / math.tan(math.rad(camera.FieldOfView/2)) / 0.8)
-			* CFrame.Angles(0,math.pi, 0)
-		local tween = TweenService:Create(cframeValue, tweenInfo, { Value = targetCFrame })
-
-		local connection = cframeValue:GetPropertyChangedSignal("Value"):Connect(function()
-			camera.CFrame = canvas:GetCFrame() * cframeValue.Value:Inverse() * startCFrame
+		RunService:BindToRenderStep("ProvisionalJobQueueProcessor", Enum.RenderPriority.Input.Value + 1, function()
+			board._provisionalJobQueue:RunJobsUntilYield()
 		end)
 
-		tween.Completed:Connect(function()
-			connection:Disconnect()
-			cframeValue:Destroy()
+		DrawingUI.Open(board, function()
+			RunService:UnbindFromRenderStep("ProvisionalJobQueueProcessor")
+      board._provisionalJobQueue:Clear()
+			board._provisionalCanvas:Destroy()
 		end)
+	end)
 
-		clone.Parent = BoardClient.BoardViewportFrame
+	return board
+end
 
-		tween:Play()
+function BoardClient:GetToolState()
+	return self._toolState
+end
+
+function BoardClient:StoreToolState(toolState)
+	self._toolState = toolState
+end
+
+function BoardClient:ToolDown(drawingTask, canvasPos)
+	self._provisionalDrawingTasks[drawingTask.TaskId] = drawingTask
+
+	self._provisionalJobQueue:Enqueue(function(yielder)
+		self.Remotes.InitDrawingTask:FireServer(drawingTask.TaskType, drawingTask, canvasPos)
+		drawingTask:Init(self, canvasPos, self._provisionalCanvas)
+	end)
+
+	-- Not storing a local drawing task *history*
+	-- This would mean that you have to wait til you're caught up on the global
+	-- queue to execute an undo. Is that a bad thing? Maybe? Maybe not?
+end
+
+function BoardClient:ToolMoved(drawingTask, canvasPos)
+	self._provisionalJobQueue:Enqueue(function(yielder)
+		self.Remotes.UpdateDrawingTask:FireServer(canvasPos)
+		drawingTask:Update(self, canvasPos, self._provisionalCanvas)
 	end)
 end
 
-function BoardClient.Init()
-	BoardClient.TagConnection = CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(BoardClient.InstanceBinder)
-
-	for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-		BoardClient.InstanceBinder(instance)
-	end
-
-	do
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.Name = "BoardViewGui"
-		screenGui.IgnoreGuiInset = true
-
-		local viewportFrame = Instance.new("ViewportFrame")
-		viewportFrame.Size = UDim2.new(1,0,1,0)
-		viewportFrame.Position = UDim2.new(0,0,0,0)
-		viewportFrame.BackgroundTransparency = 1
-
-		local camera = Instance.new("Camera")
-		camera.Parent = viewportFrame
-
-		viewportFrame.CurrentCamera = camera
-
-		viewportFrame.Parent = screenGui
-
-		screenGui.Parent = Players.LocalPlayer.PlayerGui
-
-		BoardClient.BoardViewGui = screenGui
-		BoardClient.BoardViewportFrame = viewportFrame
-	end
+function BoardClient:ToolLift(drawingTask)
+	self._provisionalJobQueue:Enqueue(function()
+		self.Remotes.FinishDrawingTask:FireServer()
+		drawingTask:Finish(self, self._provisionalCanvas)
+	end)
 end
 
 return BoardClient

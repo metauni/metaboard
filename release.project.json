@@ -10,10 +10,7 @@
 
 		"MetaBoardPlayer" : {
 			"$path": "src/client"
-		},
-
-		"MetaBoardGui" : {
-			"$path": "src/gui"
 		}
+
 	}
 }

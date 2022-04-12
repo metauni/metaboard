@@ -1,0 +1,10 @@
+name = "metaboard"
+upload-to-group-id = 13108882
+
+# Most projects will define some 'inputs'.
+# This tells Tarmac where to find assets that we'll use in our game.
+[[inputs]]
+glob = "assets/**/*.png"
+codegen = true
+codegen-path = "src/common/Assets.lua"
+codegen-base-path = "assets"
