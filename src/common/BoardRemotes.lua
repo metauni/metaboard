@@ -13,19 +13,33 @@ local function createRemoteEvent(name : string, parent : Instance)
   return remoteEvent
 end
 
+local function createRemoteFunction(name : string, parent : Instance)
+  local remoteFunction = Instance.new("RemoteFunction")
+  remoteFunction.Name = name
+  remoteFunction.Parent = parent
+  return remoteFunction
+end
+
+local events = {
+  "InitDrawingTask",
+  "UpdateDrawingTask",
+  "FinishDrawingTask",
+  "Undo",
+  "Redo",
+  "Clear",
+  "RequestBoardData",
+}
+
 -- The remote events needed for a board (parented to the board instance)
 -- This should be created by the server and waited for by the clients
 function BoardRemotes.new(instance : Model | Part)
   local remotesFolder = Instance.new("Folder")
   remotesFolder.Name = "Remotes"
-  local self = setmetatable({
-    InitDrawingTask = createRemoteEvent("InitDrawingTask", remotesFolder),
-    UpdateDrawingTask = createRemoteEvent("UpdateDrawingTask", remotesFolder),
-    FinishDrawingTask = createRemoteEvent("FinishDrawingTask", remotesFolder),
-    Undo = createRemoteEvent("Undo", remotesFolder),
-    Redo = createRemoteEvent("Redo", remotesFolder),
-    Clear = createRemoteEvent("Clear", remotesFolder),
-  }, BoardRemotes)
+  local self = setmetatable({}, BoardRemotes)
+
+  for _, eventName in ipairs(events) do
+    self[eventName] = createRemoteEvent(eventName, remotesFolder)
+  end
 
   remotesFolder.Parent = instance
   return self
@@ -33,14 +47,14 @@ end
 
 function BoardRemotes.WaitForRemotes(instance)
   local remotesFolder = instance:WaitForChild("Remotes")
-  return setmetatable({
-    InitDrawingTask = remotesFolder:WaitForChild("InitDrawingTask"),
-    UpdateDrawingTask = remotesFolder:WaitForChild("UpdateDrawingTask"),
-    FinishDrawingTask = remotesFolder:WaitForChild("FinishDrawingTask"),
-    Undo = remotesFolder:WaitForChild("Undo"),
-    Redo = remotesFolder:WaitForChild("Redo"),
-    Clear = remotesFolder:WaitForChild("Clear"),
-  }, BoardRemotes)
+
+  local self = setmetatable({}, BoardRemotes)
+
+  for _, eventName in ipairs(events) do
+    self[eventName] = remotesFolder:WaitForChild(eventName)
+  end
+
+  return self
 end
 
 return BoardRemotes

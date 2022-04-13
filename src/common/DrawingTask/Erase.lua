@@ -17,10 +17,6 @@ function Erase.new(board, taskId: string, provisional: boolean, thicknessYScale:
   return self
 end
 
-function Erase:RenewVerified(board)
-  self.Provisional = false
-end
-
 function Erase:EraseAt(board, pos: Vector2, canvas)
 
   for taskId, figureIds in board.Grid:IterIntersects(pos, self.ThicknessYScale/2) do

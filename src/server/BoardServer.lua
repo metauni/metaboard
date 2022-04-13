@@ -11,7 +11,7 @@ local BoardRemotes = require(Common.BoardRemotes)
 local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
-local JobQueue = require(Common.JobQueue)
+local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
 
 -- BoardServer
 local BoardServer = setmetatable({}, Board)
@@ -29,9 +29,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
   -- Respond to each remote event by repeating it to all of the clients, then
   -- performing the described change to the server's copy of the board
 
-	destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, taskType: string, drawingTask, pos)
+	destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, pos)
 		
-		drawingTask = setmetatable(drawingTask, DrawingTask[taskType])
+		DrawingTask[drawingTask.TaskType].AssignMetatables(drawingTask)
 		
 		self._jobQueue:Enqueue(function(yielder)
 			local playerHistory = self.PlayerHistory[player]
@@ -41,6 +41,10 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 				end)
 				self.PlayerHistory[player] = playerHistory
 			end
+			
+			drawingTask:Verify(self)
+			drawingTask:Init(self, pos)
+			self.DrawingTasks[drawingTask.TaskId] = drawingTask
 
 			do
 				local pastForgetter = function(pastDrawingTask)
@@ -49,9 +53,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 				playerHistory:Push(drawingTask, pastForgetter)
 			end
 			
-			drawingTask:RenewVerified(self)
-			drawingTask:Init(self, pos)
-			self.Remotes.InitDrawingTask:FireAllClients(player, taskType, drawingTask, pos)
+			self.Remotes.InitDrawingTask:FireAllClients(player, drawingTask, pos)
 		end)
 	end))
 
@@ -97,6 +99,12 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 	
 	destructor:Add(RunService.Heartbeat:Connect(function()
 		self._jobQueue:RunJobsUntilYield()
+	end))
+
+	destructor:Add(self.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
+		self._jobQueue:Enqueue(function(yielder)
+			self.Remotes.RequestBoardData:FireClient(player, self.DrawingTasks, self.PlayerHistory)
+		end)
 	end))
 end
 

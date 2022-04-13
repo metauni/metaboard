@@ -191,4 +191,8 @@ Config.History = {
 	Capacity = 15,
 }
 
+Config.MaxLoadedBoards = 2
+Config.NearbyBoardsRefreshInterval = 1
+Config.Debug = true
+
 return Config

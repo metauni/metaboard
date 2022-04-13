@@ -40,10 +40,11 @@ function AbstractDrawingTask.new(taskId, provisional)
   return setmetatable({
     TaskId = taskId,
     Provisional = provisional,
+    Undone = false,
   }, AbstractDrawingTask)
 end
 
-function AbstractDrawingTask:RenewVerified(board)
+function AbstractDrawingTask:Verify(board)
   self.Provisional = false
 end
 

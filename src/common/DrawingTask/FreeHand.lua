@@ -19,6 +19,13 @@ function FreeHand.new(board, taskId: string, provisional: boolean, color: Color3
   return self
 end
 
+function FreeHand.AssignMetatables(drawingTask)
+  setmetatable(drawingTask, FreeHand)
+  if drawingTask.Curve then
+    setmetatable(drawingTask.Curve, Curve)
+  end
+end
+
 function FreeHand:Init(board, pos: Vector2, canvas)
   if self.Provisional then
     self.ZIndex = board:PeekZIndex()
@@ -48,20 +55,26 @@ function FreeHand:Finish(board, canvas)
   -- Nothing I guess, unless for smoothing?
 end
 
-function FreeHand:Render(board, canvas)
-  -- TODO
+function FreeHand:Show(board, canvas)
+  if canvas then
+    canvas:WriteCurve(self.TaskId, nil, self.Curve)
+  end
 end
 
-function FreeHand:Undo(board, canvas)
+function FreeHand:Hide(board, canvas)
   if canvas then
     canvas:DeleteCurve(self.TaskId, nil)
   end
 end
 
+function FreeHand:Undo(board, canvas)
+  self:Hide(board, canvas)
+  self.Undone = true
+end
+
 function FreeHand:Redo(board, canvas)
-  if canvas then
-    canvas:WriteCurve(self.TaskId, nil, self.Curve)
-  end
+  self:Show(board, canvas)
+  self.Undone = false
 end
 
 function FreeHand:Commit(board, canvas)

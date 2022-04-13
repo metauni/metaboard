@@ -27,6 +27,11 @@ function PartCanvas.new(board, clickable, name)
 	self._instance = canvasPart
 	self._destructor:Add(canvasPart)
 
+	local groupFolder = Instance.new("Folder")
+	groupFolder.Name = "Groups"
+	groupFolder.Parent = canvasPart
+	self._groupFolder = groupFolder
+
 	if clickable then
 		local surfaceGui = Instance.new("SurfaceGui")
 		surfaceGui.Adornee = canvasPart
@@ -252,6 +257,10 @@ function PartCanvas:DeleteCurve(groupId: string, curveId: string)
 	canvasCurve:Destroy()
 end
 
+function PartCanvas:Clear()
+	self._groupFolder:ClearAllChildren()
+end
+
 function PartCanvas:Destroy()
 	self._destructor:Destroy()
 end
@@ -279,11 +288,11 @@ local function makeCanvasCurve(curveId: string)
 end
 
 function PartCanvas:_getGroup(groupId: string, createIfMissing: boolean)
-	local group = self._instance:FindFirstChild(groupId)
+	local group = self._groupFolder:FindFirstChild(groupId)
 	if group == nil then
 		if createIfMissing then
 			group = makeGroup(groupId)
-			group.Parent = self._instance
+			group.Parent = self._groupFolder
 		else
 			groupNotFoundError(groupId)
 		end

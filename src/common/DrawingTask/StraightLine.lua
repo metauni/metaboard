@@ -19,6 +19,13 @@ function StraightLine.new(board, taskId: string, provisional: boolean, color: Co
   return self
 end
 
+function StraightLine.AssignMetatables(drawingTask)
+  setmetatable(drawingTask, StraightLine)
+  if drawingTask.Curve then
+    setmetatable(drawingTask.Curve, Curve)
+  end
+end
+
 function StraightLine:Init(board, pos: Vector2, canvas)
   if self.Provisional then
     self.ZIndex = board:PeekZIndex()
