@@ -76,4 +76,8 @@ function AbstractDrawingTask:Commit(board)
   error("Commit method not implemented for subclass of DrawingTask")
 end
 
+function AbstractDrawingTask:Rasterize()
+  error("Rasterize method not implemented for subclass of DrawingTask")
+end
+
 return AbstractDrawingTask

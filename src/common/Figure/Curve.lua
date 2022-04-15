@@ -1,4 +1,9 @@
+-- Services
+local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+
+-- Imports
 local Line = require(script.Parent.Line)
+local Rasterize = require(Common.Rasterize)
 
 local Curve = {}
 Curve.__index = Curve
@@ -54,6 +59,10 @@ function Curve:ShallowClone()
 	)
 	clone.Points = self.Points
 	clone._mask = self._mask
+end
+
+function Curve:Rasterize()
+	Rasterize.Curve(self.Points)
 end
 
 return Curve

@@ -72,4 +72,8 @@ function StraightLine:Commit(board, canvas)
 
 end
 
+function StraightLine:Rasterize()
+  return self.Curve:Rasterize()
+end
+
 return StraightLine
