@@ -12,22 +12,22 @@ local function lerp(a, b, t)
   end
 end
 
-return function(self, pointPart: Part, pos, curve)
-	pointPart.Color = curve.Color
+return function(self, pointPart: Part, pos: Vector2, thicknessYScale: number, color: Color3, zIndex: number)
+	pointPart.Color = color
 
 	local canvasSize = self:Size()
 
 	pointPart.Size =
 		Vector3.new(
 			Config.Canvas.ZThicknessStuds,
-			curve.ThicknessYScale * canvasSize.Y,
-			curve.ThicknessYScale * canvasSize.Y)
+			thicknessYScale * canvasSize.Y,
+			thicknessYScale * canvasSize.Y)
 
 	local x = lerp(canvasSize.X / 2, -canvasSize.X / 2, pos.X / self:AspectRatio())
 	local y = lerp(canvasSize.Y / 2, -canvasSize.Y / 2, pos.Y)
 	local z = - Config.Canvas.ZThicknessStuds / 2
 		- Config.Canvas.InitialZOffsetStuds
-		- curve.ZIndex * Config.Canvas.StudsPerZIndex
+		- zIndex * Config.Canvas.StudsPerZIndex
 
 	pointPart.CFrame = self:GetCFrame() * CFrame.new(x,y,z) * CFrame.Angles(0,math.pi/2,0)
 end

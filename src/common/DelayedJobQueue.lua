@@ -5,22 +5,24 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Queue = require(Common.Queue)
 
 -- JobQueue
-local JobQueue = {}
-JobQueue.__index = JobQueue
+local DelayedJobQueue = {}
+DelayedJobQueue.__index = DelayedJobQueue
 
-function JobQueue.new()
+function DelayedJobQueue.new(delayTime)
   return setmetatable({
-    _queue = Queue.new()
-  }, JobQueue)
+    _queue = Queue.new(),
+		_delayTime = delayTime
+  }, DelayedJobQueue)
 end
 
-function JobQueue:Enqueue(job)
+function DelayedJobQueue:Enqueue(job)
   self._queue:Enqueue(coroutine.create(job))
 end
 
-function JobQueue:RunJobsUntilYield(yielder)
+function DelayedJobQueue:RunJobsUntilYield(yielder)
   while self._queue:Count() > 0 do
 		local co = self._queue:PeekFront()
+		task.wait(self._delayTime)
 		local success, msg = coroutine.resume(co, yielder)
 		if not success then
 			self._queue:Dequeue()
@@ -35,8 +37,8 @@ function JobQueue:RunJobsUntilYield(yielder)
 	end
 end
 
-function JobQueue:Clear()
+function DelayedJobQueue:Clear()
   self._queue = Queue.new()
 end
 
-return JobQueue
+return DelayedJobQueue

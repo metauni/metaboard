@@ -15,6 +15,7 @@ local Config = require(Common.Config)
 local Assets = require(Common.Assets)
 local Llama = require(Common.Packages.Llama)
 local Dictionary = Llama.Dictionary
+local PartCanvas = require(Common.Canvas.PartCanvas)
 
 
 
@@ -90,6 +91,9 @@ App.defaultProps = {
 }
 
 function App:didMount()
+  local board = self.props.Board
+
+
   self._uisConnection = UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
       or input.UserInputType == Enum.UserInputType.Touch
@@ -98,7 +102,6 @@ function App:didMount()
     end
   end)
 
-  local board = self.props.Board
   self._historyChangedConnection = board.LocalHistoryChangedSignal:Connect(function(canUndo, canRedo)
     self:setState({
       CanUndo = canUndo,
@@ -111,6 +114,7 @@ function App:didMount()
 end
 
 function App:willUnmount()
+  self._provisionalCanvas:Destroy()
   self._uisConnection:Disconnect()
   self._historyChangedConnection:Disconnect()
   StarterGui:SetCoreGuiEnabled("All", true)
@@ -121,12 +125,15 @@ function App:init()
   local board = self.props.Board
   local history = board.PlayerHistory[Players.LocalPlayer]
 
+  self._provisionalCanvas = PartCanvas.new("ProvisionalCanvas", board._surfacePart)
+
   self:setState(Dictionary.merge(initialToolState, {
     ToolHeld = false,
     CanUndo = history and history:CountPast() > 0,
     CanRedo = history and history:CountFuture() > 0,
     SubMenu = Roact.None,
     EquippedToolName = "Pen",
+    BlackoutProvisionalCanvas = false
   }))
 
   self.canvasButtonRef = Roact.createRef()
@@ -227,8 +234,40 @@ function App:renderCanvas()
     FieldOfView = fov,
     CanvasHeightStuds = canvasSizeStuds.Y,
     CanvasCFrame = canvasCFrame,
-    MountBoard = mountBoard,
-    UnmountBoard = unmountBoard,
+    OnMount = mountBoard,
+    OnUnmount = unmountBoard,
+    Blackout = false
+  })
+
+  local provisionalCanvasViewport = e(CanvasViewport, {
+    CanvasButtonRef = self.canvasButtonRef,
+    ZIndex = 1,
+    FieldOfView = fov,
+    CanvasHeightStuds = canvasSizeStuds.Y,
+    CanvasCFrame = canvasCFrame,
+    OnMount = function(vpfInstance)
+      self._provisionalCanvas:ParentTo(vpfInstance)
+    end,
+    OnUnmount = function()
+      self._provisionalCanvas:ParentTo(nil)
+    end,
+    Blackout = false,
+  })
+
+  
+  local eraserGhostCanvasViewport = e(CanvasViewport, {
+    CanvasButtonRef = self.canvasButtonRef,
+    ZIndex = 2,
+    FieldOfView = fov,
+    CanvasHeightStuds = canvasSizeStuds.Y,
+    CanvasCFrame = canvasCFrame,
+    OnMount = function(vpfInstance)
+      self.eraseGhostCanvasVpf = vpfInstance
+    end,
+    OnUnmount = function()
+      self.eraseGhostCanvasVpf = nil
+    end,
+    Blackout = true,
   })
 
   return e("ScreenGui", {
@@ -236,7 +275,9 @@ function App:renderCanvas()
     DisplayOrder = 0,
     [Roact.Children] = {
       RegionFrame = regionFrame,
-      CanvasViewport = canvasViewport
+      CanvasViewport = canvasViewport,
+      ProvisionalCanvasViewport = provisionalCanvasViewport,
+      EraserGhostCanvasViewport = eraserGhostCanvasViewport
     }
   })
 end
@@ -280,14 +321,35 @@ function App:ToolDown(canvasRbx, x, y)
 
   local drawingTask = equippedTool:NewDrawingTask(board, canvasRbx.AbsoluteSize.Y)
 
+  local currentCanvas
+
+  if equippedTool.IsEraser then
+    local eraserGhostCanvas = PartCanvas.new("EraseGhostCanvas", board._surfacePart)
+    currentCanvas = eraserGhostCanvas
+    eraserGhostCanvas:ParentTo(self.eraseGhostCanvasVpf)
+    drawingTask._destroy = function()
+      eraserGhostCanvas:Destroy()
+      self:setState({
+        CurrentCanvas = Roact.None
+      })
+    end
+  else
+    currentCanvas = self._provisionalCanvas
+    drawingTask._destroy = function()
+      drawingTask:Hide(board, self._provisionalCanvas)
+    end
+  end
+
+  board:ToolDown(drawingTask, self:ToYScalePos(canvasRbx, x, y), currentCanvas)
+  
   self:setState({
     ToolPixelPos = Vector2.new(x,y),
     ToolHeld = true,
     DrawingTask = drawingTask,
-    SubMenu = Roact.None
+    SubMenu = Roact.None,
+    BlackoutProvisionalCanvas = equippedTool.IsEraser == true,
+    CurrentCanvas = currentCanvas
   })
-
-  board:ToolDown(drawingTask, self:ToYScalePos(canvasRbx, x, y))
 end
 
 function App:ToolMoved(canvasRbx, x, y)
@@ -311,7 +373,7 @@ function App:ToolMoved(canvasRbx, x, y)
     --   if diff.Magnitude > Config.Drawing.MaxLineLengthTouch then return end
     -- end
 
-    board:ToolMoved(drawingTask, self:ToYScalePos(canvasRbx, x, y))
+    board:ToolMoved(drawingTask, self:ToYScalePos(canvasRbx, x, y), self.state.CurrentCanvas)
   end
 
   self:setState({
@@ -335,11 +397,12 @@ function App:ToolLift()
       })
       return
     end
-    board:ToolLift(drawingTask)
+    board:ToolLift(drawingTask, self.state.CurrentCanvas)
 
     self:setState({
       ToolHeld = false,
       DrawingTask = Roact.None,
+      BlackoutProvisionalCanvas = false,
     })
   end
 end
@@ -562,7 +625,7 @@ function App:strokeMenu()
         local subMenu = self.state.SubMenu
         if index == self.state.SelectedColorWellIndex then
           self:setState({
-            SubMenu = "ShadedColor"
+            SubMenu = self.state.SubMenu == "ShadedColor" and Roact.None or "ShadedColor"
           })
         else
           if subMenu ~= nil and subMenu ~= "ShadedColor" then
@@ -614,7 +677,7 @@ function App:strokeMenu()
       LayoutOrder = props.LayoutOrder,
       OnClick = function()
         self:setState({
-          SubMenu = "StrokeWidth"
+          SubMenu = self.state.SubMenu == "StrokeWidth" and Roact.None or "StrokeWidth"
         })
       end,
       SubMenu = self.state.SubMenu == "StrokeWidth" and strokeWidthSubMenu or nil

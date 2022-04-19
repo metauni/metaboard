@@ -16,16 +16,21 @@ local function open(board, onClose)
     CanvasSizeStuds = board.Canvas:Size(),
     FieldOfView = workspace.CurrentCamera.FieldOfView,
     MountBoard = function(vpfInstance)
-      board.Canvas._instance.Parent = vpfInstance
+      board.Canvas:ParentTo(vpfInstance)
       board._instanceClone = board._instance:Clone()
       board._instanceClone.Parent = vpfInstance
 
-      board._provisionalCanvas._instance.Parent = vpfInstance
     end,
     UnmountBoard = function()
       board.Canvas._instance.Parent = board._instance
       board._instanceClone:Destroy()
       -- make sure no more provisionalJobQueue stuff happens after this
+    end,
+    MountProvisionalCanvas = function(vpfInstance)
+      board._provisionalCanvas:ParentTo(vpfInstance)
+    end,
+    UnmountProvisionalCanvas = function()
+      board._provisionalCanvas:ParentTo(board._instance)
     end,
     Board = board,
     OnClose = function()

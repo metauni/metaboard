@@ -193,6 +193,7 @@ Config.History = {
 
 Config.MaxLoadedBoards = 2
 Config.NearbyBoardsRefreshInterval = 1
-Config.Debug = true
+Config.Debug = false
+Config.DefaultEraseGridPixelSize = 1/100
 
 return Config

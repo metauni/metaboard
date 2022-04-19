@@ -5,6 +5,7 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Canvas = require(script.Parent)
 local Signal = require(Common.Packages.GoodSignal)
+local Line = require(Common.Figure.Line)
 
 -- Helper functions
 local makePart = require(script.makePart)
@@ -15,50 +16,25 @@ local updatePointPart = require(script.updatePointPart)
 local PartCanvas = setmetatable({}, Canvas)
 PartCanvas.__index = PartCanvas
 
-function PartCanvas.new(board, clickable, name)
-	local self = setmetatable(Canvas.new(board), PartCanvas)
+function PartCanvas.new(name, boardSurface: Part)
+	local self = setmetatable(Canvas.new(), PartCanvas)
 
-	local canvasPart = makePart(name or "Canvas")
-	canvasPart.CanQuery = true -- critical for buttons on surface gui
-	canvasPart.Transparency = 1
-	canvasPart.Size = Vector3.new(board:SurfaceSize().X, board:SurfaceSize().Y, Config.Canvas.CanvasThickness)
-	canvasPart.CFrame = board:SurfaceCFrame()
+	self._boardSurface = boardSurface
 
-	self._instance = canvasPart
-	self._destructor:Add(canvasPart)
+	self._instance = Instance.new("Model")
+	self._instance.Name = name or "Canvas"
 
-	local groupFolder = Instance.new("Folder")
-	groupFolder.Name = "Groups"
-	groupFolder.Parent = canvasPart
-	self._groupFolder = groupFolder
-
-	if clickable then
-		local surfaceGui = Instance.new("SurfaceGui")
-		surfaceGui.Adornee = canvasPart
-		surfaceGui.Parent = canvasPart
-
-		local clickDetector = Instance.new("ClickDetector")
-		clickDetector.Parent = canvasPart
-
-		local button = Instance.new("TextButton")
-		button.Text = ""
-		button.BackgroundTransparency = 1
-		button.Size = UDim2.new(1, 0, 1, 0)
-		button.Parent = surfaceGui
-
-		self._destructor:Add(button.Activated:Connect(function()
-			self.ClickedSignal:Fire()
-		end))
-
-		self.ClickedSignal = Signal.new()
-		self._destructor:Add(function() self.ClickedSignal:DisconnectAll() end)
-	end
+	self._destructor:Add(self._instance)
 
 	return self
 end
 
+function PartCanvas:ParentTo(parent)
+	self._instance.Parent = parent
+end
+
 function PartCanvas:Size()
-	return Vector2.new(self._instance.Size.X, self._instance.Size.Y)
+	return Vector2.new(self._boardSurface.Size.X, self._boardSurface.Size.Y)
 end
 
 function PartCanvas:AspectRatio()
@@ -66,7 +42,7 @@ function PartCanvas:AspectRatio()
 end
 
 function PartCanvas:GetCFrame()
-	return self._instance.CFrame
+	return self._boardSurface.CFrame
 end
 
 local function linePartName(startIndex, stopIndex)
@@ -81,17 +57,38 @@ local function makeLinePart(startIndex, stopIndex)
 	return makePart(linePartName(startIndex, stopIndex), Enum.PartType.Block)
 end
 
-local function makePointPart(index)
-	return makePart(pointPartName(index), Enum.PartType.Cylinder)
+local function makePointPart(id)
+	return makePart(pointPartName(id), Enum.PartType.Cylinder)
 end
 
+function PartCanvas:WriteCircle(groupId: string, figureId: string, pos: Vector2, thicknessYScale: number, color, zIndex: number)
+	local canvasFigure = self:_getFigure(groupId, figureId, true)
+
+	if #canvasFigure:GetChildren() > 0 then
+		canvasFigure:ClearAllChildren()
+	end
+
+	local circle = makePointPart(figureId)
+	updatePointPart(self, circle, pos, thicknessYScale, color, zIndex)
+	circle.Parent = canvasFigure
+end
+
+function PartCanvas:DeleteGroup(groupId: string)
+	local group = self:_getGroup(groupId, false)
+	group:Destroy()
+end
+
+function PartCanvas:DeleteFigure(groupId: string, figureId: string)
+	local canvasFigure = self:_getFigure(groupId, figureId, false)
+	canvasFigure:Destroy()
+end
 
 function PartCanvas:NewCurve(groupId: string, curveId: string)
-	self:_getCurve(groupId, curveId, true)
+	self:_getFigure(groupId, curveId, true)
 end
 
 function PartCanvas:WriteCurve(groupId: string, curveId: string, curve)
-	local canvasCurve = self:_getCurve(groupId, curveId, true)
+	local canvasCurve = self:_getFigure(groupId, curveId, true)
 
 	if #canvasCurve:GetChildren() > 0 then
 		canvasCurve:ClearAllChildren()
@@ -100,7 +97,7 @@ function PartCanvas:WriteCurve(groupId: string, curveId: string, curve)
 	if #curve.Points == 1 then
 		if curve:IsConnectedAt(1) then
 			local pointPart = makePointPart(1)
-			updatePointPart(self, pointPart, curve.Points[1], curve)
+			updatePointPart(self, pointPart, curve.Points[1], curve.ThicknessYScale, curve.Color, curve.ZIndex)
 			pointPart.Parent = canvasCurve
 		end
 
@@ -110,13 +107,13 @@ function PartCanvas:WriteCurve(groupId: string, curveId: string, curve)
 				local linePart = makeLinePart(i,i+1)
 
 				local startPointPart = makePointPart(i)
-				updatePointPart(self, startPointPart, curve.Points[i], curve)
+				updatePointPart(self, startPointPart, curve.Points[i], curve.ThicknessYScale, curve.Color, curve.ZIndex)
 				startPointPart.Parent = canvasCurve
 
 				local stopPointPart
 				if i+1 == #curve.Points or not curve:IsConnectedAt(i+1) then
 					stopPointPart = makePointPart(i+1)
-					updatePointPart(self, stopPointPart, curve.Points[i+1], curve)
+					updatePointPart(self, stopPointPart, curve.Points[i+1], curve.ThicknessYScale, curve.Color, curve.ZIndex)
 					stopPointPart.Parent = canvasCurve
 				end
 
@@ -138,19 +135,19 @@ function PartCanvas:UpdateCurvePoint(groupId, curveId, curve, index, pos)
 	local numPoints = #curve.Points
 	assert(index <= numPoints + 1)
 
-	local canvasCurve = self:_getCurve(groupId, curveId, false)
+	local canvasCurve = self:_getFigure(groupId, curveId, false)
 
 	-- This is the very first point in the curve, so just make a point
 	if index == 1 and numPoints == 0 then
 		local pointPart = makePointPart(index)
-		updatePointPart(self, pointPart, pos, curve)
+		updatePointPart(self, pointPart, pos, curve.ThicknessYScale, curve.Color, curve.ZIndex)
 		pointPart.Parent = canvasCurve
 	end
 
 	-- If the point already exists in the curve, update where the pointPart is
 	if index <= numPoints then
 		local pointPart = canvasCurve:FindFirstChild(pointPartName(index))
-		updatePointPart(self, pointPart, pos, curve)
+		updatePointPart(self, pointPart, pos, curve.ThicknessYScale, curve.Color, curve.ZIndex)
 
 		-- Update the line before the point
 		if index > 1 then
@@ -177,85 +174,116 @@ function PartCanvas:UpdateCurvePoint(groupId, curveId, curve, index, pos)
 		linePart.Parent = canvasCurve
 
 		local stopPointPart = makePointPart(numPoints+1)
-		updatePointPart(self, stopPointPart, pos, curve)
+		updatePointPart(self, stopPointPart, pos, curve.ThicknessYScale, curve.Color, curve.ZIndex)
 		stopPointPart.Parent = canvasCurve
 	end
 end
 
-function PartCanvas:AddSubCurve(groupId: string, curveId: string, curve, lineStartIndices)
-	local canvasCurve = self:_getCurve(groupId, curveId)
+function PartCanvas:DeleteLineInCurve(groupId: string, figureId: string, curve, lineStartIndex: number)
+	local canvasCurve = self:_getFigure(groupId, figureId, false)
 
-	for _, startIndex in ipairs(lineStartIndices) do
-
-		-- Check if the the previous point is not connected to this one, in which case
-		-- the pointPart at startIndex needs to be added
-		if startIndex == 1 or not curve:IsConnectedAt(startIndex - 1) then
-			local startPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex))
-			if startPointPart then
-				startPointPart:Destroy()
-			end
-		end
-
-		-- Check if the the next point is not connected to the one after it, in which case
-		-- the pointPart at startIndex+1 needs to be added
-		if startIndex+1 == #curve.Points or not curve:IsConnectedAt(startIndex + 1) then
-			local stopPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex + 1))
-			if stopPointPart then
-				stopPointPart:Destroy()
-			end
-		end
-
-		local linePart = makeLinePart(startIndex, startIndex + 1)
-		updateLinePart(self, linePart, curve:LineBetween(curve.Points[startIndex], curve.Points[startIndex + 1]))
-		linePart.Parent = canvasCurve
+	-- Check if the the previous point is not connected to this one, in which case
+	-- the pointPart at startIndex should disappear
+	if lineStartIndex == 1 or not curve:IsConnectedAt(lineStartIndex - 1) then
+		local startPointPart = canvasCurve:FindFirstChild(pointPartName(lineStartIndex))
+		startPointPart:Destroy()
 	end
+
+	-- Check if the the next point is not connected to the one after it, in which case
+	-- the pointPart at lineStartIndex+1 should disappear
+	if lineStartIndex+1 == #curve.Points or not curve:IsConnectedAt(lineStartIndex + 1) then
+		local stopPointPart = canvasCurve:FindFirstChild(pointPartName(lineStartIndex + 1))
+		stopPointPart:Destroy()
+	end
+
+	-- Delete the line
+	local linePart = canvasCurve:FindFirstChild(linePartName(lineStartIndex, lineStartIndex+1))
+	linePart:Destroy()
 end
 
-function PartCanvas:SubtractSubCurve(groupId: string, curveId: string, curve, lineStartIndices)
-	local group = self:_findGroup(groupId)
-	if group == nil then
-		return
-	end
+function PartCanvas:ShowLineInCurve(groupId: string, figureId: string, curve, lineStartIndex: number)
+	local canvasCurve = self:_getFigure(groupId, figureId, true)
 
-	local canvasCurve = self:_findCurve(groupId, curveId)
-	if canvasCurve == nil then
-		return
-	end
+	local startPointPart = makePointPart(lineStartIndex)
+	updatePointPart(self, startPointPart, curve.Points[lineStartIndex], curve.ThicknessYScale, curve.Color, curve.ZIndex)
+	startPointPart.Parent = canvasCurve
 
-	for _, startIndex in ipairs(lineStartIndices) do
+	local stopPointPart = makePointPart(lineStartIndex)
+	updatePointPart(self, stopPointPart, curve.Points[lineStartIndex+1], curve.ThicknessYScale, curve.Color, curve.ZIndex)
+	stopPointPart.Parent = canvasCurve
 
-		-- Check if the the previous point is not connected to this one, in which case
-		-- the pointPart at startIndex should disappear
-		if startIndex == 1 or not curve:IsConnectedAt(startIndex - 1) then
-			local startPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex))
-			if startPointPart then
-				startPointPart:Destroy()
-			end
-		end
-
-		-- Check if the the next point is not connected to the one after it, in which case
-		-- the pointPart at startIndex+1 should disappear
-		if startIndex+1 == #curve.Points or not curve:IsConnectedAt(startIndex + 1) then
-			local stopPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex + 1))
-			if stopPointPart then
-				stopPointPart:Destroy()
-			end
-		end
-
-		-- Delete the line
-		local linePart = canvasCurve:FindFirstChild(startIndex)
-		if linePart then
-			linePart:Destroy()
-		end
-	end
+	local linePart = makeLinePart(lineStartIndex, lineStartIndex+1)
+	updateLinePart(self, linePart, curve:LineBetween(curve.Points[lineStartIndex], curve.Points[lineStartIndex+1]))
+	linePart.Parent = canvasCurve
 end
 
+-- function PartCanvas:AddSubCurve(groupId: string, curveId: string, curve, lineStartIndices)
+-- 	local canvasCurve = self:_getFigure(groupId, curveId)
 
-function PartCanvas:DeleteCurve(groupId: string, curveId: string)
-	local canvasCurve = self:_getCurve(groupId, curveId, false)
+-- 	for _, startIndex in ipairs(lineStartIndices) do
 
-	canvasCurve:Destroy()
-end
+-- 		-- Check if the the previous point is not connected to this one, in which case
+-- 		-- the pointPart at startIndex needs to be added
+-- 		if startIndex == 1 or not curve:IsConnectedAt(startIndex - 1) then
+-- 			local startPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex))
+-- 			if startPointPart then
+-- 				startPointPart:Destroy()
+-- 			end
+-- 		end
+
+-- 		-- Check if the the next point is not connected to the one after it, in which case
+-- 		-- the pointPart at startIndex+1 needs to be added
+-- 		if startIndex+1 == #curve.Points or not curve:IsConnectedAt(startIndex + 1) then
+-- 			local stopPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex + 1))
+-- 			if stopPointPart then
+-- 				stopPointPart:Destroy()
+-- 			end
+-- 		end
+
+-- 		local linePart = makeLinePart(startIndex, startIndex + 1)
+-- 		updateLinePart(self, linePart, curve:LineBetween(curve.Points[startIndex], curve.Points[startIndex + 1]))
+-- 		linePart.Parent = canvasCurve
+-- 	end
+-- end
+
+-- function PartCanvas:SubtractSubCurve(groupId: string, curveId: string, curve, lineStartIndices)
+-- 	local group = self:_findGroup(groupId)
+-- 	if group == nil then
+-- 		return
+-- 	end
+
+-- 	local canvasCurve = self:_findCurve(groupId, curveId)
+-- 	if canvasCurve == nil then
+-- 		return
+-- 	end
+
+-- 	for _, startIndex in ipairs(lineStartIndices) do
+
+-- 		-- Check if the the previous point is not connected to this one, in which case
+-- 		-- the pointPart at startIndex should disappear
+-- 		if startIndex == 1 or not curve:IsConnectedAt(startIndex - 1) then
+-- 			local startPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex))
+-- 			if startPointPart then
+-- 				startPointPart:Destroy()
+-- 			end
+-- 		end
+
+-- 		-- Check if the the next point is not connected to the one after it, in which case
+-- 		-- the pointPart at startIndex+1 should disappear
+-- 		if startIndex+1 == #curve.Points or not curve:IsConnectedAt(startIndex + 1) then
+-- 			local stopPointPart = canvasCurve:FindFirstChild(pointPartName(startIndex + 1))
+-- 			if stopPointPart then
+-- 				stopPointPart:Destroy()
+-- 			end
+-- 		end
+
+-- 		-- Delete the line
+-- 		local linePart = canvasCurve:FindFirstChild(startIndex)
+-- 		if linePart then
+-- 			linePart:Destroy()
+-- 		end
+-- 	end
+-- end
 
 function PartCanvas:Clear()
 	self._groupFolder:ClearAllChildren()
@@ -288,11 +316,11 @@ local function makeCanvasCurve(curveId: string)
 end
 
 function PartCanvas:_getGroup(groupId: string, createIfMissing: boolean)
-	local group = self._groupFolder:FindFirstChild(groupId)
+	local group = self._instance:FindFirstChild(groupId)
 	if group == nil then
 		if createIfMissing then
 			group = makeGroup(groupId)
-			group.Parent = self._groupFolder
+			group.Parent = self._instance
 		else
 			groupNotFoundError(groupId)
 		end
@@ -301,7 +329,7 @@ function PartCanvas:_getGroup(groupId: string, createIfMissing: boolean)
 	return group
 end
 
-function PartCanvas:_getCurve(groupId: string, curveId: string, createIfMissing: boolean)
+function PartCanvas:_getFigure(groupId: string, curveId: string, createIfMissing: boolean)
 	if curveId == nil then
 		return self:_getGroup(groupId, createIfMissing)
 	else

@@ -33,47 +33,81 @@ function FreeHand:Init(board, pos: Vector2, canvas)
     self.ZIndex = board:NextZIndex()
   end
 
-  self.Curve = Curve.new(self.ThicknessYScale, self.Color, self.ZIndex)
+  self.InitialPoint = pos
+  self.InitialPointVisible = true
 
-  if canvas then
-    canvas:NewCurve(self.TaskId)
-    canvas:UpdateCurvePoint(self.TaskId, nil, self.Curve, 1, pos)
+  if canvas and self.Provisional then
+    canvas:WriteCircle(self.TaskId, "InitialPoint", pos, self.ThicknessYScale, self.Color, self.ZIndex)
   end
 
-  self.Curve:Extend(pos)
 end
 
 function FreeHand:Update(board, pos: Vector2, canvas)
-  if canvas then
-    canvas:UpdateCurvePoint(self.TaskId, nil, self.Curve, #self.Curve.Points+1, pos)
-  end
+  if not self.Curve then
+    self.Curve = Curve.new(self.ThicknessYScale, self.Color, self.ZIndex)
+    self.Curve:Extend(self.InitialPoint)
+    self.Curve:Extend(pos)
 
-  self.Curve:Extend(pos)
+    if canvas and self.Provisional then
+      canvas:DeleteFigure(self.TaskId, "InitialPoint")
+
+      canvas:WriteCurve(self.TaskId, "Curve", self.Curve)
+    end
+  else
+    if canvas and self.Provisional then
+      canvas:UpdateCurvePoint(self.TaskId, "Curve", self.Curve, #self.Curve.Points+1, pos)
+    end
+
+    self.Curve:Extend(pos)
+  end
 end
 
 function FreeHand:Finish(board, canvas)
-  -- Nothing I guess, unless for smoothing?
+  if canvas and not self.Provisional then
+    self:Show(board, canvas)
+  end
+
+  if self.Curve then
+    for i=1, #self.Curve.Points-1 do
+      local start = self.Curve.Points[i]
+      local stop = self.Curve.Points[i+1]
+
+      board.EraseGrid:AddLine(start, stop, self.ThicknessYScale, self.TaskId.."#"..tostring(i))
+    end
+  else
+    board.EraseGrid:AddCircle(self.InitialPoint, self.ThicknessYScale/2, self.TaskId.."#".."InitialPoint")
+  end
 end
 
 function FreeHand:Show(board, canvas)
   if canvas then
-    canvas:WriteCurve(self.TaskId, nil, self.Curve)
+    if self.Curve then
+      canvas:WriteCurve(self.TaskId, "Curve", self.Curve)
+    else
+      if self.InitialPointVisible then
+        canvas:WriteCircle(self.TaskId, "InitialPoint", self.InitialPoint, self.ThicknessYScale, self.Color, self.ZIndex)
+      end
+    end
   end
 end
 
 function FreeHand:Hide(board, canvas)
   if canvas then
-    canvas:DeleteCurve(self.TaskId, nil)
+    canvas:DeleteGroup(self.TaskId)
   end
 end
 
 function FreeHand:Undo(board, canvas)
-  self:Hide(board, canvas)
+  if canvas then
+    self:Hide(board, canvas)
+  end
   self.Undone = true
 end
 
 function FreeHand:Redo(board, canvas)
-  self:Show(board, canvas)
+  if canvas then
+    self:Show(board, canvas)
+  end
   self.Undone = false
 end
 
@@ -81,17 +115,48 @@ function FreeHand:Commit(board, canvas)
 
 end
 
-function FreeHand:RenderGhost(board, ghostGroupId, intersectedIds, canvas)
+function FreeHand:ShowFigure(board, figureId, canvas)
+  if canvas then
 
-  local ghostCurve = self.Curve:ShallowClone()
-  ghostCurve.Color = Color3.new(0,0,0)
+    if figureId == "InitialPoint" then
+      canvas:WriteCircle(self.TaskId, "InitialPoint", self.InitialPoint, self.ThicknessYScale, self.Color, self.ZIndex)
+    else
+      local lineStartIndex = tonumber(figureId)
 
-  canvas:AddSubCurve(ghostGroupId, self.TaskId, ghostCurve, intersectedIds)
-
+      canvas:ShowLineInCurve(self.TaskId, "Curve", self.Curve, lineStartIndex)
+    end
+  end
 end
 
-function FreeHand:EraseFigures(board, intersectedIds, canvas)
-  canvas:SubtractSubCurve(nil, self.TaskId, self.Curve, intersectedIds)
+function FreeHand:EraseFigure(board, figureId, canvas)
+  if figureId == "InitialPoint" then
+    self.InitialPointVisible = false
+
+    if canvas then
+      canvas:DeleteFigure(self.TaskId, "InitialPoint")
+    end
+
+  else
+    local lineStartIndex = tonumber(figureId)
+
+    self.Curve:DisconnectAt(lineStartIndex)
+
+    if canvas then
+      canvas:DeleteLineInCurve(self.TaskId, "Curve", self.Curve, lineStartIndex)
+    end
+  end
+end
+
+function FreeHand:CheckIntersection(board, figureId: string, centre: Vector2, radius: number)
+  if figureId == "InitialPoint" then
+    return (centre - self.InitialPoint).Magnitude <= radius
+
+  else
+    local lineStartIndex = tonumber(figureId)
+    local line = self.Curve:LineBetween(self.Curve.Points[lineStartIndex], self.Curve.Points[lineStartIndex+1])
+
+    return line:Intersects(centre, radius)
+  end
 end
 
 return FreeHand

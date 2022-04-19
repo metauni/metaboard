@@ -23,8 +23,8 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 -- Imports
 local Config = require(Common.Config)
 
-local Rasterize = require(script.Rasterize)
-local GridSet = require(script.GridSet)
+local Rasterize = require(Common.Rasterize)
+local GridSet = require(Common.GridSet)
 
 local EraseGrid = {}
 EraseGrid.__index = EraseGrid
@@ -39,75 +39,97 @@ function EraseGrid.new(width: number, height: number, pixelSize: number?)
 		Width = gridWidth,
 		Height = gridHeight,
 		PixelSize = pixelSize,
-		PixelsToLines = GridSet(gridWidth, gridHeight),
-		LinesToPixels = {},
+		PixelsToFigureIds = GridSet(gridWidth, gridHeight),
+		FigureIdsToPixels = {},
 	}, EraseGrid)
 end
 
-function EraseGrid:_addLineToPixel(line: Line, x: number, y: number)
-	self.PixelsToLines.Add(x, y, line)
+function EraseGrid:_pair(x,y)
+	return x + 1 + y * self.Width
 end
 
-function EraseGrid:_addPixelToLine(x: number, y: number, line: Line)
-	local tbl = self.LinesToPixels[line]
-	
+function EraseGrid:_unpair(p)
+	return math.fmod(p-1, self.Width), math.floor((p-1) / self.Width)
+end
+
+function EraseGrid:_addFigureIdToPixel(figureId: string, x: number, y: number)
+	self.PixelsToFigureIds.Add(x, y, figureId)
+end
+
+function EraseGrid:_addPixelToFigureId(x: number, y: number, figureId: string)
+	local tbl = self.FigureIdsToPixels[figureId]
+
 	if not tbl then
 		tbl = {}
-		self.LinesToPixels[line] = tbl
+		self.FigureIdsToPixels[figureId] = tbl
 	end
 	
-	tbl[Vector3.new(x, y, 0)] = true -- TODO: Don't do this
+	tbl[self:_pair(x,y)] = true
 end
 
-function EraseGrid:AddLine(line: Line)
-	local p0 = line.P0 / self.PixelSize
-	local p1 = line.P1 / self.PixelSize
-	local width = line.Width / self.PixelSize
+function EraseGrid:AddLine(start: Vector2, stop: Vector2, thickness: number, figureId: string)
+	local p0 = start / self.PixelSize
+	local p1 = stop / self.PixelSize
+	local width = thickness / self.PixelSize
 	
 	local function addPixel(x: number, y: number)
 		if x < 0 or x > self.Width - 1 or y < 0 or y > self.Width - 1 then
 			return
 		end
 		
-		self:_addLineToPixel(line, x, y)
-		self:_addPixelToLine(x, y, line)
+		self:_addFigureIdToPixel(figureId, x, y)
+		self:_addPixelToFigureId(x, y, figureId)
 	end
 	
-	Rasterize.Rectangle(p0, p1, width, addPixel)
+	Rasterize.LineStroke(p0, p1, width, addPixel)
 end
 
-function EraseGrid:RemoveLine(line: Line)
-	local pixelsToLines = self.PixelsToLines
+function EraseGrid:AddCircle(centre: Vector2, radius: number, figureId: string)
+	local c = centre / self.PixelSize
+	local r = radius / self.PixelSize
 	
-	if self.LinesToPixels[line] then
-		for pixel in pairs(self.LinesToPixels[line]) do
-			pixelsToLines.Remove(pixel.X, pixel.Y, line)
+	local function addPixel(x: number, y: number)
+		if x < 0 or x > self.Width - 1 or y < 0 or y > self.Width - 1 then
+			return
 		end
 		
-		self.LinesToPixels[line] = nil
+		self:_addFigureIdToPixel(figureId, x, y)
+		self:_addPixelToFigureId(x, y, figureId)
+	end
+	
+	Rasterize.Circle(c, r, addPixel)
+end
+
+function EraseGrid:RemoveFigure(figureId: string)
+	local pixelsToFigureIds = self.PixelsToFigureIds
+	
+	if self.FigureIdsToPixels[figureId] then
+		for p in pairs(self.FigureIdsToPixels[figureId]) do
+			local x, y = self:_unpair(p)
+			pixelsToFigureIds.Remove(x, y, figureId)
+		end
+		
+		self.FigureIdsToPixels[figureId] = nil
 	end
 end
 
-function EraseGrid:QueryLines(center: Vector2, radius: number)
-	local pixelsToLines = self.PixelsToLines
-	local linesSet = {}
-	local linesArray = {}
+function EraseGrid:QueryIntersected(center: Vector2, radius: number, figureIdCallback)
+	local pixelsToFigureIds = self.PixelsToFigureIds
+	local figureIdsSet = {}
 	
 	local function addPixel(x, y)
-		local set = pixelsToLines.Get(x, y)
+		local set = pixelsToFigureIds.Get(x, y)
 		if set then
-			for line in pairs(set) do
-				if not linesSet[line] then
-					linesSet[line] = true
-					table.insert(linesArray, line)
+			for figureId in pairs(set) do
+				if not figureIdsSet[figureId] then
+					figureIdsSet[figureId] = true
+					figureIdCallback(figureId)
 				end
 			end
 		end
 	end
 
 	Rasterize.Circle(center / self.PixelSize, radius / self.PixelSize, addPixel)
-	
-	return linesArray
 end
 
 return EraseGrid

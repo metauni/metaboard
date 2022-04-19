@@ -12,6 +12,7 @@ local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
 local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
+local DelayedJobQueue = require(Common.DelayedJobQueue)
 
 -- BoardServer
 local BoardServer = setmetatable({}, Board)
@@ -70,7 +71,6 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 
 	destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, pos)
 		
-		
 		self._jobQueue:Enqueue(function(yielder)
 			self.Remotes.FinishDrawingTask:FireAllClients(player, pos)
 			local drawingTask = self.PlayerHistory[player]:MostRecent()
@@ -98,7 +98,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 	end))
 	
 	destructor:Add(RunService.Heartbeat:Connect(function()
-		self._jobQueue:RunJobsUntilYield()
+		self._jobQueue:RunJobsUntilYield(coroutine.yield)
 	end))
 
 	destructor:Add(self.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
@@ -106,6 +106,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes)
 			self.Remotes.RequestBoardData:FireClient(player, self.DrawingTasks, self.PlayerHistory)
 		end)
 	end))
+
 end
 
 function BoardServer.InstanceBinder(instance)

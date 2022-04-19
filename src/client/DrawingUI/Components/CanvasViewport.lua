@@ -16,6 +16,7 @@ function CanvasViewport:render()
 	local zIndex = self.props.ZIndex
 	local fieldOfView = self.props.FieldOfView
 	local canvasCFrame = self.props.CanvasCFrame
+	local blackout = self.props.Blackout
 
 	local cam = e("Camera", {
 		FieldOfView = fieldOfView,
@@ -26,6 +27,8 @@ function CanvasViewport:render()
 		Position = UDim2.fromScale(0,0),
 		Size = UDim2.fromScale(1,1),
 		BackgroundTransparency = 1,
+		ImageTransparency = blackout and 0.5 or 0,
+		ImageColor3 = blackout and Color3.new(0,0,0) or Color3.new(1,1,1),
 		ZIndex = zIndex,
 		[Roact.Ref] = self.vpfRef,
 		[Roact.Change.AbsoluteSize] = function(vpfInstance)
@@ -69,17 +72,17 @@ end
 function CanvasViewport:didMount()
 	local canvasCFrame = self.props.CanvasCFrame
 	local vpfInstance = self.vpfRef:getValue()
-	local mountBoard = self.props.MountBoard
+	local onMount = self.props.OnMount
 
-	mountBoard(vpfInstance)
+	onMount(vpfInstance)
 	self.camRef:getValue().CFrame = canvasCFrame * self:CanvasToCameraCFrame(vpfInstance.AbsoluteSize)
 	vpfInstance.CurrentCamera = self.camRef:getValue()
 end
 
 function CanvasViewport:willUnmount()
-	local unmountBoard = self.props.UnmountBoard
+	local onOnmount = self.props.OnUnmount
 
-	unmountBoard()
+	onOnmount()
 end
 
 return CanvasViewport

@@ -4,16 +4,16 @@
 	Functions for rasterizing shapes. Each function takes a callback as its last
 	argument which gets called with the (x, y) coordinates of an added pixel.
 	All positional arguments are Vector2s.
-	
+
 	Rasterize.Line(p0, p1, addPixel)
-	
+
 	Rasterize.Triangle(p0, p1, p2, addPixel)
-	
+
 	Rasterize.Circle(center, radius, addPixel)
 
 	Rasterize.AARectangle(corner0, corner1, addPixel)
 		Axis-aligned rectangle.
-		
+
 	Rasterize.Rectangle(p0, p1, width, addPixel)
 		Defined like a line but with width.
 ]]
@@ -171,7 +171,7 @@ function Rasterize.Triangle(p0: Vector2, p1: Vector2, p2: Vector2, addPixel: Add
 		-- Special case: Right line is vertical
 		local x0 = math.floor(p0.X)
 		local x1 = math.ceil(p2.X) - 1
-		
+
 		for x = x0, x1 do
 			local min0, max0 = getRowsIntersectedByLine(p0, p2, x)
 			local min1, max1 = getRowsIntersectedByLine(p0, p1, x)
@@ -188,7 +188,7 @@ function Rasterize.Triangle(p0: Vector2, p1: Vector2, p2: Vector2, addPixel: Add
 		Rasterize.Line(p0, p2, addPixel)
 		return
 	end
-	
+
 	local x0 = math.floor(p0.X)
 	local x1a = math.floor(p1.X) - 1
 	local x1b = x1a + 1
@@ -205,7 +205,7 @@ function Rasterize.Triangle(p0: Vector2, p1: Vector2, p2: Vector2, addPixel: Add
 			addPixel(x, y)
 		end
 	end
-	
+
 	-- Rasterize from the middle point to the right point
 	for x = x1b, x2 do
 		local min0, max0 = getRowsIntersectedByLine(p1, p2, x)
@@ -274,6 +274,17 @@ function Rasterize.Rectangle(p0: Vector2, p1: Vector2, width: number, addPixel: 
 
 	Rasterize.Triangle(corner0, corner1, corner2, addPixel)
 	Rasterize.Triangle(corner0, corner2, corner3, addPixel)
+end
+
+function Rasterize.LineStroke(p0: Vector2, p1: Vector2, width: number, addPixel: AddPixelCallback)
+	if p0 == p1 then
+		Rasterize.Circle(p0, width/2, addPixel)
+		return
+	end
+
+	Rasterize.Rectangle(p0, p1, width, addPixel)
+	Rasterize.Circle(p0, width/2, addPixel)
+	Rasterize.Circle(p1, width/2, addPixel)
 end
 
 return Rasterize

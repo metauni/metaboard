@@ -59,7 +59,7 @@ return function(board, destructor)
 
 				if player == Players.LocalPlayer then
 					local provisionalDrawingTask = board._provisionalDrawingTasks[drawingTask.TaskId]
-					provisionalDrawingTask:Hide(board, board._provisionalCanvas)
+					provisionalDrawingTask._destroy()
 					board._provisionalDrawingTasks[drawingTask.TaskId] = nil
 				end
 			end)
@@ -93,6 +93,6 @@ return function(board, destructor)
 		end))
 
 		destructor:Add(RunService.RenderStepped:Connect(function()
-			board._jobQueue:RunJobsUntilYield()
+			board._jobQueue:RunJobsUntilYield(coroutine.yield)
 		end))
 end

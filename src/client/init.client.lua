@@ -23,17 +23,11 @@ local function bindBoardInstance(instance)
 
   local board = BoardClient.new(instance, boardRemotes)
 
-  local canvas = PartCanvas.new(board, true, "MainCanvas")
-  board:SetCanvas(canvas)
-  canvas._instance.Parent = board._instance
-
-  canvas.ClickedSignal:Connect(function()
+  board.ClickedSignal:Connect(function()
     if board._isClientLoaded then
       board:OpenUI()
     end
   end)
-
-  -- board:LoadData()
 
   table.insert(Boards, board)
 end

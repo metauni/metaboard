@@ -1,7 +1,8 @@
 -- Services
-local Common = script.Parent
+local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
+local Config = require(Common.Config)
 local EraseGrid = require(Common.EraseGrid)
 
 -- Board
@@ -15,10 +16,10 @@ function Board.new(instance: Model | Part, boardRemotes)
 		Remotes = boardRemotes,
 		PlayerHistory = {},
 		DrawingTasks = {},
-		_eraseGrid = EraseGrid.new(),
 		_zIndex = 0
 	}, Board)
 
+	
 	do
 		local faceValue = instance:FindFirstChild("Face")
 		if faceValue then
@@ -27,6 +28,8 @@ function Board.new(instance: Model | Part, boardRemotes)
 			self.Face = "Front"
 		end
 	end
+
+	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X, self:SurfaceSize().Y, Config.DefaultEraseGridPixelSize)
 
 	return self
 end
