@@ -35,7 +35,153 @@ local function asyncWaitTime()
     return 60/( 60 + 10 * #PlayersService:GetPlayers() )
 end
 
-local function storeAll()
+function Persistence.Init()
+    MetaBoard = require(script.Parent.MetaBoard)
+
+    Persistence.RestoreAllCoroutinesPocket = {}
+    Persistence.RestoreAllCoroutinesNormal = {}
+    Persistence.FetchedBoardData = {}
+
+	game:BindToClose(Persistence.StoreAll)
+	
+    Persistence.RestoreAll()
+
+	task.spawn(function()
+		while true do
+			task.wait(Config.AutoSaveInterval)
+			Persistence.StoreAll()
+		end
+	end)
+end
+
+function Persistence.RestoreAll()
+    -- We are guaranteed that any requests made at this rate
+    -- will not decrease our budget, so our strategy is on startup
+    -- to spend down our budget to near zero and then throttle to this speed
+    local waitTime = asyncWaitTime()
+
+    local boards = CollectionService:GetTagged(Config.BoardTag)
+    for _, board in ipairs(boards) do
+        local persistId = board:FindFirstChild("PersistId")
+        if persistId == nil then continue end
+
+        local boardKey = Persistence.KeyForBoard(board)
+        task.spawn(Persistence.Fetch, board, boardKey)
+
+        local budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
+        if budget < 100 then
+            print("[MetaBoard] GetAsync budget hit, throttling")
+            task.wait(waitTime)
+        end
+    end
+
+    task.spawn(function()
+		local restoreAllTask = coroutine.create(Persistence.RestoreAllTask)
+    
+        while coroutine.status(restoreAllTask) ~= "dead" do
+            local success, result = coroutine.resume(restoreAllTask)
+            if not success then
+                print("[MetaBoard] Main RestoreAll task failed to resume: ".. result)
+            end
+
+            task.wait(Config.RestoreAllIntermission)
+        end
+
+        print("[MetaBoard] Restore All complete")
+	end)
+end
+
+function Persistence.RestoreAllTask()
+    -- Loading boards can take significant time (sometimes several minutes) and places
+    -- significant load on the server. To keep the server responsive (e.g. to teleport
+    -- requests) we explicitly manage the loading process using coroutines
+
+    -- Our first step is create all the tasks and populate the list of coroutines
+    local boards = CollectionService:GetTagged(Config.BoardTag)
+    local pocketPortalBoards = {}
+    local normalBoards = {}
+
+    for _, board in ipairs(boards) do
+        local persistId = board:FindFirstChild("PersistId")
+        if persistId == nil then continue end
+
+        if CollectionService:HasTag(board.Parent, "metapocket") then
+            table.insert(pocketPortalBoards, board)
+        else
+            table.insert(normalBoards, board)
+        end
+    end
+    
+    -- We do boards on pocket portals first
+    for _, board in ipairs(pocketPortalBoards) do
+        local boardTask = coroutine.create(Persistence.Restore)
+        table.insert(Persistence.RestoreAllCoroutinesPocket, boardTask)
+    
+        local boardKey = Persistence.KeyForBoard(board)
+        local success, result = coroutine.resume(boardTask, board, boardKey)
+
+        if not success then
+            print("[MetaBoard] Problem resuming RestoreAll coroutine")
+        end
+    end
+
+    -- Normal boards
+    for _, board in ipairs(normalBoards) do
+        local boardTask = coroutine.create(Persistence.Restore)
+        table.insert(Persistence.RestoreAllCoroutinesNormal, boardTask)
+
+        local boardKey = Persistence.KeyForBoard(board)
+        local success, result = coroutine.resume(boardTask, board, boardKey)
+        
+        if not success then
+            print("[MetaBoard] Problem resuming RestoreAll coroutine")
+        end
+    end
+
+    local coroutineLists = { Persistence.RestoreAllCoroutinesPocket, 
+                            Persistence.RestoreAllCoroutinesNormal }
+    
+    local numBoardsProcessed = 0
+
+    for _, coroutineList in ipairs(coroutineLists) do
+        while #coroutineList > 0 do
+            local finishedTasks = {}
+    
+            for i = 1, #coroutineList do
+                local boardTask = coroutineList[i]
+                local status = coroutine.status(boardTask)
+                if status == "suspended" then
+                    local success, result = coroutine.resume(boardTask)
+
+                    if not success then
+                        print("[MetaBoard] Failed to resume Persistence.Restore: "..result)
+                    end
+
+                    numBoardsProcessed += 1
+                elseif status == "dead" then
+                    table.insert(finishedTasks, boardTask)
+                else
+                    print("[MetaBoard] Restore coroutine in unexpected status: "..status)
+                end
+
+                if numBoardsProcessed >= Config.RestoreAllNumSimultaneousBoards then
+                    numBoardsProcessed = 0
+                    coroutine.yield()
+                end
+            end
+
+            for _, boardTask in ipairs(finishedTasks) do
+                for i, t in ipairs(coroutineList) do
+                    if t == boardTask then
+                        table.remove(coroutineList, i)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function Persistence.StoreAll()
     local startTime = tick()
 	local boards = CollectionService:GetTagged(Config.BoardTag)
 	
@@ -69,65 +215,6 @@ local function storeAll()
     --if #changedBoards > 0 then
     --    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
     --end
-end
-
-function Persistence.Init()
-    MetaBoard = require(script.Parent.MetaBoard)
-
-    -- Restore all boards
-    local boards = CollectionService:GetTagged(Config.BoardTag)
-
-    -- We are guaranteed that any requests made at this rate
-    -- will not decrease our budget, so our strategy is on startup
-    -- to spend down our budget to near zero and then throttle to this speed
-    local waitTime = asyncWaitTime()
-    local fastWaitTime = 0.05
-    local budget
-
-    -- We do boards on pocket portals first
-    for _, board in ipairs(boards) do
-        local persistId = board:FindFirstChild("PersistId")
-        if persistId and CollectionService:HasTag(board.Parent, "metapocket") then
-            local boardKey = Persistence.KeyForBoard(board)
-            task.spawn(Persistence.Restore, board, boardKey)
-
-            budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
-            if budget < 100 then
-                print("[Persistence] GetAsync budget hit, throttling")
-                task.wait(waitTime)
-            else
-                task.wait(fastWaitTime)
-            end
-        end
-    end
-
-    fastWaitTime = 0.5
-        
-    for _, board in ipairs(boards) do
-		local persistId = board:FindFirstChild("PersistId")
-        if persistId and not CollectionService:HasTag(board.Parent, "metapocket") then
-            local boardKey = Persistence.KeyForBoard(board)
-            task.spawn(Persistence.Restore, board, boardKey)
-
-            budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
-            if budget < 100 then
-                print("[Persistence] GetAsync budget hit, throttling")
-                task.wait(waitTime)
-            else
-                task.wait(fastWaitTime)
-            end
-        end
-	end
-
-    -- Store all boards on shutdown
-	game:BindToClose(storeAll)
-	
-	task.spawn(function()
-		while true do
-			task.wait(Config.AutoSaveInterval)
-			storeAll()
-		end
-	end)
 end
 
 function Persistence.KeyForBoard(board)
@@ -252,11 +339,9 @@ local function serialiseCurve(curve)
     end
 end
 
--- Restores an empty board to the contents stored in the DataStore
--- with the given persistence ID string.
-function Persistence.Restore(board, boardKey)
+-- Populates a dictionary with the DataStore values for this board
+function Persistence.Fetch(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
-    local startTime = tick()
 
     if not DataStore then
         print("[Persistence] DataStore not loaded")
@@ -334,6 +419,26 @@ function Persistence.Restore(board, boardKey)
         return
     end
 
+    local data = { BoardData = boardData, Curves = curves }
+    Persistence.FetchedBoardData[board] = data
+end
+
+-- Restores an empty board to the contents stored in the DataStore
+-- with the given persistence ID string. This is meant to be resumed until it
+-- finishes, see RestoreAll.
+function Persistence.Restore(board, boardKey)
+    while Persistence.FetchedBoardData[board] == nil do
+        if board.HasLoaded.Value == true then
+            return
+        end
+    
+        coroutine.yield("no data")
+    end
+
+    local boardData = Persistence.FetchedBoardData[board].BoardData
+    local curves = Persistence.FetchedBoardData[board].Curves
+    Persistence.FetchedBoardData[board] = nil
+
     if boardData.ClearCount and board:FindFirstChild("ClearCount") then
         board.ClearCount.Value = boardData.ClearCount
     end
@@ -357,20 +462,17 @@ function Persistence.Restore(board, boardKey)
             -- Give control back to the engine until the next frame,
             -- then continue loading, to prevent low frame rates on
             -- server startup with many persistent boards
-            task.wait(Config.WaitTimeForLineLoading)
+            coroutine.yield("line count")
         end
     end
 
     board.HasLoaded.Value = true
 
     -- Count number of lines
-    lineCount = 0
-    for curIndex, curveData in ipairs(curves) do
-        lineCount += #curveData.Lines
-    end
-
-    local elapsedTime = math.floor(100 * (tick() - startTime))/100
-    -- print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
+    --lineCount = 0
+    --for curIndex, curveData in ipairs(curves) do
+    --    lineCount += #curveData.Lines
+    --end
 end
 
 function Persistence.Save(board)

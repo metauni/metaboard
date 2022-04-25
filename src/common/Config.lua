@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.12.5",
+	Version = "v0.12.6",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -13,9 +13,9 @@ local Config = {
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 20,
-
-	LinesLoadedBeforeWait = 100, -- Number of lines to load in Restore before task.wait
-	WaitTimeForLineLoading = 0.2,
+	LinesLoadedBeforeWait = 2000, -- Number of lines to load in Restore before task.wait
+	RestoreAllIntermission = 3,
+	RestoreAllNumSimultaneousBoards = 3,
 
 	-- Number of lines to iterate over while erasing before task.wait
 	LinesSeenBeforeWait = 50,
