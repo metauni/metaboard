@@ -9,17 +9,17 @@ local JobQueue = {}
 JobQueue.__index = JobQueue
 
 function JobQueue.new()
-  return setmetatable({
-    _queue = Queue.new()
-  }, JobQueue)
+	return setmetatable({
+		_queue = Queue.new()
+	}, JobQueue)
 end
 
 function JobQueue:Enqueue(job)
-  self._queue:Enqueue(coroutine.create(job))
+	self._queue:Enqueue(coroutine.create(job))
 end
 
 function JobQueue:RunJobsUntilYield(yielder)
-  while self._queue:Count() > 0 do
+	while self._queue:Count() > 0 do
 		local co = self._queue:PeekFront()
 		local success, msg = coroutine.resume(co, yielder)
 		if not success then
@@ -36,7 +36,7 @@ function JobQueue:RunJobsUntilYield(yielder)
 end
 
 function JobQueue:Clear()
-  self._queue = Queue.new()
+	self._queue = Queue.new()
 end
 
 return JobQueue

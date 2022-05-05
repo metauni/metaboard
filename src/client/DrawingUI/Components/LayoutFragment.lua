@@ -2,15 +2,16 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
-local Roact = require(Common.Packages.Roact)
+local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
 return function(props)
-  local namedComponents = props.NamedComponents
-  local elements = {}
+	local orderedLayoutElements = props.OrderedLayoutElements
+	local elements = {}
 
-  for i, namedComp in ipairs(namedComponents) do
-    elements[namedComp[1]] = e(namedComp[2], {LayoutOrder = i})
-  end
-  return Roact.createFragment(elements)
+	for i, layoutElement in ipairs(orderedLayoutElements) do
+		elements[layoutElement[1]] = layoutElement[2](i)
+	end
+	
+	return Roact.createFragment(elements)
 end

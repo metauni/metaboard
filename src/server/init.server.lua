@@ -1,6 +1,6 @@
 do
 	-- Move folder/guis around if this is the package version of metaboard
-	
+
 	local metaBoardCommon = script.Parent:FindFirstChild("MetaBoardCommon")
 	if metaBoardCommon then
 		metaBoardCommon.Parent = game:GetService("ReplicatedStorage")
@@ -15,24 +15,106 @@ end
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local BoardService = require(Common.BoardService)
 
 -- Imports
 local Config = require(Common.Config)
 local BoardServer = require(script.BoardServer)
+local BoardRemotes = require(Common.BoardRemotes)
 
--- local MetaBoard = require(script.Parent.MetaBoard)
--- local PersonalBoardManager = require(script.Parent.PersonalBoardManager)
--- local ServerDrawingTasks = require(script.Parent.ServerDrawingTasks)
--- local Persistence = require(script.Parent.Persistence)
+-- Helper Functions
+local miniPersistence = require(script.miniPersistence)
 
-BoardServer.TagConnection = CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(BoardServer.InstanceBinder)
-	
-for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-	BoardServer.InstanceBinder(instance)
+local Boards = {}
+
+
+local function bindInstance(instance: Model | Part)
+	if not instance:IsDescendantOf(workspace) then return end
+
+	local persistId: string? = instance:GetAttribute("PersistId")
+
+	local boardRemotes = BoardRemotes.new(instance)
+
+	local board = BoardServer.new(instance, boardRemotes, persistId)
+	Boards[instance] = board
+
+	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
+
+		if board == nil then
+			BoardService.RequestBoardData:FireClient(player, false)
+		end
+
+		if board:Status() == "NotLoaded" then
+
+			local connection
+			connection = board.StatusChangedSignal:Connect(function(newStatus)
+				if newStatus == "Loaded" then
+					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+					connection:Disconnect()
+				end
+			end)
+
+		else
+
+			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+
+		end
+	end)
+
+	BoardService.BoardAdded:FireAllClients(instance, board)
+
+	if persistId then
+
+		task.spawn(function()
+
+			local boardData = miniPersistence.Restore(board, persistId)
+
+			if boardData then
+				local deserialised = BoardServer.Deserialise(boardData)
+				board.Figures = deserialised.Figures
+				board.NextFigureZIndex = deserialised.NextFigureZIndex
+			end
+
+			board:SetStatus("Loaded")
+
+		end)
+
+	else
+
+		board:SetStatus("Loaded")
+
+	end
+
 end
 
--- MetaBoard.Init()
+CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstance)
+
+for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+	bindInstance(instance)
+end
+
+
+BoardService.GetBoards.OnServerInvoke = function(player)
+	return Boards
+end
+
+task.spawn(function()
+	
+	while true do
+		print('Storing')
+		for instance, board in pairs(Boards) do
+			if board.PersistId then
+				task.spawn(miniPersistence.Store, board, board.PersistId)
+			end
+		end
+		task.wait(10)
+	end
+
+end)
+
+	-- MetaBoard.Init()
 -- PersonalBoardManager.Init()
 -- ServerDrawingTasks.Init()
 

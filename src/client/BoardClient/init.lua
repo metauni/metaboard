@@ -7,15 +7,11 @@ local Players = game:GetService("Players")
 local Config = require(Common.Config)
 local RunService = game:GetService("RunService")
 local Board = require(Common.Board)
-local PartCanvas = require(Common.Canvas.PartCanvas)
 local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
-local Pen = require(Common.DrawingTool.Pen)
-local Eraser = require(Common.DrawingTool.Eraser)
 local History = require(Common.History)
 local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
 local Signal = require(Common.Packages.GoodSignal)
-local DrawingUI = require(script.Parent.DrawingUI)
 
 -- Helper Functions
 local connectEvents = require(script.connectEvents)
@@ -25,8 +21,11 @@ local makePart = require(script.makePart)
 local BoardClient = setmetatable({}, Board)
 BoardClient.__index = BoardClient
 
-function BoardClient.new(instance: Model | Part, boardRemotes)
-	local self = setmetatable(Board.new(instance, boardRemotes), BoardClient)
+function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string?)
+	local self = setmetatable(Board.new(instance, boardRemotes, persistId), BoardClient)
+
+	self._status = persistId and "NotLoaded" or "Loaded"
+	self.StatusChangedSignal = Signal.new()
 
 	
 	self._jobQueue = JobQueue.new()
@@ -35,6 +34,7 @@ function BoardClient.new(instance: Model | Part, boardRemotes)
 	self._provisionalDrawingTasks = {}
 	
 	self.LocalHistoryChangedSignal = Signal.new()
+	self.DrawingTaskChangedSignal = Signal.new()
 	
 	self._isClientLoaded = false
 	
@@ -68,91 +68,56 @@ function BoardClient.new(instance: Model | Part, boardRemotes)
 			self.ClickedSignal:Fire()
 		end))
 	end
-	
-	self.Canvas = PartCanvas.new("Canvas", surfacePart)
-
-	self.Canvas:ParentTo(self._instance)
 
 	return self
 end
 
+function BoardClient:ConnectToRemoteClientEvents()
+	connectEvents(self, Destructor.new())
+end
 
+function BoardClient:SetToolState(toolState)
+	self._toolState = toolState
+end
 
 function BoardClient:GetToolState()
 	return self._toolState
 end
 
-function BoardClient:StoreToolState(toolState)
-	self._toolState = toolState
-end
-
-function BoardClient:ToolDown(drawingTask, canvasPos, canvas)
-	self._provisionalDrawingTasks[drawingTask.TaskId] = drawingTask
-
-	self._provisionalJobQueue:Enqueue(function(yielder)
-		self.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
-		drawingTask:Init(self, canvasPos, canvas)
-	end)
-
-	-- Not storing a local drawing task *history*
-	-- This would mean that you have to wait til you're caught up on the global
-	-- queue to execute an undo. Is that a bad thing? Maybe? Maybe not?
-end
-
-function BoardClient:ToolMoved(drawingTask, canvasPos, canvas)
-	self._provisionalJobQueue:Enqueue(function(yielder)
-		self.Remotes.UpdateDrawingTask:FireServer(canvasPos)
-		drawingTask:Update(self, canvasPos, canvas)
-	end)
-end
-
-function BoardClient:ToolLift(drawingTask, canvas)
-	self._provisionalJobQueue:Enqueue(function()
-		self.Remotes.FinishDrawingTask:FireServer()
-		drawingTask:Finish(self, canvas)
-	end)
-end
-
-function BoardClient:OpenUI()
-
-	local connection = RunService.RenderStepped:Connect(function()
-		self._provisionalJobQueue:RunJobsUntilYield(coroutine.yield)
-	end)
-
-	DrawingUI.Open(self, function()
-		connection:Disconnect()
-		self._provisionalJobQueue:Clear()
-	end)
-end
-
-function BoardClient:LoadData()
+function BoardClient:LoadData(andThen)
 	if not self._isClientLoaded then
 
+
 		local connection
-		connection = self.Remotes.RequestBoardData.OnClientEvent:Connect(function(drawingTasks, playerHistories)
+		connection = self.Remotes.RequestBoardData.OnClientEvent:Connect(function(figures, drawingTasks, playerHistories)
+
+			print('got board data')
 
 			for taskId, drawingTask in pairs(drawingTasks) do
-				DrawingTask[drawingTask.TaskType].AssignMetatables(drawingTask)
-				if not drawingTask.Undone then
-					 drawingTask:Show(self, self.Canvas)
-				end
+				setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
 			end
-
+			
 			for player, playerHistory in pairs(playerHistories) do
 				setmetatable(playerHistory, History)
 			end
 
+			self.Figures = figures
 			self.DrawingTasks = drawingTasks
 			self.PlayerHistory = playerHistories
 
-			self._inactiveDestructor = Destructor.new()
-			connectEvents(self, self._inactiveDestructor)
 			self._isClientLoaded = true
 
 			print("Loaded "..self._instance.Name)
 
+			if andThen then
+				andThen()
+			end
+
 			connection:Disconnect()
 		end)
+
+		print("firing")
+
 
 		self.Remotes.RequestBoardData:FireServer()
 	end
@@ -161,10 +126,10 @@ end
 
 function BoardClient:UnloadData()
 	if self._isClientLoaded then
-		self._inactiveDestructor:Destroy()
+		self._unloadingDestructor:Destroy()
 		self.PlayerHistory = nil
 		self.DrawingTasks = nil
-		self.Canvas:Clear()
+
 		print("Unloaded "..self._instance.Name)
 	end
 

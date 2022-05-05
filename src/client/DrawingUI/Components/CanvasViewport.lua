@@ -2,7 +2,7 @@
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
-local Roact = require(Common.Packages.Roact)
+local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
 local CanvasViewport = Roact.Component:extend("CanvasViewport")

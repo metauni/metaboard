@@ -14,8 +14,8 @@ return function(board, destructor)
 		-- The callbacks queue the changes to be made in the order they are triggered
 		-- The order these remote events are received is the globally agreed order
 
-		destructor:Add(board.Remotes.InitDrawingTask.OnClientEvent:Connect(function(player: Player, drawingTask, pos: Vector2)
-			DrawingTask[drawingTask.TaskType].AssignMetatables(drawingTask)
+		destructor:Add(board.Remotes.InitDrawingTask.OnClientEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
+			setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
 
 			board._jobQueue:Enqueue(function(yielder)
 				local playerHistory = board.PlayerHistory[player]
@@ -27,27 +27,29 @@ return function(board, destructor)
 				end
 
 				board.DrawingTasks[drawingTask.TaskId] = drawingTask
-				drawingTask:Init(board, pos, board.Canvas)
+				drawingTask:Init(board, canvasPos)
+				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Init")
 
 				do
 					local pastForgetter = function(pastDrawingTask)
-						pastDrawingTask:Commit(board, board.Canvas)
+						-- TODO
 					end
 					playerHistory:Push(drawingTask, pastForgetter)
 				end
 
-
 				if player == Players.LocalPlayer then
 					board.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
 				end
+
 			end)
 		end))
 
-		destructor:Add(board.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, pos: Vector2)
+		destructor:Add(board.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, canvsPos: Vector2)
 			board._jobQueue:Enqueue(function(yielder)
 				local drawingTask = board.PlayerHistory[player]:MostRecent()
 				assert(drawingTask)
-				drawingTask:Update(board, pos, board.Canvas)
+				drawingTask:Update(board, canvsPos)
+				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Update")
 			end)
 		end))
 
@@ -55,13 +57,8 @@ return function(board, destructor)
 			board._jobQueue:Enqueue(function(yielder)
 				local drawingTask = board.PlayerHistory[player]:MostRecent()
 				assert(drawingTask)
-				drawingTask:Finish(board, board.Canvas)
-
-				if player == Players.LocalPlayer then
-					local provisionalDrawingTask = board._provisionalDrawingTasks[drawingTask.TaskId]
-					provisionalDrawingTask._destroy()
-					board._provisionalDrawingTasks[drawingTask.TaskId] = nil
-				end
+				drawingTask:Finish(board)
+				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Finish")
 			end)
 		end))
 

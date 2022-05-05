@@ -4,22 +4,25 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 -- Imports
 local Config = require(Common.Config)
 local EraseGrid = require(Common.EraseGrid)
+local Figure = require(Common.Figure)
 
 -- Board
 local Board = {}
 Board.__index = Board
 
-function Board.new(instance: Model | Part, boardRemotes)
+function Board.new(instance: Model | Part, boardRemotes, persistId: string?)
 	local self = setmetatable({
 		_instance = instance,
 		_surfacePart = instance:IsA("Model") and instance.PrimaryPart or instance,
 		Remotes = boardRemotes,
 		PlayerHistory = {},
 		DrawingTasks = {},
-		_zIndex = 0
+		Figures = {},
+		NextFigureZIndex = 0,
+		PersistId = persistId
 	}, Board)
 
-	
+
 	do
 		local faceValue = instance:FindFirstChild("Face")
 		if faceValue then
@@ -29,13 +32,61 @@ function Board.new(instance: Model | Part, boardRemotes)
 		end
 	end
 
-	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X, self:SurfaceSize().Y, Config.DefaultEraseGridPixelSize)
+	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
 	return self
 end
 
-function Board:SetCanvas(canvas)
-	self.Canvas = canvas
+
+function Board:Status()
+	return self._status
+end
+
+function Board:SetStatus(status: string)
+	self.StatusChangedSignal:Fire(status)
+	self._status = status
+end
+
+function Board:Serialise()
+	local figures = table.clone(self.Figures)
+
+	for taskId, drawingTask in pairs(self.DrawingTasks) do
+		if drawingTask.TaskType ~= "Erase" then
+			figures[taskId] = drawingTask:Render()
+		end
+	end
+
+	for taskId, drawingTask in pairs(self.DrawingTasks) do
+		if drawingTask.TaskType == "Erase" then
+			drawingTask:Commit(figures)
+		end
+	end
+
+	local serialisedFigures = {}
+
+	for figureId, figure in pairs(figures) do
+		serialisedFigures[figureId] = Figure.Serialise(figure)
+	end
+
+	return {
+		Figures = serialisedFigures,
+		NextFigureZIndex = self.NextFigureZIndex,
+	}
+
+end
+
+function Board.Deserialise(boardData)
+	local figures = {}
+
+	for figureId, figure in pairs(boardData.Figures) do
+		figures[figureId] = Figure.Deserialise(figure)
+	end
+
+	return {
+		Figures = figures,
+		NextFigureZIndex = boardData.NextFigureZIndex,
+	}
+
 end
 
 local _faceAngleCFrame = {
@@ -57,9 +108,17 @@ local _faceSurfaceOffsetGetter = {
 }
 
 function Board:SurfaceCFrame()
-	return self._instance:GetPivot()
-		* _faceAngleCFrame[self.Face]
-		* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](self._surfacePart.Size))
+	if self._surfacePart then
+
+		return self._surfacePart.CFrame
+
+	else
+
+		return self._instance:GetPivot()
+			* _faceAngleCFrame[self.Face]
+			* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](self._surfacePart.Size))
+
+	end
 end
 
 local _faceDimensionsGetter = {
@@ -73,15 +132,6 @@ local _faceDimensionsGetter = {
 
 function Board:SurfaceSize()
 	return _faceDimensionsGetter[self.Face](self._surfacePart.Size)
-end
-
-function Board:NextZIndex()
-	self._zIndex += 1
-	return self._zIndex - 1
-end
-
-function Board:PeekZIndex()
-	return self._zIndex
 end
 
 return Board

@@ -1,162 +1,67 @@
+--!strict
+
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = script.Parent.Parent
 
 -- Imports
+local Config = require(Common.Config)
 local AbstractDrawingTask = require(script.Parent.AbstractDrawingTask)
-local Curve = require(Common.Figure.Curve)
+local Collision = require(Common.Collision)
+local Figure = require(Common.Figure)
 
--- StraightLine
 local StraightLine = setmetatable({}, AbstractDrawingTask)
 StraightLine.__index = StraightLine
 
-function StraightLine.new(board, taskId: string, provisional: boolean, color: Color3, thicknessYScale: number)
-  local self = setmetatable(AbstractDrawingTask.new(taskId, provisional), StraightLine)
+function StraightLine.newUnverified(taskId: string, color: Color3, thicknessYScale: number)
+	local self = setmetatable(AbstractDrawingTask.new(script.Name, taskId, false), StraightLine)
 
-  self.TaskType = "StraightLine"
-  self.Color = color
-  self.ThicknessYScale = thicknessYScale
+	self.Color = color
+	self.ThicknessYScale = thicknessYScale
 
-  return self
+	return self
 end
 
-function StraightLine.AssignMetatables(drawingTask)
-  setmetatable(drawingTask, StraightLine)
-  if drawingTask.Curve then
-    setmetatable(drawingTask.Curve, Curve)
-  end
+function StraightLine:Render(): Figure.AnyFigure
+
+	local line: Figure.Line = {
+		Type = "Line",
+		P0 = self.PointA,
+		P1 = self.PointB,
+		Width = self.ThicknessYScale,
+		Color = self.Color,
+		ZIndex = self.ZIndex,
+	}
+
+	return line
 end
 
-function StraightLine:Init(board, pos: Vector2, canvas)
-  if self.Provisional then
-    self.ZIndex = board:PeekZIndex()
-  else
-    self.ZIndex = board:NextZIndex()
-  end
-
-  self.InitialPoint = pos
-  self.InitialPointVisible = true
-
-  if canvas and self.Provisional then
-    canvas:WriteCircle(self.TaskId, "InitialPoint", pos, self.ThicknessYScale, self.Color, self.ZIndex)
-  end
+function StraightLine:RenderFigureMask(figureIds)
+	return figureIds["Line"]
 end
 
-function StraightLine:Update(board, pos: Vector2, canvas)
-  if not self.Curve then
-    self.Curve = Curve.new(self.ThicknessYScale, self.Color, self.ZIndex)
-    self.Curve:Extend(self.InitialPoint)
-    self.Curve:Extend(pos)
+function StraightLine:Init(board, canvasPos)
+	self.PointA = canvasPos
+	self.PointB = canvasPos
+	self.ZIndex = board.NextFigureZIndex
 
-    if canvas and self.Provisional then
-      canvas:DeleteFigure(self.TaskId, "InitialPoint")
-
-      canvas:WriteCurve(self.TaskId, "Curve", self.Curve)
-    end
-  else
-    if canvas and self.Provisional then
-      canvas:UpdateCurvePoint(self.TaskId, "Curve", self.Curve, 2, pos)
-    end
-
-    self.Curve.Points[2] = pos
-  end
+	if self.Verified then
+		board.NextFigureZIndex += 1
+	end
 end
 
-function StraightLine:Finish(board, canvas)
-  if canvas and not self.Provisional then
-    self:Show(board, canvas)
-  end
-
-  if self.Curve then
-    for i=1, #self.Curve.Points-1 do
-      local start = self.Curve.Points[i]
-      local stop = self.Curve.Points[i+1]
-
-      board.EraseGrid:AddLine(start, stop, self.ThicknessYScale, self.TaskId.."#"..tostring(i))
-    end
-  else
-    board.EraseGrid:AddCircle(self.InitialPoint, self.ThicknessYScale/2, self.TaskId.."#".."InitialPoint")
-  end
+function StraightLine:Update(board, canvasPos)
+	self.PointB = canvasPos
 end
 
-function StraightLine:Show(board, canvas)
-  if canvas then
-    if self.Curve then
-      canvas:WriteCurve(self.TaskId, "Curve", self.Curve)
-    else
-      if self.InitialPointVisible then
-        canvas:WriteCircle(self.TaskId, "InitialPoint", self.InitialPoint, self.ThicknessYScale, self.Color, self.ZIndex)
-      end
-    end
-  end
+function StraightLine:Finish(board)
+	if self.Verified then
+		board.EraseGrid:AddLine(self.TaskId, "Line", self.PointA, self.PointB, self.ThicknessYScale)
+	end
 end
 
-function StraightLine:Hide(board, canvas)
-  if canvas then
-    canvas:DeleteGroup(self.TaskId)
-  end
-end
-
-
-function StraightLine:Undo(board, canvas)
-  if canvas then
-    self:Hide(board, canvas)
-  end
-  self.Undone = true
-end
-
-function StraightLine:Redo(board, canvas)
-  if canvas then
-    self:Show(board, canvas)
-  end
-  self.Undone = false
-end
-
-function StraightLine:Commit(board, canvas)
-
-end
-
-function StraightLine:ShowFigure(board, figureId, canvas)
-  if canvas then
-
-    if figureId == "InitialPoint" then
-      canvas:WriteCircle(self.TaskId, "InitialPoint", self.InitialPoint, self.ThicknessYScale, self.Color, self.ZIndex)
-    else
-      local lineStartIndex = tonumber(figureId)
-
-      canvas:ShowLineInCurve(self.TaskId, "Curve", self.Curve, lineStartIndex)
-    end
-  end
-end
-
-function StraightLine:EraseFigure(board, figureId, canvas)
-  if figureId == "InitialPoint" then
-    self.InitialPointVisible = false
-
-    if canvas then
-      canvas:DeleteFigure(self.TaskId, "InitialPoint")
-    end
-
-  else
-    local lineStartIndex = tonumber(figureId)
-
-    self.Curve:DisconnectAt(lineStartIndex)
-
-    if canvas then
-      canvas:DeleteLineInCurve(self.TaskId, "Curve", self.Curve, lineStartIndex)
-    end
-  end
-end
-
-function StraightLine:CheckIntersection(board, figureId: string, centre: Vector2, radius: number)
-  if figureId == "InitialPoint" then
-    return (centre - self.InitialPoint).Magnitude <= radius
-
-  else
-    local lineStartIndex = tonumber(figureId)
-    local line = self.Curve:LineBetween(self.Curve.Points[lineStartIndex], self.Curve.Points[lineStartIndex+1])
-
-    return line:Intersects(centre, radius)
-  end
+function StraightLine:CheckCollision(eraserCentre: Vector2, eraserThicknessYScale: number, figureId: string)
+	assert(figureId == "Line")
+	return Collision.CircleLine(eraserCentre, eraserThicknessYScale/2, self.PointA, self.PointB, self.ThicknessYScale)
 end
 
 return StraightLine

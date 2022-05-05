@@ -3,7 +3,7 @@
 local DrawingTaskDictionary = {}
 
 for _, module in ipairs(script:GetChildren()) do
-  DrawingTaskDictionary[module.Name] = require(module)
+	DrawingTaskDictionary[module.Name] = require(module)
 end
 
 return DrawingTaskDictionary

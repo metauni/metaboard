@@ -59,6 +59,6 @@ end
 
 
 return {
-  PositionFromAbsolute = PositionFromAbsolute,
-  PositionFromPixel = PositionFromPixel,
+	PositionFromAbsolute = PositionFromAbsolute,
+	PositionFromPixel = PositionFromPixel,
 }

@@ -13,9 +13,9 @@ return function(name: string, partType: Enum.PartType): Part
 		part.Name = name
 	end
 
-  if partType then
-    part.Shape = partType
-  end
+	if partType then
+		part.Shape = partType
+	end
 
 	return part
 end

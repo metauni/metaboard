@@ -9,18 +9,18 @@ local DelayedJobQueue = {}
 DelayedJobQueue.__index = DelayedJobQueue
 
 function DelayedJobQueue.new(delayTime)
-  return setmetatable({
-    _queue = Queue.new(),
+	return setmetatable({
+		_queue = Queue.new(),
 		_delayTime = delayTime
-  }, DelayedJobQueue)
+	}, DelayedJobQueue)
 end
 
 function DelayedJobQueue:Enqueue(job)
-  self._queue:Enqueue(coroutine.create(job))
+	self._queue:Enqueue(coroutine.create(job))
 end
 
 function DelayedJobQueue:RunJobsUntilYield(yielder)
-  while self._queue:Count() > 0 do
+	while self._queue:Count() > 0 do
 		local co = self._queue:PeekFront()
 		task.wait(self._delayTime)
 		local success, msg = coroutine.resume(co, yielder)
@@ -38,7 +38,7 @@ function DelayedJobQueue:RunJobsUntilYield(yielder)
 end
 
 function DelayedJobQueue:Clear()
-  self._queue = Queue.new()
+	self._queue = Queue.new()
 end
 
 return DelayedJobQueue

@@ -63,11 +63,11 @@ history that reaches the last index continues from the first index.
 
 For example: The history <1|2,3,4,5> with capacity 7 might be stored as
 {
-  _capacity = 7,
-  _next = 6,
-  _behind = 1,
-  _ahead = 4,
-  _table = {4,5,nil,nil,1,2,3}
+	_capacity = 7,
+	_next = 6,
+	_behind = 1,
+	_ahead = 4,
+	_table = {4,5,nil,nil,1,2,3}
 }
 
 equivalent histories arise by cycling the elements of the table and updating
@@ -78,168 +78,168 @@ can be calculated from _next, _ahead, _behind, using modular arithmetic.
 --]]
 
 function History.new(capacity: number, itemToString)
-  return setmetatable({
-    _capacity = capacity,
-    _next = 1,
-    _behind = 0,
-    _ahead = 0,
-    _table = table.create(capacity, nil),
-    _itemToString = itemToString or tostring,
-  }, History)
+	return setmetatable({
+		_capacity = capacity,
+		_next = 1,
+		_behind = 0,
+		_ahead = 0,
+		_table = table.create(capacity, nil),
+		_itemToString = itemToString or tostring,
+	}, History)
 end
 
 -- We use the wrap function so that modular arithmetic can be more naturally
 -- done with respect to indexing-at-one, i.e. wrap ranges from 1 to capacity.
 local function wrap(n: number, capacity: number)
-  return ((n-1) % capacity) + 1
+	return ((n-1) % capacity) + 1
 end
 
 function History:MostRecent()
-  assert(self._behind > 0, "Cannot get most recent from empty past")
-  return self._table[wrap(self._next - 1, self._capacity)]
+	assert(self._behind > 0, "Cannot get most recent from empty past")
+	return self._table[wrap(self._next - 1, self._capacity)]
 end
 
 function History:Push(item: any, pastDestructor, futureDestructor)
-  if self._ahead > 0 then
-    -- There are some items in the future, destroy them all first before pushing
-    -- futureDestructor = futureDestructor or function(x) print("Forgetting Future: "..(tostring(x or "nil"))) end
-    if futureDestructor then
-      for i=1, self._ahead do
-        local j = wrap(self._next - 1 + i, self._capacity)
-        futureDestructor(self._table[j])
-        self._table[j] = nil
-      end
-    end
+	if self._ahead > 0 then
+		-- There are some items in the future, destroy them all first before pushing
+		-- futureDestructor = futureDestructor or function(x) print("Forgetting Future: "..(tostring(x or "nil"))) end
+		if futureDestructor then
+			for i=1, self._ahead do
+				local j = wrap(self._next - 1 + i, self._capacity)
+				futureDestructor(self._table[j])
+				self._table[j] = nil
+			end
+		end
 
-    -- the index self._next is now available, place the item there and
-    -- update relevant properties
-    self._table[self._next] = item
-    self._ahead = 0
-    self._behind += 1
-    self._next = wrap(self._next + 1, self._capacity)
+		-- the index self._next is now available, place the item there and
+		-- update relevant properties
+		self._table[self._next] = item
+		self._ahead = 0
+		self._behind += 1
+		self._next = wrap(self._next + 1, self._capacity)
 
-  elseif self._behind < self._capacity then
-    -- There is nothing in the future, and the history is not full so there
-    -- is free space at self._next
+	elseif self._behind < self._capacity then
+		-- There is nothing in the future, and the history is not full so there
+		-- is free space at self._next
 
-    self._table[self._next] = item
-    self._behind += 1
-    self._next = wrap(self._next + 1, self._capacity)
+		self._table[self._next] = item
+		self._behind += 1
+		self._next = wrap(self._next + 1, self._capacity)
 
-  elseif self._behind == self._capacity then
-    -- There is nothing in the future, and the history is full.
-    -- Destroy the oldest item to make space at self._next
+	elseif self._behind == self._capacity then
+		-- There is nothing in the future, and the history is full.
+		-- Destroy the oldest item to make space at self._next
 
-    -- pastDestructor = pastDestructor or function(x) print("Forgetting Past: "..(tostring(x or "nil"))) end
-    if pastDestructor then
-      pastDestructor(self._table[self._next])
-      self._table[self._next] = nil
-    end
+		-- pastDestructor = pastDestructor or function(x) print("Forgetting Past: "..(tostring(x or "nil"))) end
+		if pastDestructor then
+			pastDestructor(self._table[self._next])
+			self._table[self._next] = nil
+		end
 
-    self._table[self._next] = item
-    self._next = wrap(self._next + 1, self._capacity)
-  else
-    print(self)
-    error("History._behind should not exceed History._capacity: ")
-  end
+		self._table[self._next] = item
+		self._next = wrap(self._next + 1, self._capacity)
+	else
+		print(self)
+		error("History._behind should not exceed History._capacity: ")
+	end
 end
 
 function History:StepForward()
-  if self._ahead <= 0 then
-    error("Nothing in the future")
-  end
+	if self._ahead <= 0 then
+		error("Nothing in the future")
+	end
 
-  self._ahead -= 1
-  self._behind += 1
-  local item = self._table[self._next]
-  self._next = wrap(self._next + 1, self._capacity)
-  return item
+	self._ahead -= 1
+	self._behind += 1
+	local item = self._table[self._next]
+	self._next = wrap(self._next + 1, self._capacity)
+	return item
 end
 
 function History:StepBackward()
-  if self._behind <= 0 then
-    error("Nothing in the past")
-  end
+	if self._behind <= 0 then
+		error("Nothing in the past")
+	end
 
-  self._ahead += 1
-  self._behind -= 1
-  self._next = wrap(self._next - 1, self._capacity)
-  return self._table[self._next]
+	self._ahead += 1
+	self._behind -= 1
+	self._next = wrap(self._next - 1, self._capacity)
+	return self._table[self._next]
 end
 
 function History:ToDebugString()
-  local output = "("..self._behind..","..self._next..","..self._ahead..",".."{"
+	local output = "("..self._behind..","..self._next..","..self._ahead..",".."{"
 
-  for i=1, self._capacity do
-    output = output..self._itemToString(self._table[i])..(i < self._capacity and "," or "")
-  end
+	for i=1, self._capacity do
+		output = output..self._itemToString(self._table[i])..(i < self._capacity and "," or "")
+	end
 
-  return output.."})"
+	return output.."})"
 end
 
 function History:ToFormattedString()
-  local past = ""
-  for j=1, self._behind do
-    past = self._itemToString(self._table[wrap(self._next - j, self._capacity)])..(j > 1 and "," or "")..past
-  end
+	local past = ""
+	for j=1, self._behind do
+		past = self._itemToString(self._table[wrap(self._next - j, self._capacity)])..(j > 1 and "," or "")..past
+	end
 
-  local future = ""
-  for j=1, self._ahead do
-    future = future..(j > 1 and "," or "")..self._itemToString(self._table[wrap(self._next - 1 + j, self._capacity)])
-  end
+	local future = ""
+	for j=1, self._ahead do
+		future = future..(j > 1 and "," or "")..self._itemToString(self._table[wrap(self._next - 1 + j, self._capacity)])
+	end
 
-  return "<"..past.."|"..future..">"
+	return "<"..past.."|"..future..">"
 end
 
 function History:__tostring()
-  return self:ToFormattedString()
-  -- return self:ToDebugString()
+	return self:ToFormattedString()
+	-- return self:ToDebugString()
 end
 
 function History:_OldestIndex()
-  return wrap(self._next - self._behind, self._capacity)
+	return wrap(self._next - self._behind, self._capacity)
 end
 
 function History:_YoungestIndex()
-  return wrap(self._next - 1 +  self._ahead, self._capacity)
+	return wrap(self._next - 1 + self._ahead, self._capacity)
 end
 
 function History:Count()
-  return self._behind + self._ahead
+	return self._behind + self._ahead
 end
 
 function History:CountPast()
-  return self._behind
+	return self._behind
 end
 
 function History:CountFuture()
-  return self._ahead
+	return self._ahead
 end
 
 function History:Expand(capacity)
-  assert(capacity >= self._capacity, "Cannot shrink History Capacity")
+	assert(capacity >= self._capacity, "Cannot shrink History Capacity")
 
-  -- Check if the history is sitting across the start/end boundary
-  -- i.e. some true-suffix of the history is a prefix of the array
-  if self:Count() > 0 and self:_OldestIndex() > self:_YoungestIndex() then
-    -- Recalcuate the positions of the initial segment, wrapped according to
-    -- the new capacity
-    for i=1, self:_YoungestIndex() do
-      self._table[wrap(self._capacity + i, capacity)] = self._table[i]
-      self._table[i] = nil
-    end
+	-- Check if the history is sitting across the start/end boundary
+	-- i.e. some true-suffix of the history is a prefix of the array
+	if self:Count() > 0 and self:_OldestIndex() > self:_YoungestIndex() then
+		-- Recalcuate the positions of the initial segment, wrapped according to
+		-- the new capacity
+		for i=1, self:_YoungestIndex() do
+			self._table[wrap(self._capacity + i, capacity)] = self._table[i]
+			self._table[i] = nil
+		end
 
-    -- Reposition the next index, if it was attached to that relocated prefix
-    if self._next <= self:_YoungestIndex() + 1 then
-      self._next = wrap(self._capacity + self._next, capacity)
-    end
-  end
+		-- Reposition the next index, if it was attached to that relocated prefix
+		if self._next <= self:_YoungestIndex() + 1 then
+			self._next = wrap(self._capacity + self._next, capacity)
+		end
+	end
 
-  self._capacity = capacity
+	self._capacity = capacity
 end
 
 function History:MapPrint(f)
-  return 
+	return 
 end
 
 return History

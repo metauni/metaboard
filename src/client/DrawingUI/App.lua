@@ -1,718 +1,391 @@
 -- Services
-local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
 
 -- Imports
-local Roact = require(Common.Packages.Roact)
-local e = Roact.createElement
-
-local Pen = require(Common.DrawingTool.Pen)
-local Eraser = require(Common.DrawingTool.Eraser)
-local StraightEdge = require(Common.DrawingTool.StraightEdge)
 local Config = require(Common.Config)
-local Assets = require(Common.Assets)
+local Roact: Roact = require(Common.Packages.Roact)
+local e = Roact.createElement
 local Llama = require(Common.Packages.Llama)
 local Dictionary = Llama.Dictionary
-local PartCanvas = require(Common.Canvas.PartCanvas)
 
-
-
+-- Drawing Tools
+local DrawingTools = script.Parent.DrawingTools
+local Pen = require(DrawingTools.Pen)
+local StraightEdge = require(DrawingTools.StraightEdge)
+local Eraser = require(DrawingTools.Eraser)
 
 -- Components
 local Components = script.Parent.Components
-local CanvasViewport = require(Components.CanvasViewport)
-local Palette = require(Components.Palette)
-local StrokeButton = require(Components.StrokeButton)
-local CloseButton = require(Components.CloseButton)
-local UndoRedoButton = require(Components.UndoRedoButton)
-local EraserChoices = require(Components.EraserChoices)
-local ShadedColorSubMenu = require(Components.ShadedColorSubMenu)
-local StrokeWidthSubMenu = require(Components.StrokeWidthSubMenu)
-local ToolMenu = require(Components.ToolMenu)
-local LayoutFragment = require(Components.LayoutFragment)
+local ConstrainedBox = require(Components.ConstrainedBox)
+local Canvas = require(Components.Canvas)
+local CanvasIO = require(Components.CanvasIO)
+local BoardViewport = require(Components.BoardViewport)
+local Toolbar = require(Components.Toolbar)
 local Cursor = require(Components.Cursor)
 
+-- Constants
+-- local CANVAS_REGION_POSITION = UDim2.fromScale(0, 0)
+-- local CANVAS_REGION_SIZE = UDim2.fromScale(1,1)
+local CANVAS_REGION_POSITION = UDim2.new(0, 50 , 0, 150)
+local CANVAS_REGION_SIZE = UDim2.new(1,-100,1,-200)
 
-local App = Roact.Component:extend("App")
-App.defaultProps = {
-  IgnoreGuiInset = true,
-  CanvasRegionPosition = UDim2.new(0, 50 , 0, 150),
-  CanvasRegionSize = UDim2.new(1,-100,1,-200),
-
-  ToolMenuSize = UDim2.new(0, 260, 0, 80),
-  ToolConfigSize = UDim2.new(0, 360, 0, 80),
-  UndoRedoSize = UDim2.new(0,180, 0, 80),
-
-  InitialToolState = {
-    EraserSizeName = "Small",
-    StrokeWidths = {
-      Small = Config.Drawing.Defaults.SmallStrokeWidth,
-      Medium = Config.Drawing.Defaults.MediumStrokeWidth,
-      Large = Config.Drawing.Defaults.LargeStrokeWidth,
-    },
-    SelectedStrokeWidthName = "Small",
-    ColorWells = {
-      {
-        BaseName = "White",
-        BaseColor = Color3.fromHex("FCFCFC"),
-        Color = Color3.fromHex("FCFCFC"),
-      },
-      {
-        BaseName = "Black",
-        BaseColor = Color3.fromHex("000000"),
-        Color = Color3.fromHex("000000"),
-      },
-      {
-        BaseName = "Blue",
-        BaseColor = Color3.fromHex("007AFF"),
-        Color = Color3.fromHex("007AFF"),
-      },
-      {
-        BaseName = "Green",
-        BaseColor = Color3.fromHex("7EC636"),
-        Color = Color3.fromHex("7EC636"),
-      },
-      {
-        BaseName = "Red",
-        BaseColor = Color3.fromHex("D20000"),
-        Color = Color3.fromHex("D20000"),
-      },
-    },
-    SelectedColorWellIndex = 1,
-  },
-
-  ButtonDimOffset = 80,
-  ToolbarHeightOffset = 80,
-  ToolbarPosition = UDim2.new(0.5, 0, 0, 60),
-  PaletteSpacing = UDim.new(0,10),
-  ToolbarSpacing = UDim.new(0,20),
-}
-
-function App:didMount()
-  local board = self.props.Board
-
-
-  self._uisConnection = UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-      or input.UserInputType == Enum.UserInputType.Touch
-    then
-      self:ToolLift()
-    end
-  end)
-
-  self._historyChangedConnection = board.LocalHistoryChangedSignal:Connect(function(canUndo, canRedo)
-    self:setState({
-      CanUndo = canUndo,
-      CanRedo = canRedo,
-    })
-  end)
-
-	StarterGui:SetCoreGuiEnabled("All", false)
-	StarterGui:SetCoreGuiEnabled("Chat", true)
-end
-
-function App:willUnmount()
-  self._provisionalCanvas:Destroy()
-  self._uisConnection:Disconnect()
-  self._historyChangedConnection:Disconnect()
-  StarterGui:SetCoreGuiEnabled("All", true)
-end
+local App = Roact.PureComponent:extend("App")
 
 function App:init()
-  local initialToolState = self.props.InitialToolState
-  local board = self.props.Board
-  local history = board.PlayerHistory[Players.LocalPlayer]
 
-  self._provisionalCanvas = PartCanvas.new("ProvisionalCanvas", board._surfacePart)
+	self.CanvasAbsolutePositionBinding, self.SetCanvasAbsolutePosition = Roact.createBinding(Vector2.new(0,0))
+	self.CanvasAbsoluteSizeBinding, self.SetCanvasAbsoluteSize = Roact.createBinding(Vector2.new(100,100))
 
-  self:setState(Dictionary.merge(initialToolState, {
-    ToolHeld = false,
-    CanUndo = history and history:CountPast() > 0,
-    CanRedo = history and history:CountFuture() > 0,
-    SubMenu = Roact.None,
-    EquippedToolName = "Pen",
-    BlackoutProvisionalCanvas = false
-  }))
+	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(Vector2.new(0,0))
 
-  self.canvasButtonRef = Roact.createRef()
+	local figures = table.clone(self.props.Board.Figures)
+	local bundledFigureMasks = {}
+	for taskId, drawingTask in pairs(self.props.Board.DrawingTasks) do
+		if drawingTask.TaskType == "Erase" then
+			bundledFigureMasks[taskId] = drawingTask:Render(self.props.Board)
+		else
+			figures[taskId] = drawingTask:Render()
+		end
+	end
 
-  
+	self:setState({
+
+		Figures = figures,
+
+		BundledFigureMasks = bundledFigureMasks,
+
+		ToolHeld = false,
+		SubMenu = Roact.None,
+		EquippedTool = Pen,
+		SelectedEraserSizeName = "Small",
+		StrokeWidths = {
+			Small = Config.Drawing.Defaults.SmallStrokeWidth,
+			Medium = Config.Drawing.Defaults.MediumStrokeWidth,
+			Large = Config.Drawing.Defaults.LargeStrokeWidth,
+		},
+		SelectedStrokeWidthName = "Small",
+		ColorWells = {
+			{
+				BaseName = "White",
+				Color = Config.ColorPalette.White.BaseColor,
+			},
+			{
+				BaseName = "Black",
+				Color = Config.ColorPalette.Black.BaseColor,
+			},
+			{
+				BaseName = "Blue",
+				Color = Config.ColorPalette.Blue.BaseColor,
+			},
+			{
+				BaseName = "Green",
+				Color = Config.ColorPalette.Green.BaseColor,
+			},
+			{
+				BaseName = "Red",
+				Color = Config.ColorPalette.Red.BaseColor,
+			},
+		},
+		SelectedColorWellIndex = 3,
+	})
 end
 
 function App:render()
 
-  return e("ScreenGui", {
-    DisplayOrder = 1,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-    IgnoreGuiInset = true,
-    [Roact.Children] = {
-      Toolbar = self:renderToolbar(),
-      CanvasUI = self:renderCanvas(),
-      Cursor = self.state.ToolPos and self.state.SubMenu == nil and self:renderCursor() or nil
-    }
-  })
+	local toolbar = e(Toolbar, {
+
+		SubMenu = self.state.SubMenu,
+		SetSubMenu = function(subMenu)
+			self:setState({ SubMenu = subMenu })
+		end,
+
+		EquippedTool = self.state.EquippedTool,
+		EquipTool = function(tool)
+			self:setState({ EquippedTool = tool })
+		end,
+
+		StrokeWidths = self.state.StrokeWidths,
+		SelectedStrokeWidthName = self.state.SelectedStrokeWidthName,
+		SelectStrokeWidth = function(name)
+			self:setState({ SelectedStrokeWidthName = name })
+		end,
+		UpdateStrokeWidth = function(strokeWidth)
+			self:setState({
+
+				StrokeWidths = Dictionary.merge(self.state.StrokeWidths,{
+					[self.state.SelectedStrokeWidthName] = strokeWidth
+				})
+
+			})
+		end,
+
+		SelectedEraserSizeName = self.state.SelectedEraserSizeName,
+		SelectEraserSize = function(name)
+			self:setState({ SelectedEraserSizeName = name })
+		end,
+
+		ColorWells = self.state.ColorWells,
+		SelectedColorWellIndex = self.state.SelectedColorWellIndex,
+		SelectColorWell = function(index)
+			self:setState({ SelectedColorWellIndex = index })
+		end,
+		UpdateColorWell = function(index, shadedColor)
+			self:setState({
+				ColorWells = Dictionary.merge(self.state.ColorWells, {
+					[index] = shadedColor
+				})
+			})
+		end,
+
+		OnUndo = function()
+			self.props.Board.Remotes.Undo:FireServer()
+		end,
+		OnRedo = function()
+			self.props.Board.Remotes.Redo:FireServer()
+		end,
+
+		OnCloseButtonClick = function()
+			self.props.OnClose()
+		end,
+
+	})
+
+	local canvasBox = e(ConstrainedBox, {
+
+		Position = CANVAS_REGION_POSITION,
+		Size = CANVAS_REGION_SIZE,
+		AspectRatio = self.props.AspectRatio,
+
+		OnAbsolutePositionUpdate = self.SetCanvasAbsolutePosition,
+		OnAbsoluteSizeUpdate = self.SetCanvasAbsoluteSize,
+
+	})
+
+	local canvasIO = e(CanvasIO, {
+
+		IgnoreGuiInset = true,
+
+		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+
+		SetCursorPosition = self.SetToolPos,
+
+		ToolDown = function(canvasPos)
+			self:ToolDown(canvasPos)
+			self:setState({ SubMenu = Roact.None })
+		end,
+		ToolMoved = function(canvasPos)
+			self:ToolMoved(canvasPos)
+		end,
+		ToolUp = function()
+			self:ToolUp()
+		end,
+
+	})
+
+	local cursorWidth, cursorColor do
+		if self.state.EquippedTool == Eraser then
+			cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
+			cursorColor = Config.UITheme.Highlight
+		else
+			cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
+			cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
+		end
+	end
+
+	local cursor = e(Cursor, {
+		Size = UDim2.fromOffset(cursorWidth, cursorWidth),
+		Position = self.ToolPosBinding:map(function(toolPos)
+			return UDim2.fromOffset(toolPos.X, toolPos.Y)
+		end),
+		Color = cursorColor
+	})
+
+	local boardViewport = e(BoardViewport, {
+		TargetAbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+		TargetAbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		Board = self.props.Board,
+		ZIndex = 0,
+	})
+
+
+	return e("ScreenGui", {
+
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+
+		[Roact.Children] = {
+
+			Toolbar = toolbar,
+
+			CanvasBox = canvasBox,
+
+			CanvasIO = canvasIO,
+
+			Cursor = cursor,
+
+			Canvas = e(Canvas, {
+
+				Figures = self.state.Figures,
+
+				BundledFigureMasks = self.state.BundledFigureMasks,
+
+				AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+				AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+
+				CanvasSize = self.props.Board:SurfaceSize(),
+				CanvasCFrame = CFrame.identity,
+
+				ZIndex = 1,
+
+			}),
+
+			BoardViewport = boardViewport,
+
+		}
+	})
 end
 
-function App:renderCursor()
-  local toolPos = self.state.ToolPos
-
-  local cursorWidth, cursorColor do
-    if self.state.EquippedToolName == "Eraser" then
-      cursorWidth = Eraser.new(self.state.EraserSizeName).Width
-      cursorColor = Config.UITheme.Highlight
-    else
-      cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
-      cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
-    end
-  end
-
-  return e(Cursor, {
-    Size = UDim2.fromOffset(cursorWidth, cursorWidth),
-    Position = UDim2.fromOffset(self.state.ToolPos.X, self.state.ToolPos.Y),
-    Color = cursorColor
-  })
-end
-
-function App:renderCanvas()
-  local ignoreGuiInset = self.props.IgnoreGuiInset
-  local fov = self.props.FieldOfView
-  local canvasSizeStuds = self.props.CanvasSizeStuds
-  local canvasCFrame = self.props.CanvasCFrame
-  local canvasRegionPosition = self.props.CanvasRegionPosition
-  local canvasRegionSize = self.props.CanvasRegionSize
-  local mountBoard = self.props.MountBoard
-  local unmountBoard = self.props.UnmountBoard
-
-  local canvasButton = e("TextButton", {
-    Text = "",
-    AnchorPoint = Vector2.new(0.5,0.5),
-    Position = UDim2.fromScale(0.5,0.5),
-    Size = UDim2.fromScale(1,1),
-    BackgroundTransparency = 1,
-    [Roact.Ref] = self.canvasButtonRef,
-    [Roact.Event.MouseButton1Down] = function(...)
-      self:ToolDown(...)
-    end,
-    [Roact.Event.MouseMoved] = function(rbx, x, y)
-      self:setState({
-        ToolPos = Vector2.new(x, y)
-      })
-      self:ToolMoved(rbx, x, y)
-    end,
-    [Roact.Event.MouseLeave] = function(...)
-      self:setState({
-        ToolPos = Roact.None
-      })
-      self:ToolLift()
-    end,
-    [Roact.Event.MouseButton1Up] = function(...)
-      self:ToolLift()
-    end,
-    [Roact.Children] = {
-      UIAspectRatioConstraint = e("UIAspectRatioConstraint", {
-        AspectType = Enum.AspectType.FitWithinMaxSize,
-        AspectRatio = canvasSizeStuds.X / canvasSizeStuds.Y
-      })
-    }
-  })
-
-  local regionFrame = e("Frame", {
-    Position = canvasRegionPosition,
-    Size = canvasRegionSize,
-    BackgroundTransparency = 1,
-    ZIndex = 1,
-    [Roact.Children] = {
-      canvasButton = canvasButton
-    }
-  })
-
-  local canvasViewport = e(CanvasViewport, {
-    CanvasButtonRef = self.canvasButtonRef,
-    ZIndex = 0,
-    FieldOfView = fov,
-    CanvasHeightStuds = canvasSizeStuds.Y,
-    CanvasCFrame = canvasCFrame,
-    OnMount = mountBoard,
-    OnUnmount = unmountBoard,
-    Blackout = false
-  })
-
-  local provisionalCanvasViewport = e(CanvasViewport, {
-    CanvasButtonRef = self.canvasButtonRef,
-    ZIndex = 1,
-    FieldOfView = fov,
-    CanvasHeightStuds = canvasSizeStuds.Y,
-    CanvasCFrame = canvasCFrame,
-    OnMount = function(vpfInstance)
-      self._provisionalCanvas:ParentTo(vpfInstance)
-    end,
-    OnUnmount = function()
-      self._provisionalCanvas:ParentTo(nil)
-    end,
-    Blackout = false,
-  })
-
-  
-  local eraserGhostCanvasViewport = e(CanvasViewport, {
-    CanvasButtonRef = self.canvasButtonRef,
-    ZIndex = 2,
-    FieldOfView = fov,
-    CanvasHeightStuds = canvasSizeStuds.Y,
-    CanvasCFrame = canvasCFrame,
-    OnMount = function(vpfInstance)
-      self.eraseGhostCanvasVpf = vpfInstance
-    end,
-    OnUnmount = function()
-      self.eraseGhostCanvasVpf = nil
-    end,
-    Blackout = true,
-  })
-
-  return e("ScreenGui", {
-    IgnoreGuiInset = ignoreGuiInset,
-    DisplayOrder = 0,
-    [Roact.Children] = {
-      RegionFrame = regionFrame,
-      CanvasViewport = canvasViewport,
-      ProvisionalCanvasViewport = provisionalCanvasViewport,
-      EraserGhostCanvasViewport = eraserGhostCanvasViewport
-    }
-  })
-end
-
-function App:ToYScalePos(canvasRbx, x, y)
-  local ignoreGuiInset = self.props.IgnoreGuiInset
-  local canvasPixelPosition = (canvasRbx.AbsolutePosition + (ignoreGuiInset and Vector2.new(0,36) or Vector2.new(0,0)))
-  return (Vector2.new(x,y) - canvasPixelPosition) / canvasRbx.AbsoluteSize.Y
-end
-
-function App:ToolDown(canvasRbx, x, y)
-
-  local equippedToolName = self.state.EquippedToolName
-  local board = self.props.Board
-
-  local equippedTool do
-    if equippedToolName == "Pen" then
-      equippedTool = Pen.new({
-        Width = math.round(self.state.StrokeWidths[self.state.SelectedStrokeWidthName]),
-        ShadedColor = self.state.ColorWells[self.state.SelectedColorWellIndex]
-      })
-    elseif equippedToolName == "StraightEdge" then
-      equippedTool = StraightEdge.new({
-        Width = math.round(self.state.StrokeWidths[self.state.SelectedStrokeWidthName]),
-        ShadedColor = self.state.ColorWells[self.state.SelectedColorWellIndex]
-      })
-    else
-      equippedTool = Eraser.new(self.state.EraserSizeName)
-    end
-
-  end
-  -- if not DrawingUI._withinBounds(x, y, DrawingUI.ToolState.Equipped.ThicknessPixels) then return end
-
-  -- -- If the board is persistent and full, no new drawing tasks can be
-  -- -- initiated by interacting with the board, but you can finish the
-  -- -- current task in progress (i.e. we allow ToolMoved, ToolLift)
-  -- if board.PersistId and board.IsFull then return end
-
-  -- drawingUI._updateCursor(drawingUI._cursor, drawingUI.ToolState.Equipped, x, y)
-  -- drawingUI._cursor.Visible = true
-
-  local drawingTask = equippedTool:NewDrawingTask(board, canvasRbx.AbsoluteSize.Y)
-
-  local currentCanvas
-
-  if equippedTool.IsEraser then
-    local eraserGhostCanvas = PartCanvas.new("EraseGhostCanvas", board._surfacePart)
-    currentCanvas = eraserGhostCanvas
-    eraserGhostCanvas:ParentTo(self.eraseGhostCanvasVpf)
-    drawingTask._destroy = function()
-      eraserGhostCanvas:Destroy()
-      self:setState({
-        CurrentCanvas = Roact.None
-      })
-    end
-  else
-    currentCanvas = self._provisionalCanvas
-    drawingTask._destroy = function()
-      drawingTask:Hide(board, self._provisionalCanvas)
-    end
-  end
-
-  board:ToolDown(drawingTask, self:ToYScalePos(canvasRbx, x, y), currentCanvas)
-  
-  self:setState({
-    ToolPixelPos = Vector2.new(x,y),
-    ToolHeld = true,
-    DrawingTask = drawingTask,
-    SubMenu = Roact.None,
-    BlackoutProvisionalCanvas = equippedTool.IsEraser == true,
-    CurrentCanvas = currentCanvas
-  })
-end
-
-function App:ToolMoved(canvasRbx, x, y)
-  local toolHeld = self.state.ToolHeld
-  local drawingTask = self.state.DrawingTask
-  local board = self.props.Board
-
-  if toolHeld then
-    if drawingTask == nil then
-      print("Why did this happen? Investigate pls")
-      self:setState({
-        ToolHeld = false,
-      })
-    end
-
-    -- if not drawingUI._withinBounds(x, y, drawingUI.ToolState.Equipped.ThicknessPixels) then return end
-
-    -- -- Simple palm rejection
-    -- if UserInputService.TouchEnabled then
-    --   local diff = Vector2.new(x,y) - drawingUI.MousePixelPos
-    --   if diff.Magnitude > Config.Drawing.MaxLineLengthTouch then return end
-    -- end
-
-    board:ToolMoved(drawingTask, self:ToYScalePos(canvasRbx, x, y), self.state.CurrentCanvas)
-  end
-
-  self:setState({
-    ToolPixelPos = Vector2.new(x,y),
-  })
-
-  -- drawingUI._updateCursor(drawingUI._cursor, drawingUI.ToolState.Equipped, x, y)
-end
-
-function App:ToolLift()
-  local toolHeld = self.state.ToolHeld
-  local drawingTask = self.state.DrawingTask
-
-  local board = self.props.Board
-
-  if toolHeld then
-    if drawingTask == nil then
-      print("Why did this happen? Investigate pls")
-      self:setState({
-        ToolHeld = false,
-      })
-      return
-    end
-    board:ToolLift(drawingTask, self.state.CurrentCanvas)
-
-    self:setState({
-      ToolHeld = false,
-      DrawingTask = Roact.None,
-      BlackoutProvisionalCanvas = false,
-    })
-  end
-end
+function App:ToolDown(canvasPos)
+	local drawingTask = self.state.EquippedTool.newDrawingTask(self)
 
 
+	if not self.props.SilenceRemoteEventFire then
+		self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
+	end
 
+	drawingTask:Init(self.props.Board, canvasPos)
 
+	self:setState(function(state)
 
-function App:renderToolbar()
-  local buttonDimOffset = self.props.ButtonDimOffset
-  local buttonSize = UDim2.fromOffset(buttonDimOffset, buttonDimOffset)
-  local toolbarHeightOffset = self.props.ToolbarHeightOffset
-  local toolbarPosition = self.props.ToolbarPosition
-  local toolbarSpacing = self.props.ToolbarSpacing
-  local toolMenuSize = self.props.ToolMenuSize
-  local toolConfigSize = self.props.ToolConfigSize
-  local undoRedoSize = self.props.UndoRedoSize
-  local board = self.props.Board
+		return Dictionary.merge(self:stateForUpdatedDrawingTask(state, drawingTask), {
 
-  local toolMenu = function(props)
-    return e(ToolMenu, {
-      LayoutOrder = props.LayoutOrder,
-      Size = toolMenuSize,
-      EquippedToolName = self.state.EquippedToolName,
-      EquipTool = function(toolName)
-        self:setState({
-          EquippedToolName = toolName,
-          SubMenu = Roact.None,
-        })
-      end
-    })
-  end
+			ToolHeld = true,
 
-  local toolConfig = function(props)
-    local hasStroke = self.state.EquippedToolName ~= "Eraser"
+			CurrentDrawingTask = drawingTask,
 
-    if hasStroke then
-      return e(self:strokeMenu(), {
-        LayoutOrder = props.LayoutOrder,
-      })
-    else
-
-      return e(EraserChoices,{
-        Height = UDim.new(0, buttonDimOffset),
-        Size = toolConfigSize,
-        LayoutOrder = props.LayoutOrder,
-        OnSmallClick = function()
-          self:setState({
-            EraserSizeName = "Small",
-            SubMenu = Roact.None,
-          })
-        end,
-        OnMediumClick = function()
-          self:setState({
-            EraserSizeName = "Medium",
-            SubMenu = Roact.None,
-          })
-        end,
-        OnLargeClick = function()
-          self:setState({
-            EraserSizeName = "Large",
-            SubMenu = Roact.None,
-          })
-        end,
-        SelectedEraserSizeName = self.state.EraserSizeName
-      })
-    end
-  end
-
-
-
-  local historyButtons = function(props)
-    local undoButton = e(UndoRedoButton, {
-        Size = UDim2.fromOffset(80,80),
-        LayoutOrder = 1,
-        Icon = Assets.undo,
-        OnClick = self.state.CanUndo and function()
-          board.Remotes.Undo:FireServer()
-          self:setState({
-            SubMenu = Roact.None
-          })
-        end or nil,
-        Clickable = self.state.CanUndo
-      })
-
-    local redoButton = e(UndoRedoButton, {
-        Size = UDim2.fromOffset(80,80),
-        Icon = Assets.redo,
-        LayoutOrder = 2,
-        OnClick = self.state.CanRedo and function()
-          board.Remotes.Redo:FireServer()
-          self:setState({
-            SubMenu = Roact.None
-          })
-        end or nil,
-        Clickable = self.state.CanRedo
-      })
-
-    return e("Frame", {
-      BackgroundTransparency = 1,
-      Size = undoRedoSize,
-      LayoutOrder = props.LayoutOrder,
-
-      [Roact.Children] = {
-        UIListLayout = e("UIListLayout", {
-          Padding = UDim.new(0,0),
-          FillDirection = Enum.FillDirection.Horizontal,
-          HorizontalAlignment = Enum.HorizontalAlignment.Center,
-          VerticalAlignment = Enum.VerticalAlignment.Center,
-          SortOrder = Enum.SortOrder.LayoutOrder,
-        }),
-        Undo = undoButton,
-        Redo = redoButton,
-      }
-    })
-  end
-
-
-  local divider = function(props)
-    return e("Frame", {
-     Size = UDim2.fromOffset(3, 50),
-     BackgroundColor3 = Config.UITheme.Highlight,
-     BackgroundTransparency = 0.5,
-     BorderSizePixel = 0,
-     LayoutOrder = props.LayoutOrder,
-   })
-  end
-
-  local toolbarLength = toolMenuSize.X.Offset + toolConfigSize.X.Offset + undoRedoSize.X.Offset + 6
-
-  local mainToolbar = e("Frame", {
-    LayoutOrder = 1,
-    Size = UDim2.fromScale(1,1),
-    AnchorPoint = Vector2.new(0.5,0.5),
-    Position = UDim2.fromScale(0.5,0.5),
-    BackgroundTransparency = 0,
-    BackgroundColor3 = Config.UITheme.Background,
-    BorderSizePixel = 0,
-
-    [Roact.Children] = {
-      UICorner = e("UICorner", { CornerRadius = UDim.new(0,5) }),
-
-      UIListLayout = e("UIListLayout", {
-        Padding = UDim.new(0,0),
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-      }),
-
-      LayoutFragment = e(LayoutFragment, {
-        NamedComponents = {
-          {"ToolMenu", toolMenu},
-          {"ToolConfigLeftDivider", divider},
-          {"ToolConfig", toolConfig},
-          {"ToolConfigRightDivider", divider},
-          {"HistoryButtons", historyButtons},
-        }
-      }),
-    }
-  })
-
-  return e("Frame", {
-    Size = UDim2.new(UDim.new(0,toolbarLength), UDim.new(0,toolbarHeightOffset)),
-    AnchorPoint = Vector2.new(0.5,0.5),
-    Position = toolbarPosition,
-    BackgroundTransparency = 1,
-
-    [Roact.Children] = {
-      MainToolbar = mainToolbar,
-      CloseButton = e(CloseButton, {
-        OnClick = self.props.OnClose,
-        Size = UDim2.fromOffset(55,55),
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(1, 25, 0.5, 0)
-      }),
-    }
-  })
+		})
+	end)
 
 end
 
-function App:ToolbarLength()
-  local toolMenuSize = self.props.ToolMenuSize
-  local toolConfigSize = self.props.ToolConfigSize
-  local buttonDimOffset = self.props.ButtonDimOffset
+function App:ToolMoved(canvasPos)
+	if not self.state.ToolHeld then return end
 
-  return toolMenuSize.X.Offset + toolConfigSize.X.Offset + 2 * buttonDimOffset + 6
+	local drawingTask = self.state.CurrentDrawingTask
+
+	if not self.props.SilenceRemoteEventFire then
+		self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
+	end
+
+	drawingTask:Update(self.props.Board, canvasPos)
+
+	self:setState(function(state)
+		return self:stateForUpdatedDrawingTask(state, drawingTask)
+	end)
 end
 
-function App:strokeMenu()
-  local buttonDimOffset = self.props.ButtonDimOffset
-  local buttonSize = UDim2.fromOffset(buttonDimOffset, buttonDimOffset)
-  local paletteSpacing = self.props.PaletteSpacing
-  local toolbarHeightOffset = self.props.ToolbarHeightOffset
-  local toolbarSpacing = self.props.ToolbarSpacing
-  local toolConfigSize = self.props.ToolConfigSize
+function App:ToolUp()
+	if not self.state.ToolHeld then return end
 
+	local drawingTask = self.state.CurrentDrawingTask
 
-  local shadedColorSubMenu = e(ShadedColorSubMenu, {
-    AnchorPoint = Vector2.new(0.5,0),
-    Position = UDim2.new(0.5, 0, 0, 80),
-    SelectedShadedColor = self.state.ColorWells[self.state.SelectedColorWellIndex],
-    OnShadedColorSelect = function(shadedColor)
-      self:setState({
-        ColorWells = Dictionary.merge(self.state.ColorWells, {
-          [self.state.SelectedColorWellIndex] = shadedColor
-        })
-      })
-    end,
-  })
+	drawingTask:Finish()
 
-  local palette = function(props)
-    return e(Palette, {
-      Height = UDim.new(0, buttonDimOffset),
-      ButtonDim = UDim.new(0,buttonDimOffset),
-      LayoutOrder = props.LayoutOrder,
-      ColorWells = self.state.ColorWells,
-      SelectedColorWellIndex = self.state.SelectedColorWellIndex,
-      OnColorWellClick = function(index)
-        local subMenu = self.state.SubMenu
-        if index == self.state.SelectedColorWellIndex then
-          self:setState({
-            SubMenu = self.state.SubMenu == "ShadedColor" and Roact.None or "ShadedColor"
-          })
-        else
-          if subMenu ~= nil and subMenu ~= "ShadedColor" then
-            self:setState({
-              SubMenu = Roact.None
-            })
-          end
+	if not self.props.SilenceRemoteEventFire then
+		self.props.Board.Remotes.FinishDrawingTask:FireServer()
+	end
 
-          self:setState({
-            SelectedColorWellIndex = index
-          })
-        end
-      end,
-      SubMenu = self.state.SubMenu == "ShadedColor" and shadedColorSubMenu or nil,
-    })
-  end
+	self:setState(function(state)
 
-  local strokeWidthSubMenu = e(StrokeWidthSubMenu, {
-    AnchorPoint = Vector2.new(0.5, 0),
-    Position = UDim2.new(0.5, 0, 0, 90),
-    StrokeWidths = self.state.StrokeWidths,
-    SelectedStrokeWidthName = self.state.SelectedStrokeWidthName,
-    SelectStrokeWidth = function(strokeWidthName)
-      self:setState({
-        SelectedStrokeWidthName = strokeWidthName
-      })
-    end,
-    UpdateStrokeWidth = function(strokeWidth)
-      self:setState({
-        StrokeWidths = Dictionary.merge(self.state.StrokeWidths,{
-          [self.state.SelectedStrokeWidthName] = strokeWidth
-        })
-      })
-    end,
-    Color = self.state.ColorWells[self.state.SelectedColorWellIndex].Color,
-    SliderState = self.state.StrokeWidthSliderState,
-    SetSliderState = function(state)
-      self:setState({
-        StrokeWidthSliderState = Dictionary.merge(self.state.StrokeWidthSliderState or {}, state)
-      })
-    end
-  })
+		return Dictionary.merge(self:stateForUpdatedDrawingTask(state, drawingTask), {
 
-  local strokeButton = function(props)
-    return e(StrokeButton, {
-      Size = buttonSize,
-      Width = self.state.StrokeWidths[self.state.SelectedStrokeWidthName],
-      Color = self.state.ColorWells[self.state.SelectedColorWellIndex].Color,
-      LayoutOrder = props.LayoutOrder,
-      OnClick = function()
-        self:setState({
-          SubMenu = self.state.SubMenu == "StrokeWidth" and Roact.None or "StrokeWidth"
-        })
-      end,
-      SubMenu = self.state.SubMenu == "StrokeWidth" and strokeWidthSubMenu or nil
-    })
-  end
+			ToolHeld = false,
 
-  return function(props)
-    return e("Frame", {
-      Size = toolConfigSize,
-      AnchorPoint = Vector2.new(0.5,0.5),
-      Position = UDim2.fromScale(0.5,0.5),
-      BackgroundTransparency = 1,
-      LayoutOrder = props.LayoutOrder,
+			CurrentDrawingTask = Roact.None,
 
-      [Roact.Children] = {
-
-        UIListLayout = e("UIListLayout", {
-          Padding = UDim.new(0,0),
-          FillDirection = Enum.FillDirection.Horizontal,
-          HorizontalAlignment = Enum.HorizontalAlignment.Center,
-          VerticalAlignment = Enum.VerticalAlignment.Center,
-          SortOrder = Enum.SortOrder.LayoutOrder,
-        }),
-
-        LayoutFragment = e(LayoutFragment, {
-          NamedComponents = {
-            {"StrokeButton", strokeButton},
-            {"Palette", palette}
-          }
-        }),
-      }
-    })
-  end
+		})
+	end)
 
 end
 
+function App:stateForUpdatedDrawingTask(state, drawingTask)
+
+	local renderTarget, rendering do
+		if drawingTask.TaskType == "Erase" then
+			renderTarget = "BundledFigureMasks"
+			rendering = drawingTask:Render()
+			if rendering == state.BundledFigureMasks[drawingTask.TaskId] then
+				return nil
+			end
+		else
+			renderTarget = "Figures"
+			rendering = drawingTask:Render()
+		end
+	end 
+
+
+	return {
+
+		[renderTarget] = Dictionary.merge(state[renderTarget], {
+			[drawingTask.TaskId] = rendering
+		})
+	
+	}
+end
+
+function App:didMount()
+
+	if self.props.SilenceRemoteEventFire then return end
+
+	self.drawingTaskChangedConnection = self.props.Board.DrawingTaskChangedSignal:Connect(function(drawingTask, player, changeType: "Init" | "Update" | "Finish")
+		--[[
+			Internally, this drawing app only creates, modifies and renders the "unverified" drawing tasks for the local client to see
+			immediately. The verified drawing tasks are handled by BoardClient, and this app relies on DrawingTaskChangedSignal
+			to be notified of changes to verified drawing tasks.
+
+			The desired behaviour is that the client sees the rendering of the unverified drawing task while they are drawing it,
+			and once the verified version is "finished", they switch to seeing that one.
+
+			However if the drawingTask is an "Erase", then we need to re-render whatever was touched by the eraser, not the
+			eraser drawing task itself. This is the behaviour regardless of who is erasing (local client or not), because the
+			local client is drawing unverified ghosts over the lines they are erasing, and it's nice to see them disappear
+			underneath when the verified erase task comes back from the server.
+		--]]
+
+		if player == Players.LocalPlayer then
+
+			if changeType == "Finish" then
+
+
+				self:setState(function(state)
+
+					return self:stateForUpdatedDrawingTask(state, drawingTask)
+
+				end)
+
+			end
+		else
+
+			-- This is from another player, just make their change immediately
+			self:setState(function(state)
+
+				return self:stateForUpdatedDrawingTask(state, drawingTask)
+
+			end)
+		end
+
+		-- print(self.state.ErasedFigureMasks)
+	end)
+end
+
+function App:willUnmount()
+
+	if self.props.SilenceRemoteEventFire then return end
+
+	self.drawingTaskChangedConnection:Disconnect()
+end
 
 return App

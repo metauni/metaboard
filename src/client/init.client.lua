@@ -1,5 +1,6 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
 
@@ -7,41 +8,85 @@ local CollectionService = game:GetService("CollectionService")
 local Config = require(Common.Config)
 local BoardClient = require(script.BoardClient)
 local BoardRemotes = require(Common.BoardRemotes)
-local PartCanvas = require(Common.Canvas.PartCanvas)
+local DrawingUI = require(script.DrawingUI)
+local BoardService = require(Common.BoardService)
 
 -- Helper functions
 local boardLoader = require(script.boardLoader)
-
-
--- local PersonalBoardTool = require(script.Parent.PersonalBoardTool)
+local makeSurfaceCanvas = require(script.makeSurfaceCanvas)
 
 local Boards = {}
 
-local function bindBoardInstance(instance)
-  -- This will yield until the remotes have replicated from the server
-  local boardRemotes = BoardRemotes.WaitForRemotes(instance)
+local openedBoard = nil
 
-  local board = BoardClient.new(instance, boardRemotes)
+local function bindBoardInstance(instance, remotes, persistId)
 
-  board.ClickedSignal:Connect(function()
-    if board._isClientLoaded then
-      board:OpenUI()
-    end
-  end)
+	-- Ignore if already seen this board
+	if Boards[instance] then return end
 
-  table.insert(Boards, board)
+	local board = BoardClient.new(instance, remotes, persistId)
+
+	if board:Status() == "NotLoaded" then
+
+		local connection
+		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
+
+			if success then
+				board.Figures = figures
+				board.DrawingTasks = drawingTasks
+				board.PlayerHistories = playerHistories
+				board.NextFigureZIndex = nextFigureZIndex
+			end
+
+			connection:Disconnect()
+
+			board:SetStatus("Loaded")
+
+		end)
+
+		board.Remotes.RequestBoardData:FireServer()
+
+	end
+
+	local whenLoaded = function()
+		
+		board.ClickedSignal:Connect(function()
+			if openedBoard == nil then
+				DrawingUI.Open(board, function()
+					openedBoard = nil
+				end)
+				openedBoard = board
+			end
+		end)
+	
+		makeSurfaceCanvas(board)
+		board:ConnectToRemoteClientEvents()
+	
+	
+	end
+
+	if board:Status() == "NotLoaded" then
+		local connection
+		connection = board.StatusChangedSignal:Connect(function(newStatus)
+			if newStatus ~= "NotLoaded" then
+				whenLoaded()
+				connection:Disconnect()
+			end
+		end)
+	else
+		whenLoaded()
+	end
+
 end
 
-BoardClient.TagConnection = CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(instance)
-  if instance:IsDescendantOf(workspace) then
-    bindBoardInstance(instance)
-  end
+BoardService.BoardAdded.OnClientEvent:Connect(function(instance, serverBoard)
+	bindBoardInstance(instance, serverBoard.Remotes, serverBoard.PersistId)
 end)
 
-for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-  if instance:IsDescendantOf(workspace) then
-    bindBoardInstance(instance)
-  end
+do
+	local serverBoards = BoardService.GetBoards:InvokeServer()
+	
+	for _, serverBoard in pairs(serverBoards) do
+		bindBoardInstance(serverBoard._instance, serverBoard.Remotes, serverBoard.PersistId)
+	end
 end
-
-task.spawn(boardLoader, Boards)

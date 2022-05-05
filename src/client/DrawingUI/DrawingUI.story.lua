@@ -1,48 +1,34 @@
+-- Services
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+
+-- Imports
+local Config = require(Common.Config)
 local BoardClient = require(script.Parent.Parent.BoardClient)
-local PartCanvas = require(Common.Canvas.PartCanvas)
 local BoardRemotes = require(Common.BoardRemotes)
 
-local boardInstance = Common.Boards.BlackBoardMini:Clone()
 
 return function(target)
-  local Roact = require(Common.Packages.Roact)
+	local Roact: Roact = require(Common.Packages.Roact)
 
-  Roact.setGlobalConfig({
-    elementTracing = true
-})
+	Roact.setGlobalConfig({
+		elementTracing = true
+	})
 
-  local DrawingUI = require(script.Parent)
+	local App = require(script.Parent.App)
 
-  local board = BoardClient.new(boardInstance, BoardRemotes.new(boardInstance))
+	local boardInstance = Common.BoardModels.BlackBoardMini:Clone()
 
-	local canvas = PartCanvas.new(board)
-	board:SetCanvas(canvas)
-	canvas._instance.Parent = board._instance
+	local board = BoardClient.new(boardInstance, BoardRemotes.new(boardInstance))
 
-  local handle
-  handle = Roact.mount(Roact.createElement(DrawingUI, {
-    CanvasCFrame = board.Canvas:GetCFrame(),
-    CanvasSizeStuds = board.Canvas:Size(),
-    FieldOfView = 70,
-    MountBoard = function(vpfInstance)
-      board.Canvas._instance.Parent = vpfInstance
-      board._instanceClone = board._instance:Clone()
-      board._instanceClone.Parent = vpfInstance
-    end,
-    UnmountBoard = function()
-      board.Canvas._instance.Parent = board._instance
-      board._instanceClone:Destroy()
-    end,
-    Board = board,
-    OnClose = function()
-      Roact.unmount(handle)
-    end
-  }), target)
+	local handle
+	handle = Roact.mount(Roact.createElement(App, {
+		Board = board,
+		AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,
+		SilenceRemoteEventFire = true,
+ 	}), target)
 
-  return function()
-    Roact.unmount(handle)
-    boardInstance:Destroy()
-    canvas._instance:Destroy()
-  end
+	return function()
+		Roact.unmount(handle)
+		boardInstance:Destroy()
+	end
 end
