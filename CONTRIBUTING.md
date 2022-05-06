@@ -41,6 +41,10 @@ This packages the `src/common`, `src/client` and `src/gui` code inside the serve
 
 `src/server/Startup.server.lua` will redistribute this code into the appropriate client folders when the game starts.
 
+## DataStore
+
+[Notes](https://devforum.roblox.com/t/details-on-datastoreservice-for-advanced-developers/175804)
+
 ## Module descriptions
 
 > WARNING: OUT OF DATE
