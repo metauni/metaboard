@@ -17,10 +17,10 @@ return function(props)
 	local lineMask = props.Mask
 	
 	local ithline = function(i)
-		local roundedP0 = i == 1 or lineMask[i-1]
+		local roundedP0 = i == 1 or lineMask[tostring(i-1)]
 		local roundedP1 = true
 
-		return not lineMask[i] and e(Line, {
+		return not lineMask[tostring(i)] and e(Line, {
 			P0 = points[i],
 			P1 = points[i+1],
 			Width = props.Width,

@@ -5,6 +5,9 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local EraseGrid = require(Common.EraseGrid)
 local Figure = require(Common.Figure)
+local DrawingTask = require(Common.DrawingTask)
+local Llama = require(Common.Packages.Llama)
+local Dictionary = Llama.Dictionary
 
 -- Board
 local Board = {}
@@ -47,45 +50,51 @@ function Board:SetStatus(status: string)
 	self._status = status
 end
 
-function Board:Serialise()
-	local figures = table.clone(self.Figures)
-
+function Board:CommitAllDrawingTasks()
+	
+	local drawingTaskFigures = {}
+	
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
 		if drawingTask.TaskType ~= "Erase" then
-			figures[taskId] = drawingTask:Render()
+			drawingTaskFigures[taskId] = drawingTask:Render()
 		end
 	end
 
+	local allFigures = Dictionary.merge(self.Figures, drawingTaskFigures)
+
+	local allMaskedFigures = allFigures
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
 		if drawingTask.TaskType == "Erase" then
-			drawingTask:Commit(figures)
+			allMaskedFigures = drawingTask:Commit(allMaskedFigures)
 		end
 	end
 
-	local serialisedFigures = {}
-
-	for figureId, figure in pairs(figures) do
-		serialisedFigures[figureId] = Figure.Serialise(figure)
-	end
-
-	return {
-		Figures = serialisedFigures,
-		NextFigureZIndex = self.NextFigureZIndex,
-	}
-
+	return allMaskedFigures
 end
 
-function Board.Deserialise(boardData)
-	local figures = {}
+function Board:LoadData(figures, drawingTasks, nextFigureZIndex)
 
-	for figureId, figure in pairs(boardData.Figures) do
-		figures[figureId] = Figure.Deserialise(figure)
+	for taskId, drawingTask in pairs(drawingTasks) do
+		setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
 	end
 
-	return {
-		Figures = figures,
-		NextFigureZIndex = boardData.NextFigureZIndex,
-	}
+	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+
+	self.Figures = figures
+	self.DrawingTasks = drawingTasks
+	self.NextFigureZIndex = nextFigureZIndex
+
+	local committedFigures = self:CommitAllDrawingTasks()
+
+	for figureId, figure in pairs(committedFigures) do
+		if figure.Type == "Curve" then
+			eraseGrid:AddCurve(figureId, figure)
+		else
+			error("TODO")
+		end
+	end
+
+	self.EraseGrid = eraseGrid
 
 end
 

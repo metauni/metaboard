@@ -26,10 +26,10 @@ local Config = require(Common.Config)
 local Rasterize = require(script.Parent.Rasterize)
 local GridSet = require(script.Parent.GridSet)
 
-local FigureGrid = {}
-FigureGrid.__index = FigureGrid
+local ShapeGrid = {}
+ShapeGrid.__index = ShapeGrid
 
-function FigureGrid.new(width: number, height: number, pixelSize: number?)
+function ShapeGrid.new(width: number, height: number, pixelSize: number?)
 	pixelSize = pixelSize or 1
 
 	local gridWidth = math.ceil(width / pixelSize :: number)
@@ -39,48 +39,48 @@ function FigureGrid.new(width: number, height: number, pixelSize: number?)
 		Width = gridWidth,
 		Height = gridHeight,
 		PixelSize = pixelSize,
-		PixelsToFigureIds = GridSet(gridWidth, gridHeight),
-		FigureIdsToPixels = {},
-	}, FigureGrid)
+		PixelsToShapeIds = GridSet(gridWidth, gridHeight),
+		ShapeIdsToPixels = {},
+	}, ShapeGrid)
 end
 
-function FigureGrid:_pair(x,y)
+function ShapeGrid:_pair(x,y)
 	return x + 1 + y * self.Width
 end
 
-function FigureGrid:_unpair(p)
+function ShapeGrid:_unpair(p)
 	return math.fmod(p-1, self.Width), math.floor((p-1) / self.Width)
 end
 
-function FigureGrid:_addFigureIdToPixel(figureId: string, x: number, y: number)
-	self.PixelsToFigureIds.Add(x, y, figureId)
+function ShapeGrid:_addShapeIdToPixel(shapeId: string, x: number, y: number)
+	self.PixelsToShapeIds.Add(x, y, shapeId)
 end
 
-function FigureGrid:_addPixelToFigureId(x: number, y: number, figureId: string)
-	local tbl = self.FigureIdsToPixels[figureId]
+function ShapeGrid:_addPixelToShapeId(x: number, y: number, shapeId: string)
+	local tbl = self.ShapeIdsToPixels[shapeId]
 
 	if not tbl then
 		tbl = {}
-		self.FigureIdsToPixels[figureId] = tbl
+		self.ShapeIdsToPixels[shapeId] = tbl
 	end
 	
 	tbl[self:_pair(x,y)] = true
 end
 
-function FigureGrid:AddFigure(figureId: string, rasterizer)
+function ShapeGrid:AddShape(shapeId: string, rasterizer)
 	local function addPixel(x: number, y: number)
 		if x < 0 or x > self.Width - 1 or y < 0 or y > self.Width - 1 then
 			return
 		end
 		
-		self:_addFigureIdToPixel(figureId, x, y)
-		self:_addPixelToFigureId(x, y, figureId)
+		self:_addShapeIdToPixel(shapeId, x, y)
+		self:_addPixelToShapeId(x, y, shapeId)
 	end
 
 	rasterizer(addPixel)
 end
 
-function FigureGrid:AddLine(start: Vector2, stop: Vector2, thickness: number, figureId: string)
+function ShapeGrid:AddLine(start: Vector2, stop: Vector2, thickness: number, shapeId: string)
 	local p0 = start / self.PixelSize
 	local p1 = stop / self.PixelSize
 	local width = thickness / self.PixelSize
@@ -90,14 +90,14 @@ function FigureGrid:AddLine(start: Vector2, stop: Vector2, thickness: number, fi
 			return
 		end
 		
-		self:_addFigureIdToPixel(figureId, x, y)
-		self:_addPixelToFigureId(x, y, figureId)
+		self:_addShapeIdToPixel(shapeId, x, y)
+		self:_addPixelToShapeId(x, y, shapeId)
 	end
 	
 	Rasterize.LineStroke(p0, p1, width, addPixel)
 end
 
-function FigureGrid:AddCircle(centre: Vector2, radius: number, figureId: string)
+function ShapeGrid:AddCircle(centre: Vector2, radius: number, shapeId: string)
 	local c = centre / self.PixelSize
 	local r = radius / self.PixelSize
 	
@@ -106,37 +106,37 @@ function FigureGrid:AddCircle(centre: Vector2, radius: number, figureId: string)
 			return
 		end
 		
-		self:_addFigureIdToPixel(figureId, x, y)
-		self:_addPixelToFigureId(x, y, figureId)
+		self:_addShapeIdToPixel(shapeId, x, y)
+		self:_addPixelToShapeId(x, y, shapeId)
 	end
 	
 	Rasterize.Circle(c, r, addPixel)
 end
 
-function FigureGrid:RemoveFigure(figureId: string)
-	local pixelsToFigureIds = self.PixelsToFigureIds
+function ShapeGrid:RemoveShape(shapeId: string)
+	local pixelsToShapeIds = self.PixelsToShapeIds
 	
-	if self.FigureIdsToPixels[figureId] then
-		for p in pairs(self.FigureIdsToPixels[figureId]) do
+	if self.ShapeIdsToPixels[shapeId] then
+		for p in pairs(self.ShapeIdsToPixels[shapeId]) do
 			local x, y = self:_unpair(p)
-			pixelsToFigureIds.Remove(x, y, figureId)
+			pixelsToShapeIds.Remove(x, y, shapeId)
 		end
 		
-		self.FigureIdsToPixels[figureId] = nil
+		self.ShapeIdsToPixels[shapeId] = nil
 	end
 end
 
-function FigureGrid:Query(rasterizer, intersectedCallback)
-	local pixelsToFigureIds = self.PixelsToFigureIds
-	local figureIdsSet = {}
+function ShapeGrid:Query(rasterizer, intersectedCallback)
+	local pixelsToShapeIds = self.PixelsToShapeIds
+	local shapeIdsSet = {}
 	
 	local function addPixel(x, y)
-		local set = pixelsToFigureIds.Get(x, y)
+		local set = pixelsToShapeIds.Get(x, y)
 		if set then
-			for figureId in pairs(set) do
-				if not figureIdsSet[figureId] then
-					figureIdsSet[figureId] = true
-					intersectedCallback(figureId)
+			for shapeId in pairs(set) do
+				if not shapeIdsSet[shapeId] then
+					shapeIdsSet[shapeId] = true
+					intersectedCallback(shapeId)
 				end
 			end
 		end
@@ -145,4 +145,4 @@ function FigureGrid:Query(rasterizer, intersectedCallback)
 	rasterizer(addPixel)
 end
 
-return FigureGrid
+return ShapeGrid

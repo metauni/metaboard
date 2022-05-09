@@ -51,14 +51,14 @@ local function bindInstance(instance: Model | Part)
 			local connection
 			connection = board.StatusChangedSignal:Connect(function(newStatus)
 				if newStatus == "Loaded" then
-					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.NextFigureZIndex)
 					connection:Disconnect()
 				end
 			end)
 
 		else
 
-			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.NextFigureZIndex)
 
 		end
 	end)
@@ -69,12 +69,12 @@ local function bindInstance(instance: Model | Part)
 
 		task.spawn(function()
 
-			local boardData = miniPersistence.Restore(board, persistId)
+			local success, figures, nextFigureZIndex = miniPersistence.Restore(persistId)
 
-			if boardData then
-				local deserialised = BoardServer.Deserialise(boardData)
-				board.Figures = deserialised.Figures
-				board.NextFigureZIndex = deserialised.NextFigureZIndex
+			if success then
+				board:LoadData(figures, {}, nextFigureZIndex)
+			else
+				board:LoadData({}, {}, 0)
 			end
 
 			board:SetStatus("Loaded")
@@ -97,16 +97,27 @@ end
 
 
 BoardService.GetBoards.OnServerInvoke = function(player)
-	return Boards
+
+	--[[ Cannot just pass `Boards` table, since the instance-keys get converted
+		to strings, so if two boards instances have the same name, only one
+		key-value pair will survive. Instead, we pass a numeric table of boards,
+		and the client can extract the instance from each board. --]]
+
+	local numericBoardTable = {}
+	for _, board in pairs(Boards) do
+		table.insert(numericBoardTable, board)
+	end
+
+	return numericBoardTable
 end
 
-task.spawn(function()
-	
+task.delay(10, function()
+
 	while true do
 		print('Storing')
 		for instance, board in pairs(Boards) do
 			if board.PersistId then
-				task.spawn(miniPersistence.Store, board, board.PersistId)
+				task.spawn(miniPersistence.Store, board:CommitAllDrawingTasks(), board.NextFigureZIndex, board.PersistId)
 			end
 		end
 		task.wait(10)

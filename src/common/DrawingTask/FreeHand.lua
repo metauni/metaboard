@@ -34,15 +34,6 @@ function FreeHand:Render(): Figure.AnyFigure
 	return curve
 end
 
-function FreeHand:RenderFigureMask(figureIds)
-	local mask = table.create(#self.Points, false)
-	for figureId in pairs(figureIds) do
-		mask[tonumber(figureId)] = true
-	end
-
-	return mask
-end
-
 function FreeHand:Init(board, canvasPos)
 	self.Points = {canvasPos, canvasPos}
 	self.ZIndex = board.NextFigureZIndex
@@ -58,17 +49,14 @@ end
 
 function FreeHand:Finish(board)
 	if self.Verified then
-		for i=1, #self.Points-1 do
-			board.EraseGrid:AddLine(self.TaskId, tostring(i), self.Points[i], self.Points[i+1], self.ThicknessYScale)
-		end
+		board.EraseGrid:AddCurve(self.TaskId, {
+			Type = "Curve",
+			Points = self.Points,
+			Width = self.ThicknessYScale,
+			Color = self.Color,
+			ZIndex = self.ZIndex,
+		})
 	end
-end
-
-function FreeHand:CheckCollision(eraserCentre: Vector2, eraserDiameterYScale: number, figureId: string)
-	local index = tonumber(figureId)
-	local p0, p1 = self.Points[index], self.Points[index + 1]
-
-	return Collision.CircleLine(eraserCentre, eraserDiameterYScale/2, p0, p1, self.ThicknessYScale)
 end
 
 return FreeHand

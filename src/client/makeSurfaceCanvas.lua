@@ -12,14 +12,11 @@ local PartCanvas = require(script.Parent.PartCanvas)
 
 return function (board)
 
-	print(board.Figures)
-
 	local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")
 
 	function SurfaceCanvas:init()
 
 		local figures = table.clone(board.Figures)
-		print(figures)
 		local bundledFigureMasks = {}
 
 		for taskId, drawingTask in pairs(board.DrawingTasks) do

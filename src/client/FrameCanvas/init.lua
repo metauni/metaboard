@@ -22,16 +22,10 @@ function PureFigure:render()
 	local figure = self.props.Figure
 	local container = self.props.Container
 
-	local mask
+	local cummulativeMask = Figure.MergeMask(figure.Type, figure.Mask)
 
-	if figure.Type == "Curve" then
-		mask = table.create(#figure.Points-1, false)
-
-		for eraseTaskId, figureMask in pairs(self.props.FigureMasks) do
-			for i=1, #figure.Points-1 do
-				mask[i] = mask[i] or figureMask[i]
-			end
-		end
+	for eraseTaskId, figureMask in pairs(self.props.FigureMasks) do
+		cummulativeMask = Figure.MergeMask(figure.Type, cummulativeMask, figureMask)
 	end
 
 	if figure.Type == "Curve" then
@@ -40,7 +34,7 @@ function PureFigure:render()
 			
 			ZIndexOffset = self.props.ZIndexOffset,
 			Container = container,
-			Mask = mask,
+			Mask = cummulativeMask,
 
 		}))
 
@@ -57,7 +51,7 @@ function PureFigure:render()
 
 					Figure = e(FigureComponent[figure.Type], Dictionary.merge(figure, {
 						ZIndexOffset = self.props.ZIndexOffset,
-						Mask = mask
+						Mask = cummulativeMask
 					}))
 
 				}),

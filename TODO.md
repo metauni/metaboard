@@ -46,6 +46,7 @@
 - [ ] Personal boards
 
 ## Future
+- [ ] Lockable boards
 - [ ] Fast cups (?)
 - [ ] Show "pending" status in drawing UI when the board is catching up on something
 - [ ] Speaker/audience UI
@@ -59,3 +60,5 @@
 - [ ] Web app board viewing
 - [ ] Screenshot Mode https://github.com/metauni/metaboard/issues/49
 - [ ] Info display and delete button for historical boards https://github.com/metauni/metaboard/issues/51
+
+{string} -> {number} -> {number}

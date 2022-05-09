@@ -24,10 +24,10 @@ function SubCurve:render()
   local lastIndex = self.props.LastIndex
 
 	local ithline = function(i)
-    local roundedP0 = i == 1 or lineMask[i-1]
+    local roundedP0 = i == 1 or lineMask[tostring(i)]
 		local roundedP1 = true
 
-		return not lineMask[i] and e(Line, {
+		return not lineMask[tostring(i)] and e(Line, {
       
 			P0 = points[i],
 			P1 = points[i+1],
@@ -59,7 +59,7 @@ function SubCurve:shouldUpdate(newProps, newState)
 
   for i=self.props.FirstIndex, self.props.LastIndex do
     if newProps.Points[i] ~= self.props.Points[i] then return true end
-    if i < self.props.LastIndex and newProps.Mask[i] ~= self.props.Mask[i] then return true end
+    if i < self.props.LastIndex and newProps.Mask[tostring(i)] ~= self.props.Mask[tostring(i)] then return true end
   end
 
   return false

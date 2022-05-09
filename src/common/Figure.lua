@@ -1,10 +1,11 @@
 --!strict
 
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = script.Parent
 
 -- Imports
 local Config = require(Common.Config)
+local Collision = require(Common.Collision)
 local Llama = require(Common.Packages.Llama)
 local Dictionary = Llama.Dictionary
 
@@ -75,7 +76,8 @@ serialisers = {
 			P1 = serialiseVector2(line.P1),
 			Width = line.Width,
 			Color = serialiseColor3(line.Color),
-			ZIndex = line.ZIndex
+			ZIndex = line.ZIndex,
+			Mask = line.Mask,
 		}
 	end,
 
@@ -91,7 +93,8 @@ serialisers = {
 			Points = serialisedPoints,
 			Width = curve.Width,
 			Color = serialiseColor3(curve.Color),
-			ZIndex = curve.ZIndex
+			ZIndex = curve.ZIndex,
+			Mask = curve.Mask,
 		}
 	end,
 
@@ -101,7 +104,8 @@ serialisers = {
 			Centre = serialiseVector2(circle.Centre),
 			Radius = circle.Radius,
 			Color = serialiseColor3(circle.Color),
-			ZIndex = circle.ZIndex
+			ZIndex = circle.ZIndex,
+			Mask = circle.Mask
 		}
 	end,
 
@@ -110,8 +114,9 @@ serialisers = {
 local deserialisers = {
 
 	Curve = function(curveData)
+		
 		local deserialisedPoints = table.create(#curveData.Points)
-
+		
 		for i, pointData in ipairs(curveData.Points) do
 			deserialisedPoints[i] = deserialiseVector2(pointData)
 		end
@@ -121,7 +126,8 @@ local deserialisers = {
 			Points = deserialisedPoints,
 			Width = curveData.Width,
 			Color = deserialiseColor3(curveData.Color),
-			ZIndex = curveData.ZIndex
+			ZIndex = curveData.ZIndex,
+			Mask = curveData.Mask,
 		}
 	end,
 
@@ -132,7 +138,8 @@ local deserialisers = {
 			P1 = deserialiseVector2(lineData.P1),
 			Width = lineData.Width,
 			Color = deserialiseColor3(lineData.Color),
-			ZIndex = lineData.ZIndex
+			ZIndex = lineData.ZIndex,
+			Mask = lineData.Mask,
 		}
 	end,
 
@@ -142,7 +149,8 @@ local deserialisers = {
 			Centre = serialiseVector2(circleData.Centre),
 			Radius = circleData.Radius,
 			Color = serialiseColor3(circleData.Color),
-			ZIndex = circleData.ZIndex
+			ZIndex = circleData.ZIndex,
+			Mask = circleData.Mask,
 		}
 	end,
 
@@ -170,6 +178,29 @@ local maskMergers = {
 
 }
 
+local intersectsCircle = {
+
+	Curve = function(centre, radius, curve, maybeTouchedMask)
+		
+		for i in pairs(maybeTouchedMask) do
+			if Collision.CircleLine(centre, radius, curve.Points[tonumber(i)], curve.Points[tonumber(i+1)], curve.Width) then
+				return true
+			end
+		end
+
+		return false
+
+	end,
+
+	Line = function(centre, radius, line, maybeTouchedMask)
+		return maybeTouchedMask and Collision.CircleLine(centre, radius, line.P0, line.P1, line.Width)
+	end,
+
+	Circle = function(centre, radius, circle, maybeTouchedMask)
+		return maybeTouchedMask and circle.Radius + radius >= (centre - circle.Centre).Magnitude
+	end,
+}
+
 return {
 
 	Serialise = function(figure: AnyFigure)
@@ -182,6 +213,10 @@ return {
 
 	MergeMask = function(figureType: "Curve" | "Line" | "Circle", mask, ...)
 		return maskMergers[figureType](mask, ...)
-	end
+	end,
+
+	IntersectsCircle = function(centre, radius, figureType: "Curve" | "Line" | "Circle", figure: AnyFigure, maybeTouchedMask)
+		return intersectsCircle[figureType](centre, radius, figure, maybeTouchedMask)
+	end,
 	
 }

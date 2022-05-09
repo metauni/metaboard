@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = script.Parent.Parent
 
 -- Imports
 local Config = require(Common.Config)
@@ -16,46 +16,45 @@ function Erase.newUnverified(taskId: string, thicknessYScale: number)
 	local self = setmetatable(AbstractDrawingTask.new(script.Name, taskId, false), Erase)
 
 	self.ThicknessYScale = thicknessYScale
-	self.TaskIdToFigureIds = {}
-	self.TaskIdToFigureMask = {}
+	self.FigureIdToMask = {}
 
 	return self
 end
 
 function Erase:Render()
-	return self.TaskIdToFigureMask
+	return self.FigureIdToMask
 end
 
 function Erase:EraseTouched(board, canvasPos: Vector2)
 
-	local taskIdNewlyTouched = {}
+	local changedMasks = {}
 
-	board.EraseGrid:QueryCircle(canvasPos, self.ThicknessYScale/2, function(taskId: string, figureId: string)
+	board.EraseGrid:QueryCircle(canvasPos, self.ThicknessYScale/2, function(figureId: string, figureType: string, maybeTouchedMask: Figure.AnyMask)
 
-		local drawingTask = board.DrawingTasks[taskId]
+		local figure = board.DrawingTasks[figureId] and board.DrawingTasks[figureId]:Render() or board.Figures[figureId]
 
-		if not drawingTask:CheckCollision(canvasPos, self.ThicknessYScale, figureId) then return end
+		local doesActuallyIntersect = Figure.IntersectsCircle(canvasPos, self.ThicknessYScale/2, figureType, figure, maybeTouchedMask)
 
-		local figureIds = self.TaskIdToFigureIds[taskId] or {}
-
-		-- Make sure we haven't yet erased this figure
-		if figureIds[figureId] == nil then
-			taskIdNewlyTouched[taskId] = true
-			figureIds[figureId] = true
-			self.TaskIdToFigureIds[taskId] = figureIds
+		if not doesActuallyIntersect then
+			return false
 		end
+
+		local oldMask = changedMasks[figureId] or self.FigureIdToMask[figureId]
+		if oldMask == nil then
+			changedMasks[figureId] = maybeTouchedMask
+		else
+			changedMasks[figureId] = Figure.MergeMask(figureType, oldMask, maybeTouchedMask)
+		end
+
+		-- The return value of this function decides whether the touched part of this figure should be removed from the erase grid.
+		-- We only want to remove it if this is a verified drawing task.
+		return self.Verified
 
 	end)
 
-	for taskId in pairs(taskIdNewlyTouched) do
+	if next(changedMasks) then
 
-		local drawingTask = board.DrawingTasks[taskId]
-		
-		self.TaskIdToFigureMask = Dictionary.merge(self.TaskIdToFigureMask, {
-
-			[taskId] = drawingTask:RenderFigureMask(self.TaskIdToFigureIds[taskId])
-
-		})
+		self.FigureIdToMask = Dictionary.merge(self.FigureIdToMask, changedMasks)
 
 	end
 end
@@ -73,13 +72,17 @@ function Erase:Finish(board)
 end
 
 function Erase:Commit(figures)
-	for figureId, figure in pairs(figures) do
-		local mask = self.TaskIdToFigureMask[figureId]
+	local updatedFigures = {}
 
-		figures[figureId] = Dictionary.merge(figure, {
+	for figureId, figure in pairs(figures) do
+		local mask = self.FigureIdToMask[figureId]
+
+		updatedFigures[figureId] = Dictionary.merge(figure, {
 			Mask = Figure.MergeMask(figure.Type, figure.Mask, mask)
 		})
 	end
+
+	return Dictionary.merge(figures, updatedFigures)
 end
 
 return Erase

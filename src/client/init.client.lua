@@ -29,18 +29,15 @@ local function bindBoardInstance(instance, remotes, persistId)
 	if board:Status() == "NotLoaded" then
 
 		local connection
-		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
+		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, nextFigureZIndex)
 
 			if success then
-				board.Figures = figures
-				board.DrawingTasks = drawingTasks
-				board.PlayerHistories = playerHistories
-				board.NextFigureZIndex = nextFigureZIndex
+				board:LoadData(figures, drawingTasks, nextFigureZIndex)
 			end
 
-			connection:Disconnect()
-
 			board:SetStatus("Loaded")
+			
+			connection:Disconnect()
 
 		end)
 
@@ -86,7 +83,7 @@ end)
 do
 	local serverBoards = BoardService.GetBoards:InvokeServer()
 	
-	for _, serverBoard in pairs(serverBoards) do
+	for _, serverBoard in ipairs(serverBoards) do
 		bindBoardInstance(serverBoard._instance, serverBoard.Remotes, serverBoard.PersistId)
 	end
 end

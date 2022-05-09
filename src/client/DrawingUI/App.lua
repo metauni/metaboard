@@ -377,7 +377,6 @@ function App:didMount()
 			end)
 		end
 
-		-- print(self.state.ErasedFigureMasks)
 	end)
 end
 

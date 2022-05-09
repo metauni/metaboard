@@ -6,7 +6,6 @@ local RunService = game:GetService("RunService")
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Board = require(Common.Board)
-local Canvas = require(Common.Canvas)
 local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
@@ -107,7 +106,6 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 	destructor:Add(self.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
 		self._jobQueue:Enqueue(function(yielder)
-			print(self.Figures)
 			self.Remotes.RequestBoardData:FireClient(player, self.Figures, self.DrawingTasks, self.PlayerHistory)
 		end)
 	end))

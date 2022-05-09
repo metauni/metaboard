@@ -17,7 +17,7 @@ function Curve:render()
 	local elements = {}
 
 	local ithline = function(i)
-		return not lineMask[i] and e(Line, {
+		return not lineMask[tostring(i)] and e(Line, {
 			P0 = points[i],
 			P1 = points[i+1],
 			Width = self.props.Width,

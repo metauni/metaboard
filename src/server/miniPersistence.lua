@@ -5,10 +5,9 @@ local HttpService = game:GetService("HttpService")
 
 -- Imports
 local Config = require(Common.Config)
+local Figure = require(Common.Figure)
 
-local function store(board, boardKey)
-	print('Getting datastore')
-	print("board key", boardKey)
+local function store(figures, nextFigureZIndex, boardKey)
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 	if not DataStore then
@@ -18,11 +17,15 @@ local function store(board, boardKey)
 
 	local startTime = tick()
 
-	local boardData = board:Serialise()
+	local serialisedFigures = {}
+	for figureId, figure in pairs(figures) do
+		serialisedFigures[figureId] = Figure.Serialise(figure)
+	end
 
-	print(boardData)
-
-	local boardJSON = HttpService:JSONEncode(boardData)
+	local boardJSON = HttpService:JSONEncode({
+		Figures = serialisedFigures,
+		NextFigureZIndex = nextFigureZIndex,
+	})
 
 	if not boardJSON then
 		print("[Persistence] Board JSON encoding failed")
@@ -48,7 +51,7 @@ end
 -- Restores an empty board to the contents stored in the DataStore
 -- with the given persistence ID string. Optionally, it restores the
 -- contents to all subscribers of the given board
-local function restore(board, boardKey)
+local function restore(boardKey)
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 	if not DataStore then
@@ -78,9 +81,13 @@ local function restore(board, boardKey)
 		return
 	end
 
-	print(boardKey, boardData)
+	local figures = {}
+	
+	for figureId, serialisedFigure in pairs(boardData.Figures) do
+		figures[figureId] = Figure.Deserialise(serialisedFigure)
+	end
 
-	return boardData
+	return true, figures, boardData.NextFigureZIndex
 end
 
 return {
