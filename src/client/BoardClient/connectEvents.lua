@@ -1,12 +1,15 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 -- Imports
 local Config = require(Common.Config)
 local History = require(Common.History)
 local DrawingTask = require(Common.DrawingTask)
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local set = Sift.Dictionary.set
 
 return function(board, destructor)
 
@@ -15,77 +18,107 @@ return function(board, destructor)
 		-- The order these remote events are received is the globally agreed order
 
 		destructor:Add(board.Remotes.InitDrawingTask.OnClientEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
-			setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
 
 			board._jobQueue:Enqueue(function(yielder)
-				local playerHistory = board.PlayerHistory[player]
-				if playerHistory == nil then
-					playerHistory = History.new(Config.History.Capacity, function(dTask)
-						return dTask.TaskId
-					end)
-					board.PlayerHistory[player] = playerHistory
+
+				-- Get or create the player history for this player
+				local playerHistory = board.PlayerHistories[player] or History.new(Config.History.Capacity)
+
+				local initialisedDrawingTask = DrawingTask.Init(drawingTask, board, canvasPos)
+				board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, initialisedDrawingTask)
+
+				local pastForgetter = function(pastDrawingTask)
+					board.Figures = DrawingTask.Commit(pastDrawingTask, board.Figures)
+					board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, nil)
 				end
 
-				board.DrawingTasks[drawingTask.TaskId] = drawingTask
-				drawingTask:Init(board, canvasPos)
-				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Init")
+				local newHistory = playerHistory:Clone()
+				newHistory:Push(initialisedDrawingTask, pastForgetter)
 
-				do
-					local pastForgetter = function(pastDrawingTask)
-						-- TODO
-					end
-					playerHistory:Push(drawingTask, pastForgetter)
-				end
+				board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
 
-				if player == Players.LocalPlayer then
-					board.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
-				end
-
+				board.BoardDataChangedSignal:Fire()
 			end)
 		end))
 
-		destructor:Add(board.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, canvsPos: Vector2)
+		destructor:Add(board.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, canvasPos: Vector2)
 			board._jobQueue:Enqueue(function(yielder)
-				local drawingTask = board.PlayerHistory[player]:MostRecent()
+				local drawingTask = board.PlayerHistories[player]:MostRecent()
 				assert(drawingTask)
-				drawingTask:Update(board, canvsPos)
-				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Update")
+
+				local updatedDrawingTask = DrawingTask.Update(drawingTask, board, canvasPos)
+
+				local newHistory = board.PlayerHistories[player]:Clone()
+				newHistory:SetMostRecent(updatedDrawingTask)
+
+				board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+
+				board.DrawingTasks = set(board.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
+
+				board.BoardDataChangedSignal:Fire()
 			end)
 		end))
 
 		destructor:Add(board.Remotes.FinishDrawingTask.OnClientEvent:Connect(function(player: Player)
 			board._jobQueue:Enqueue(function(yielder)
-				local drawingTask = board.PlayerHistory[player]:MostRecent()
+				local drawingTask = board.PlayerHistories[player]:MostRecent()
 				assert(drawingTask)
-				drawingTask:Finish(board)
-				board.DrawingTaskChangedSignal:Fire(drawingTask, player, "Finish")
+
+				local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, board), "Finished", true)
+
+				local newHistory = board.PlayerHistories[player]:Clone()
+				newHistory:SetMostRecent(finishedDrawingTask)
+
+				board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+
+				board.BoardDataChangedSignal:Fire()
 			end)
 		end))
 
 
 		destructor:Add(board.Remotes.Undo.OnClientEvent:Connect(function(player: Player)
 			board._jobQueue:Enqueue(function(yielder)
-				local playerHistory = board.PlayerHistory[player]
-				local drawingTask = playerHistory:StepBackward()
-				assert(drawingTask)
-				drawingTask:Undo(board, board.Canvas)
+				local playerHistory = board.PlayerHistories[player]
 
-				if player == Players.LocalPlayer then
-					board.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
+				if playerHistory:CountPast() < 1 then
+					error("Cannot undo, past empty")
 				end
+
+				local newHistory = playerHistory:Clone()
+
+				local drawingTask = newHistory:StepBackward()
+				assert(drawingTask)
+
+				board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, nil)
+				board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+
+				DrawingTask.Undo(drawingTask, board)
+
+				board.BoardDataChangedSignal:Fire()
 			end)
 		end))
 
 		destructor:Add(board.Remotes.Redo.OnClientEvent:Connect(function(player: Player)
 			board._jobQueue:Enqueue(function(yielder)
-				local playerHistory = board.PlayerHistory[player]
-				local drawingTask = board.PlayerHistory[player]:StepForward()
-				assert(drawingTask)
-				drawingTask:Redo(board, board.Canvas)
 
-				if player == Players.LocalPlayer then
-					board.LocalHistoryChangedSignal:Fire(playerHistory:CountPast() > 0, playerHistory:CountFuture() > 0)
+				local playerHistory = board.PlayerHistories[player]
+
+				if playerHistory:CountFuture() < 1 then
+					error("Cannot redo, future empty")
 				end
+
+				local newHistory = playerHistory:Clone()
+
+				local drawingTask = newHistory:StepForward()
+				assert(drawingTask)
+
+				board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, drawingTask)
+				board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+
+				DrawingTask.Redo(drawingTask, board)
+
+				board.BoardDataChangedSignal:Fire()
+
 			end)
 		end))
 

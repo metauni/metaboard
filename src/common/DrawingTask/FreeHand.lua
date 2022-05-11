@@ -1,62 +1,115 @@
---!strict
-
 -- Services
 local Common = script.Parent.Parent
 
 -- Imports
 local Config = require(Common.Config)
-local AbstractDrawingTask = require(script.Parent.AbstractDrawingTask)
-local Collision = require(Common.Collision)
 local Figure = require(Common.Figure)
+local Sift = require(Common.Packages.Sift)
 
-local FreeHand = setmetatable({}, AbstractDrawingTask)
-FreeHand.__index = FreeHand
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local set = Dictionary.set
+local merge = Dictionary.merge
 
-function FreeHand.newUnverified(taskId: string, color: Color3, thicknessYScale: number)
-	local self = setmetatable(AbstractDrawingTask.new(script.Name, taskId, false), FreeHand)
+-- Array Operations
+local Array = Sift.Array
+local push = Array.push
 
-	self.Color = color
-	self.ThicknessYScale = thicknessYScale
+local FreeHand = {}
 
-	return self
-end
+function FreeHand.new(taskId: string, color: Color3, thicknessYScale: number)
 
-function FreeHand:Render(): Figure.AnyFigure
-
-	local curve: Figure.Curve = {
-		Type = "Curve",
-		Points = table.clone(self.Points),
-		Width = self.ThicknessYScale,
-		Color = self.Color,
-		ZIndex = self.ZIndex,
+	return {
+		Id = taskId,
+		Type = script.Name,
+		Curve = {
+			Type = "Curve",
+			Points = nil, -- Not sure if this value has any consequences
+			Width = thicknessYScale,
+			Color = color,
+		} :: Figure.Curve
 	}
-
-	return curve
 end
 
-function FreeHand:Init(board, canvasPos)
-	self.Points = {canvasPos, canvasPos}
-	self.ZIndex = board.NextFigureZIndex
+function FreeHand.Render(drawingTask): Figure.AnyFigure
 
-	if self.Verified then
+	return drawingTask.Curve
+end
+
+function FreeHand.Init(drawingTask, board, canvasPos: Vector2)
+
+	local zIndex = board.NextFigureZIndex
+
+	if drawingTask.Verified then
 		board.NextFigureZIndex += 1
 	end
+
+	local newCurve = merge(drawingTask.Curve, {
+		
+		Points = {canvasPos, canvasPos},
+		ZIndex = zIndex,
+
+	})
+
+	return set(drawingTask, "Curve", newCurve)
 end
 
-function FreeHand:Update(board, canvasPos)
-	table.insert(self.Points, canvasPos)
+function FreeHand.Update(drawingTask, board, canvasPos: Vector2)
+
+	local newPoints = push(drawingTask.Curve.Points, canvasPos)
+
+	local newCurve = set(drawingTask.Curve, "Points", newPoints)
+
+	return set(drawingTask, "Curve", newCurve)
 end
 
-function FreeHand:Finish(board)
-	if self.Verified then
-		board.EraseGrid:AddCurve(self.TaskId, {
-			Type = "Curve",
-			Points = self.Points,
-			Width = self.ThicknessYScale,
-			Color = self.Color,
-			ZIndex = self.ZIndex,
-		})
+function FreeHand.Finish(drawingTask, board)
+
+	if drawingTask.Verified then
+		board.EraseGrid:AddCurve(drawingTask.Id, drawingTask.Curve)
 	end
+
+	return drawingTask
+end
+
+function FreeHand.Commit(drawingTask, figures)
+
+	return set(figures, drawingTask.Id, drawingTask.Curve)
+end
+
+function FreeHand.Undo(drawingTask, board)
+
+	if drawingTask.Verified then
+		board.EraseGrid:RemoveFigure(drawingTask.Id, drawingTask.Curve)
+	end
+
+	return drawingTask
+end
+
+function FreeHand.Redo(drawingTask, board)
+
+	local DrawingTask = require(script.Parent)
+
+	if drawingTask.Verified then
+
+		--[[
+			The figure produced by this drawing task might be partially erased
+			by other drawing tasks, so we need to "Commit" them to the figure before
+			adding the result back to the erase grid.
+		--]]
+
+		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Curve }
+
+		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+			if otherDrawingTask.Type == "Erase" then
+				singletonMaskedFigure = DrawingTask.Commit(otherDrawingTask, singletonMaskedFigure)
+			end
+		end
+
+		board.EraseGrid:AddCurve(drawingTask.Id, singletonMaskedFigure[drawingTask.Id])
+	end
+
+	return drawingTask
 end
 
 return FreeHand

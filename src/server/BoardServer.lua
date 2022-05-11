@@ -1,5 +1,4 @@
 -- Services
-local CollectionService = game:GetService("CollectionService")
 
 -- Import
 local RunService = game:GetService("RunService")
@@ -12,6 +11,12 @@ local History = require(Common.History)
 local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
 local DelayedJobQueue = require(Common.DelayedJobQueue)
 local Signal = require(Common.Packages.GoodSignal)
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local merge = Dictionary.merge
+local set = Dictionary.set
 
 -- BoardServer
 local BoardServer = setmetatable({}, Board)
@@ -32,82 +37,120 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 	-- Respond to each remote event by repeating it to all of the clients, then
 	-- performing the described change to the server's copy of the board
 
-	destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, pos)
-		
-		setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
-		
+	destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
-			local playerHistory = self.PlayerHistory[player]
-			if playerHistory == nil then
-				playerHistory = History.new(Config.History.Capacity, function(dTask)
-					return dTask.TaskId
-				end)
-				self.PlayerHistory[player] = playerHistory
-			end
-			
-			drawingTask:Verify()
-			self.Remotes.InitDrawingTask:FireAllClients(player, drawingTask, pos)
-			
-			drawingTask:Init(self, pos)
-			self.DrawingTasks[drawingTask.TaskId] = drawingTask
 
-			do
-				local pastForgetter = function(pastDrawingTask)
-					-- TODO
-				end
-				playerHistory:Push(drawingTask, pastForgetter)
+			local verifiedDrawingTask = merge(drawingTask, { Verified = true })
+			self.Remotes.InitDrawingTask:FireAllClients(player, verifiedDrawingTask, canvasPos)
+
+			-- Get or create the player history for this player
+			local playerHistory = self.PlayerHistories[player] or History.new(Config.History.Capacity)
+
+			local initialisedDrawingTask = DrawingTask.Init(verifiedDrawingTask, self, canvasPos)
+			self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask)
+
+			local pastForgetter = function(pastDrawingTask)
+				self.Figures = DrawingTask.Commit(pastDrawingTask, self.Figures)
+				self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, nil)
 			end
-			
+
+			local newHistory = playerHistory:Clone()
+			newHistory:Push(initialisedDrawingTask, pastForgetter)
+
+			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
 		end)
 	end))
 
-	destructor:Add(self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, pos)
-		
-		
+	destructor:Add(self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
-			self.Remotes.UpdateDrawingTask:FireAllClients(player, pos)
-			local drawingTask = self.PlayerHistory[player]:MostRecent()
+
+			self.Remotes.UpdateDrawingTask:FireAllClients(player, canvasPos)
+
+			local drawingTask = self.PlayerHistories[player]:MostRecent()
 			assert(drawingTask)
-			drawingTask:Update(self, pos)
+
+			local updatedDrawingTask = DrawingTask.Update(drawingTask, self, canvasPos)
+
+			local newHistory = self.PlayerHistories[player]:Clone()
+			newHistory:SetMostRecent(updatedDrawingTask)
+
+			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
+			self.DrawingTasks = set(self.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
 		end)
 	end))
 
-	destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, pos)
-		
+	destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
-			self.Remotes.FinishDrawingTask:FireAllClients(player, pos)
-			local drawingTask = self.PlayerHistory[player]:MostRecent()
+
+			self.Remotes.FinishDrawingTask:FireAllClients(player, canvasPos)
+
+			local drawingTask = self.PlayerHistories[player]:MostRecent()
 			assert(drawingTask)
-			drawingTask:Finish(self)
+
+			local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, self), "Finished", true)
+
+			local newHistory = self.PlayerHistories[player]:Clone()
+			newHistory:SetMostRecent(finishedDrawingTask)
+
+			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
+			self.DrawingTasks = set(self.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+
 		end)
 	end))
 
 	destructor:Add(self.Remotes.Undo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
+
 			self.Remotes.Undo:FireAllClients(player)
-			local drawingTask = self.PlayerHistory[player]:StepBackward()
+
+			local playerHistory = self.PlayerHistories[player]
+
+			if playerHistory:CountPast() < 1 then
+				error("Cannot undo, past empty")
+			end
+
+			local newHistory = playerHistory:Clone()
+
+			local drawingTask = newHistory:StepBackward()
 			assert(drawingTask)
-			drawingTask:Undo(self, nil)
+
+			self.DrawingTasks = set(self.DrawingTasks, drawingTask.Id, nil)
+			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
+			DrawingTask.Undo(drawingTask, self)
+
 		end)
-	end))
-	
-	destructor:Add(self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
-		self._jobQueue:Enqueue(function(yielder)
-			self.Remotes.Redo:FireAllClients(player)
-			local drawingTask = self.PlayerHistory[player]:StepForward()
-			assert(drawingTask)
-			drawingTask:Redo(self, nil)
-		end)
-	end))
-	
-	destructor:Add(RunService.Heartbeat:Connect(function()
-		self._jobQueue:RunJobsUntilYield(coroutine.yield)
 	end))
 
-	destructor:Add(self.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
+	destructor:Add(self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
-			self.Remotes.RequestBoardData:FireClient(player, self.Figures, self.DrawingTasks, self.PlayerHistory)
+
+			self.Remotes.Redo:FireAllClients(player)
+
+			local playerHistory = self.PlayerHistories[player]
+
+			if playerHistory:CountFuture() < 1 then
+				error("Cannot redo, future empty")
+			end
+
+			local newHistory = playerHistory:Clone()
+
+			local drawingTask = newHistory:StepForward()
+			assert(drawingTask)
+
+			DrawingTask.Redo(drawingTask, self)
+
+			self.DrawingTasks = set(self.DrawingTasks, drawingTask.Id, drawingTask)
+			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
 		end)
+	end))
+
+	destructor:Add(RunService.Heartbeat:Connect(function()
+		self._jobQueue:RunJobsUntilYield(coroutine.yield)
 	end))
 
 	return self

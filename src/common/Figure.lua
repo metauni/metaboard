@@ -6,12 +6,12 @@ local Common = script.Parent
 -- Imports
 local Config = require(Common.Config)
 local Collision = require(Common.Collision)
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 
 -- Figure Types
 
-export type AnyFigure = Line | Curve | Circle | Group
+export type AnyFigure = Line | Curve
 
 export type Line = {
 	Type: "Line",
@@ -30,24 +30,12 @@ export type Curve = {
 	ZIndex: number,
 }
 
-export type Circle = {
-	Type: "Circle",
-	Centre: Vector2,
-	Radius: number,
-	Color: Color3,
-	ZIndex: number,
-}
-
-export type Group = {[string]: AnyFigure}
-
 -- Figure Masks
 
-export type AnyMask = LineMask| CurveMask | CircleMask | GroupMask
+export type AnyMask = LineMask| CurveMask
 
 export type LineMask = boolean
-export type CurveMask = {LineMask}
-export type CircleMask = boolean
-export type GroupMask = {[string] : AnyMask }
+export type CurveMask = {boolean}
 
 local function serialiseVector2(vector: Vector2)
 	return { X = vector.X, Y = vector.Y }
@@ -98,25 +86,14 @@ serialisers = {
 		}
 	end,
 
-	Circle = function(circle: Circle)
-		return {
-			Type = "Circle",
-			Centre = serialiseVector2(circle.Centre),
-			Radius = circle.Radius,
-			Color = serialiseColor3(circle.Color),
-			ZIndex = circle.ZIndex,
-			Mask = circle.Mask
-		}
-	end,
-
 }
 
 local deserialisers = {
 
 	Curve = function(curveData)
-		
+
 		local deserialisedPoints = table.create(#curveData.Points)
-		
+
 		for i, pointData in ipairs(curveData.Points) do
 			deserialisedPoints[i] = deserialiseVector2(pointData)
 		end
@@ -143,45 +120,30 @@ local deserialisers = {
 		}
 	end,
 
-	Circle = function(circleData)
-		return {
-			Type = "Circle",
-			Centre = serialiseVector2(circleData.Centre),
-			Radius = circleData.Radius,
-			Color = serialiseColor3(circleData.Color),
-			ZIndex = circleData.ZIndex,
-			Mask = circleData.Mask,
-		}
-	end,
-
 }
-
-local mergeBool = function(...)
-	for _, value in ipairs({...}) do
-		if value then
-			return true
-		end
-	end
-
-	return false
-end
 
 local maskMergers = {
 
 	Curve = function(curveMask, ...)
-		return Dictionary.merge(curveMask, ...)
+		return Dictionary.merge(curveMask or {}, ...)
 	end,
 
-	Line = mergeBool,
+	Line = function(...)
+		for _, value in ipairs({...}) do
+			if value then
+				return true
+			end
+		end
 
-	Circle = mergeBool,
+		return false
+	end,
 
 }
 
 local intersectsCircle = {
 
 	Curve = function(centre, radius, curve, maybeTouchedMask)
-		
+
 		for i in pairs(maybeTouchedMask) do
 			if Collision.CircleLine(centre, radius, curve.Points[tonumber(i)], curve.Points[tonumber(i+1)], curve.Width) then
 				return true
@@ -196,9 +158,6 @@ local intersectsCircle = {
 		return maybeTouchedMask and Collision.CircleLine(centre, radius, line.P0, line.P1, line.Width)
 	end,
 
-	Circle = function(centre, radius, circle, maybeTouchedMask)
-		return maybeTouchedMask and circle.Radius + radius >= (centre - circle.Centre).Magnitude
-	end,
 }
 
 return {
@@ -215,8 +174,30 @@ return {
 		return maskMergers[figureType](mask, ...)
 	end,
 
+	FullyMasked = function(figure)
+		if figure.Type == "Curve" then
+
+			if figure.Mask == nil then
+				return false
+			end
+
+			for i=1, #figure.Points-1 do
+				if figure.Mask[tostring(i)] == nil then
+					return false
+				end
+			end
+
+			return true
+
+		else
+
+			return figure.Mask == true
+
+		end
+	end,
+
 	IntersectsCircle = function(centre, radius, figureType: "Curve" | "Line" | "Circle", figure: AnyFigure, maybeTouchedMask)
 		return intersectsCircle[figureType](centre, radius, figure, maybeTouchedMask)
 	end,
-	
+
 }

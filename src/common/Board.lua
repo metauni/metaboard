@@ -1,13 +1,17 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = script.Parent
 
 -- Imports
 local Config = require(Common.Config)
 local EraseGrid = require(Common.EraseGrid)
 local Figure = require(Common.Figure)
 local DrawingTask = require(Common.DrawingTask)
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local History = require(Common.History)
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local merge = Dictionary.merge
 
 -- Board
 local Board = {}
@@ -18,7 +22,7 @@ function Board.new(instance: Model | Part, boardRemotes, persistId: string?)
 		_instance = instance,
 		_surfacePart = instance:IsA("Model") and instance.PrimaryPart or instance,
 		Remotes = boardRemotes,
-		PlayerHistory = {},
+		PlayerHistories = {},
 		DrawingTasks = {},
 		Figures = {},
 		NextFigureZIndex = 0,
@@ -51,47 +55,44 @@ function Board:SetStatus(status: string)
 end
 
 function Board:CommitAllDrawingTasks()
-	
+
 	local drawingTaskFigures = {}
-	
+
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
-		if drawingTask.TaskType ~= "Erase" then
-			drawingTaskFigures[taskId] = drawingTask:Render()
+		if drawingTask.Type ~= "Erase" then
+			drawingTaskFigures[taskId] = DrawingTask.Render(drawingTask)
 		end
 	end
 
-	local allFigures = Dictionary.merge(self.Figures, drawingTaskFigures)
+	local allFigures = merge(self.Figures, drawingTaskFigures)
 
 	local allMaskedFigures = allFigures
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
-		if drawingTask.TaskType == "Erase" then
-			allMaskedFigures = drawingTask:Commit(allMaskedFigures)
+		if drawingTask.Type == "Erase" then
+			allMaskedFigures = DrawingTask.Commit(drawingTask, allMaskedFigures)
 		end
 	end
 
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, nextFigureZIndex)
+function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
 
-	for taskId, drawingTask in pairs(drawingTasks) do
-		setmetatable(drawingTask, DrawingTask[drawingTask.TaskType])
+	for player, playerHistory in pairs(playerHistories) do
+		setmetatable(playerHistory, History)
 	end
-
-	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
 	self.Figures = figures
 	self.DrawingTasks = drawingTasks
+	self.PlayerHistories = playerHistories
+
 	self.NextFigureZIndex = nextFigureZIndex
+	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
 	local committedFigures = self:CommitAllDrawingTasks()
 
 	for figureId, figure in pairs(committedFigures) do
-		if figure.Type == "Curve" then
-			eraseGrid:AddCurve(figureId, figure)
-		else
-			error("TODO")
-		end
+		eraseGrid:AddFigure(figureId, figure)
 	end
 
 	self.EraseGrid = eraseGrid

@@ -16,12 +16,25 @@ function CanvasIO:render()
 
 	local insetOffset = ignoreGuiInset and 36 or 0
 	
+	local function withinFrame(x, y)
+		local absPosition = absPositionBinding:getValue()
+		local absSize = absSizeBinding:getValue()
+
+		-- print((Vector2.new(x,y) - (absPosition + Vector2.new(0, insetOffset))) / absSize.Y)
+
+		return
+			0 <= (x - absPosition.X) and
+			(x - absPosition.X) <= absPosition.X + absSize.X and
+			0 <= (y - (absPosition.Y + insetOffset)) and
+			(y - (absPosition.Y + insetOffset)) <= (absPosition.Y + insetOffset) + absSize.Y
+
+	end
 
 	local function toScalar(x, y)
 		local absPosition = absPositionBinding:getValue()
 		local absSize = absSizeBinding:getValue()
 
-		return Vector2.new(x - absPosition.X, y - (absPosition.Y + 36)) / absSize.Y
+		return Vector2.new(x - absPosition.X, y - (absPosition.Y + insetOffset)) / absSize.Y
 	end
 
 	return e("TextButton", {
@@ -32,21 +45,28 @@ function CanvasIO:render()
 		
 		AnchorPoint = self.props.AnchorPoint,
 		Position = absPositionBinding:map(function(absPosition)
-			return UDim2.fromOffset(absPosition.X, absPosition.Y)
+			return UDim2.fromOffset(absPosition.X, absPosition.Y + insetOffset)
 		end),
 		Size = self.props.AbsoluteSizeBinding:map(function(absSize)
 			return UDim2.fromOffset(absSize.X, absSize.Y)
 		end),
 		
 		[Roact.Event.MouseButton1Down] = function(rbx, x, y)
-			self.props.ToolDown(toScalar(x, y))
+			local canvasPos = toScalar(x, y)
+			if withinFrame(x, y) then
+				self.props.ToolDown(toScalar(x, y))
+			end
 		end,
 		[Roact.Event.MouseMoved] = function(rbx, x, y)
 			setCursorPosition(Vector2.new(x,y))
-			self.props.ToolMoved(toScalar(x, y))
+			if withinFrame(x, y) then
+				self.props.ToolMoved(toScalar(x, y))
+			else
+				self.props.ToolUp()
+			end
 		end,
 		[Roact.Event.MouseLeave] = function(rbx, x, y)
-			self.props.ToolUp(toScalar(x, y))
+			self.props.ToolUp()
 		end,
 		[Roact.Event.MouseButton1Up] = function(rbx, x, y)
 			self.props.ToolUp()

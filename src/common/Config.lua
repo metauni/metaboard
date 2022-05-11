@@ -186,7 +186,7 @@ Config.PersonalBoard = {
 }
 
 Config.History = {
-	Capacity = 15,
+	Capacity = 5,
 }
 
 Config.MaxLoadedBoards = 1

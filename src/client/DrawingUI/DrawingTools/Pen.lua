@@ -15,6 +15,6 @@ return {
 		local thicknessYScale = stroke.Width / self.CanvasAbsoluteSizeBinding:getValue().Y
 		local color = stroke.ShadedColor.Color
 
-		return FreeHand.newUnverified(taskId, color, thicknessYScale)
+		return FreeHand.new(taskId, color, thicknessYScale)
 	end,
 }

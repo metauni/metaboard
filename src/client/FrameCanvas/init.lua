@@ -5,8 +5,8 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 local Figure = require(Common.Figure)
 
 -- FigureComponents
@@ -128,24 +128,15 @@ function FrameCanvas:render()
 		})
 	end
 
-	local flippedFigureMasks = {}
-
-	for eraseTaskId, figureMasks in pairs(self.props.BundledFigureMasks) do
-		for taskId, figureMask in pairs(figureMasks) do
-			flippedFigureMasks[taskId] = flippedFigureMasks[taskId] or {}
-			flippedFigureMasks[taskId][eraseTaskId] = figureMask
-		end
-	end
-
 	local pureFigures = {}
 
-	for taskId, figure in pairs(self.props.Figures) do
+	for figureId, figure in pairs(self.props.Figures) do
 
-		pureFigures[taskId] = e(PureFigure, {
+		pureFigures[figureId] = e(PureFigure, {
 
 			Figure = figure,
 
-			FigureMasks = flippedFigureMasks[taskId] or {},
+			FigureMasks = self.props.FigureMaskBundles[figureId] or {},
 
 			Container = container,
 

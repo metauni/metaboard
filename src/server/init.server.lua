@@ -23,6 +23,12 @@ local BoardService = require(Common.BoardService)
 local Config = require(Common.Config)
 local BoardServer = require(script.BoardServer)
 local BoardRemotes = require(Common.BoardRemotes)
+local Figure = require(Common.Figure)
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local merge = Dictionary.merge
 
 -- Helper Functions
 local miniPersistence = require(script.miniPersistence)
@@ -42,23 +48,19 @@ local function bindInstance(instance: Model | Part)
 
 	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
 
-		if board == nil then
-			BoardService.RequestBoardData:FireClient(player, false)
-		end
-
 		if board:Status() == "NotLoaded" then
 
 			local connection
 			connection = board.StatusChangedSignal:Connect(function(newStatus)
 				if newStatus == "Loaded" then
-					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.NextFigureZIndex)
+					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
 					connection:Disconnect()
 				end
 			end)
 
 		else
 
-			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.NextFigureZIndex)
+			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
 
 		end
 	end)
@@ -72,9 +74,9 @@ local function bindInstance(instance: Model | Part)
 			local success, figures, nextFigureZIndex = miniPersistence.Restore(persistId)
 
 			if success then
-				board:LoadData(figures, {}, nextFigureZIndex)
+				board:LoadData(figures, {}, {}, nextFigureZIndex)
 			else
-				board:LoadData({}, {}, 0)
+				board:LoadData({}, {}, {}, 0)
 			end
 
 			board:SetStatus("Loaded")
@@ -117,7 +119,20 @@ task.delay(10, function()
 		print('Storing')
 		for instance, board in pairs(Boards) do
 			if board.PersistId then
-				task.spawn(miniPersistence.Store, board:CommitAllDrawingTasks(), board.NextFigureZIndex, board.PersistId)
+
+				local committedFigures = board:CommitAllDrawingTasks()
+
+				local removals = {}
+
+				for figureId, figure in pairs(committedFigures) do
+					if Figure.FullyMasked(figure) then
+						removals[figureId] = Sift.None
+					end
+				end
+
+				committedFigures = merge(committedFigures, removals)
+
+				task.spawn(miniPersistence.Store, committedFigures, board.NextFigureZIndex, board.PersistId)
 			end
 		end
 		task.wait(10)

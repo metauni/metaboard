@@ -25,7 +25,7 @@ if CanvasType == PartCanvas then
 
 			Figures = props.Figures,
 
-			BundledFigureMasks = props.BundledFigureMasks,
+			FigureMaskBundles = props.FigureMaskBundles,
 
 			AbsolutePositionBinding = props.AbsolutePositionBinding,
 			AbsoluteSizeBinding = props.AbsoluteSizeBinding,
@@ -64,7 +64,7 @@ else
 
 			Figures = props.Figures,
 
-			BundledFigureMasks = props.BundledFigureMasks,
+			FigureMaskBundles = props.FigureMaskBundles,
 
 			AbsolutePositionBinding = props.AbsolutePositionBinding,
 			AbsoluteSizeBinding = props.AbsoluteSizeBinding,

@@ -14,8 +14,8 @@ local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQu
 local Signal = require(Common.Packages.GoodSignal)
 local Figure = require(Common.Figure)
 local EraseGrid = require(Common.EraseGrid)
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 
 -- Helper Functions
 local connectEvents = require(script.connectEvents)
@@ -30,6 +30,8 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 
 	self._status = persistId and "NotLoaded" or "Loaded"
 	self.StatusChangedSignal = Signal.new()
+
+	self.BoardDataChangedSignal = Signal.new()
 
 
 	self._jobQueue = JobQueue.new()

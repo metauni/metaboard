@@ -29,14 +29,14 @@ local function bindBoardInstance(instance, remotes, persistId)
 	if board:Status() == "NotLoaded" then
 
 		local connection
-		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, nextFigureZIndex)
+		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
 
 			if success then
-				board:LoadData(figures, drawingTasks, nextFigureZIndex)
+				board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
 			end
 
 			board:SetStatus("Loaded")
-			
+
 			connection:Disconnect()
 
 		end)
@@ -46,7 +46,7 @@ local function bindBoardInstance(instance, remotes, persistId)
 	end
 
 	local whenLoaded = function()
-		
+
 		board.ClickedSignal:Connect(function()
 			if openedBoard == nil then
 				DrawingUI.Open(board, function()
@@ -55,11 +55,11 @@ local function bindBoardInstance(instance, remotes, persistId)
 				openedBoard = board
 			end
 		end)
-	
+
 		makeSurfaceCanvas(board)
 		board:ConnectToRemoteClientEvents()
-	
-	
+
+
 	end
 
 	if board:Status() == "NotLoaded" then
@@ -82,7 +82,7 @@ end)
 
 do
 	local serverBoards = BoardService.GetBoards:InvokeServer()
-	
+
 	for _, serverBoard in ipairs(serverBoards) do
 		bindBoardInstance(serverBoard._instance, serverBoard.Remotes, serverBoard.PersistId)
 	end

@@ -5,10 +5,15 @@ local RunService = game:GetService("RunService")
 
 -- Imports
 local Config = require(Common.Config)
+local DrawingTask = require(Common.DrawingTask)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local set = Dictionary.set
+local merge = Dictionary.merge
 
 -- Drawing Tools
 local DrawingTools = script.Parent.DrawingTools
@@ -40,21 +45,21 @@ function App:init()
 
 	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(Vector2.new(0,0))
 
-	local figures = table.clone(self.props.Board.Figures)
-	local bundledFigureMasks = {}
-	for taskId, drawingTask in pairs(self.props.Board.DrawingTasks) do
-		if drawingTask.TaskType == "Erase" then
-			bundledFigureMasks[taskId] = drawingTask:Render(self.props.Board)
-		else
-			figures[taskId] = drawingTask:Render()
-		end
-	end
+	-- local figures = table.clone(self.props.Board.Figures)
+	-- local bundledFigureMasks = {}
+	-- for taskId, drawingTask in pairs(self.props.Board.DrawingTasks) do
+	-- 	if drawingTask.Type == "Erase" then
+	-- 		bundledFigureMasks[taskId] = drawingTask:Render(self.props.Board)
+	-- 	else
+	-- 		figures[taskId] = drawingTask:Render()
+	-- 	end
+	-- end
 
 	self:setState({
 
-		Figures = figures,
+		-- Figures = figures,
 
-		BundledFigureMasks = bundledFigureMasks,
+		-- BundledFigureMasks = bundledFigureMasks,
 
 		ToolHeld = false,
 		SubMenu = Roact.None,
@@ -89,6 +94,9 @@ function App:init()
 			},
 		},
 		SelectedColorWellIndex = 3,
+
+		UnverifiedDrawingTasks = {},
+		CurrentUnverifiedDrawingTaskId = nil
 	})
 end
 
@@ -138,6 +146,9 @@ function App:render()
 				})
 			})
 		end,
+
+		CanUndo = self.props.CanUndo,
+		CanRedo = self.props.CanRedo,
 
 		OnUndo = function()
 			self.props.Board.Remotes.Undo:FireServer()
@@ -210,6 +221,40 @@ function App:render()
 		ZIndex = 0,
 	})
 
+	local figureMaskBundles = {}
+	local allFigures = table.clone(self.props.Figures)
+
+	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
+		end
+	end
+
+	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
+		end
+	end
 
 	return e("ScreenGui", {
 
@@ -228,9 +273,9 @@ function App:render()
 
 			Canvas = e(Canvas, {
 
-				Figures = self.state.Figures,
+				Figures = allFigures,
 
-				BundledFigureMasks = self.state.BundledFigureMasks,
+				FigureMaskBundles = figureMaskBundles,
 
 				AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
 				AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
@@ -248,25 +293,56 @@ function App:render()
 	})
 end
 
+function App.getDerivedStateFromProps(nextProps, lastState)
+
+	--[[
+		Unverified drawing tasks should be removed when their verified version
+		becomes "Finished"
+	--]]
+
+	if lastState.UnverifiedDrawingTasks == nil then
+		return
+	end
+
+	local removals = {}
+
+	for taskId, unverifiedDrawingTask in pairs(lastState.UnverifiedDrawingTasks) do
+		local verifiedDrawingTask = nextProps.DrawingTasks[taskId]
+
+		if verifiedDrawingTask and verifiedDrawingTask.Finished then
+			removals[taskId] = Sift.None
+		end
+
+	end
+
+	if next(removals) then
+		return {
+			UnverifiedDrawingTasks = merge(lastState.UnverifiedDrawingTasks, removals)
+		}
+	end
+
+end
+
 function App:ToolDown(canvasPos)
 	local drawingTask = self.state.EquippedTool.newDrawingTask(self)
-
 
 	if not self.props.SilenceRemoteEventFire then
 		self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
 	end
 
-	drawingTask:Init(self.props.Board, canvasPos)
+	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.props.Board, canvasPos)
 
 	self:setState(function(state)
 
-		return Dictionary.merge(self:stateForUpdatedDrawingTask(state, drawingTask), {
+		return {
 
 			ToolHeld = true,
 
-			CurrentDrawingTask = drawingTask,
+			CurrentUnverifiedDrawingTaskId = initialisedDrawingTask.Id,
 
-		})
+			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask),
+
+		}
 	end)
 
 end
@@ -274,25 +350,29 @@ end
 function App:ToolMoved(canvasPos)
 	if not self.state.ToolHeld then return end
 
-	local drawingTask = self.state.CurrentDrawingTask
+	local drawingTask = self.state.UnverifiedDrawingTasks[self.state.CurrentUnverifiedDrawingTaskId]
 
 	if not self.props.SilenceRemoteEventFire then
 		self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
 	end
 
-	drawingTask:Update(self.props.Board, canvasPos)
+	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.props.Board, canvasPos)
 
 	self:setState(function(state)
-		return self:stateForUpdatedDrawingTask(state, drawingTask)
+		return {
+
+			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, updatedDrawingTask.Id, updatedDrawingTask),
+
+		}
 	end)
 end
 
 function App:ToolUp()
 	if not self.state.ToolHeld then return end
 
-	local drawingTask = self.state.CurrentDrawingTask
+	local drawingTask = self.state.UnverifiedDrawingTasks[self.state.CurrentUnverifiedDrawingTaskId]
 
-	drawingTask:Finish()
+	local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, self.props.Board), "Finished", true)
 
 	if not self.props.SilenceRemoteEventFire then
 		self.props.Board.Remotes.FinishDrawingTask:FireServer()
@@ -300,91 +380,18 @@ function App:ToolUp()
 
 	self:setState(function(state)
 
-		return Dictionary.merge(self:stateForUpdatedDrawingTask(state, drawingTask), {
+		return {
 
 			ToolHeld = false,
 
-			CurrentDrawingTask = Roact.None,
+			CurrentUnverifiedDrawingTaskId = Roact.None,
 
-		})
+			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, finishedDrawingTask.Id, finishedDrawingTask),
+
+		}
 	end)
 
 end
 
-function App:stateForUpdatedDrawingTask(state, drawingTask)
-
-	local renderTarget, rendering do
-		if drawingTask.TaskType == "Erase" then
-			renderTarget = "BundledFigureMasks"
-			rendering = drawingTask:Render()
-			if rendering == state.BundledFigureMasks[drawingTask.TaskId] then
-				return nil
-			end
-		else
-			renderTarget = "Figures"
-			rendering = drawingTask:Render()
-		end
-	end 
-
-
-	return {
-
-		[renderTarget] = Dictionary.merge(state[renderTarget], {
-			[drawingTask.TaskId] = rendering
-		})
-	
-	}
-end
-
-function App:didMount()
-
-	if self.props.SilenceRemoteEventFire then return end
-
-	self.drawingTaskChangedConnection = self.props.Board.DrawingTaskChangedSignal:Connect(function(drawingTask, player, changeType: "Init" | "Update" | "Finish")
-		--[[
-			Internally, this drawing app only creates, modifies and renders the "unverified" drawing tasks for the local client to see
-			immediately. The verified drawing tasks are handled by BoardClient, and this app relies on DrawingTaskChangedSignal
-			to be notified of changes to verified drawing tasks.
-
-			The desired behaviour is that the client sees the rendering of the unverified drawing task while they are drawing it,
-			and once the verified version is "finished", they switch to seeing that one.
-
-			However if the drawingTask is an "Erase", then we need to re-render whatever was touched by the eraser, not the
-			eraser drawing task itself. This is the behaviour regardless of who is erasing (local client or not), because the
-			local client is drawing unverified ghosts over the lines they are erasing, and it's nice to see them disappear
-			underneath when the verified erase task comes back from the server.
-		--]]
-
-		if player == Players.LocalPlayer then
-
-			if changeType == "Finish" then
-
-
-				self:setState(function(state)
-
-					return self:stateForUpdatedDrawingTask(state, drawingTask)
-
-				end)
-
-			end
-		else
-
-			-- This is from another player, just make their change immediately
-			self:setState(function(state)
-
-				return self:stateForUpdatedDrawingTask(state, drawingTask)
-
-			end)
-		end
-
-	end)
-end
-
-function App:willUnmount()
-
-	if self.props.SilenceRemoteEventFire then return end
-
-	self.drawingTaskChangedConnection:Disconnect()
-end
 
 return App

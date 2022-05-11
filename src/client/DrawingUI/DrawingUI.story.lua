@@ -24,6 +24,16 @@ return function(target)
 	handle = Roact.mount(Roact.createElement(App, {
 		Board = board,
 		AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,
+		
+		OnClose = function()
+			Roact.unmount(handle)
+			boardInstance:Destroy()
+		end,
+
+		Figures = board.Figures,
+		DrawingTasks = board.DrawingTasks,
+		CanUndo = false,
+		CanRedo = false,
 		SilenceRemoteEventFire = true,
  	}), target)
 

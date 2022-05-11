@@ -7,8 +7,8 @@ local e = Roact.createElement
 
 local Config = require(Common.Config)
 local Assets = require(Common.Assets)
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 
 -- Drawing Tools
 local DrawingTools = script.Parent.Parent.DrawingTools
@@ -201,7 +201,6 @@ function Toolbar:render()
 end
 
 function Toolbar:ColoredStrokeMenu()
-
 
 	local shadedColorSubMenu = e(ShadedColorSubMenu, {
 		AnchorPoint = Vector2.new(0.5,0),

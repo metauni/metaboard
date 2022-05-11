@@ -19,6 +19,10 @@ local function lerp(a, b, t)
 end
 
 return function(props)
+	if props.Mask then
+		return nil
+	end
+
 	local canvasSize = props.CanvasSize
 	local canvasCFrame = props.CanvasCFrame
 	

@@ -3,100 +3,79 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 
 -- Imports
 local Config = require(Common.Config)
+local DrawingTask = require(Common.DrawingTask)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
 
 local PartCanvas = require(script.Parent.PartCanvas)
 
+local SurfaceCanvas = Roact.PureComponent:extend("SurfaceCanvas")
+
+function SurfaceCanvas:render()
+
+	local figureMaskBundles = {}
+	local allFigures = table.clone(self.props.Figures)
+
+	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
+		end
+	end
+
+	return e("Model", {}, {
+
+		Figures = e(PartCanvas, {
+
+			Figures = allFigures,
+			FigureMaskBundles = figureMaskBundles,
+
+			CanvasSize = self.props.CanvasSize,
+			CanvasCFrame = self.props.CanvasCFrame,
+
+			AsFragment = true,
+
+		})
+
+	})
+
+end
+
 return function (board)
 
-	local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")
+	local handle, dataUpdateConnection
 
-	function SurfaceCanvas:init()
+	local makeSurfaceCanvas = function()
 
-		local figures = table.clone(board.Figures)
-		local bundledFigureMasks = {}
+		return e(SurfaceCanvas, {
 
-		for taskId, drawingTask in pairs(board.DrawingTasks) do
-			if drawingTask.TaskType == "Erase" then
-				bundledFigureMasks[taskId] = drawingTask:Render(board)
-			else
-				figures[taskId] = drawingTask:Render()
-			end
-		end
+			CanvasSize = board:SurfaceSize(),
+			CanvasCFrame = board:SurfaceCFrame(),
 
-		self:setState({
-
-			Figures = figures,
-			BundledFigureMasks = bundledFigureMasks,
+			Figures = board.Figures,
+			DrawingTasks = board.DrawingTasks,
 
 		})
 	end
 
-	function SurfaceCanvas:render()
+	dataUpdateConnection = board.BoardDataChangedSignal:Connect(function()
+		Roact.update(handle, makeSurfaceCanvas())
+	end)
 
-		return e("Folder", {}, {
-
-			Figures = e(PartCanvas, {
-
-				Figures = self.state.Figures,
-
-				BundledFigureMasks = self.state.BundledFigureMasks,
-
-				CanvasSize = board:SurfaceSize(),
-				CanvasCFrame = board:SurfaceCFrame(),
-
-				AsFragment = true,
-
-			})
-
-		})
-
-	end
-
-	function SurfaceCanvas:didMount()
-
-		self.drawingTaskChangedConnection = board.DrawingTaskChangedSignal:Connect(function(drawingTask, player, changeType: "Init" | "Update" | "Finish")
-
-			self:setState(function(state)
-
-				local renderTarget, rendering do
-					if drawingTask.TaskType == "Erase" then
-						renderTarget = "BundledFigureMasks"
-						rendering = drawingTask:Render()
-						if rendering == state.BundledFigureMasks[drawingTask.TaskId] then
-							return nil
-						end
-					else
-						renderTarget = "Figures"
-						rendering = drawingTask:Render()
-					end
-				end 
-			
-			
-				return {
-			
-					[renderTarget] = Dictionary.merge(state[renderTarget], {
-						[drawingTask.TaskId] = rendering
-					})
-				
-				}
-
-			end)
-
-		end)
-	end
-
-	function SurfaceCanvas:willUnmount()
-		self.drawingTaskChangedConnection:Disconnect()
-	end
-
-	local handle = Roact.mount(e(SurfaceCanvas), workspace, board._instance.Name)
+	handle = Roact.mount(makeSurfaceCanvas(), workspace, board._instance.Name)
 
 	return function()
 		Roact.unmount(handle)
+		dataUpdateConnection:Disconnect()
 	end
 
 end

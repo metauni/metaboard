@@ -3,43 +3,48 @@ local Common = script.Parent.Parent
 
 -- Imports
 local Config = require(Common.Config)
-local AbstractDrawingTask = require(script.Parent.AbstractDrawingTask)
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
 local Figure = require(Common.Figure)
+local Sift = require(Common.Packages.Sift)
+
+-- Dictionary Operations
+local Dictionary = Sift.Dictionary
+local merge = Dictionary.merge
+local set = Dictionary.set
 
 -- Erase Module
-local Erase = setmetatable({IsErase = true}, AbstractDrawingTask)
-Erase.__index = Erase
+local Erase = {}
 
-function Erase.newUnverified(taskId: string, thicknessYScale: number)
-	local self = setmetatable(AbstractDrawingTask.new(script.Name, taskId, false), Erase)
+function Erase.new(taskId: string, thicknessYScale: number)
 
-	self.ThicknessYScale = thicknessYScale
-	self.FigureIdToMask = {}
-
-	return self
+	return {
+		Id = taskId,
+		Type = script.Name,
+		ThicknessYScale = thicknessYScale,
+		FigureIdToMask = {},
+	}
 end
 
-function Erase:Render()
-	return self.FigureIdToMask
+function Erase.Render(drawingTask)
+	return drawingTask.FigureIdToMask
 end
 
-function Erase:EraseTouched(board, canvasPos: Vector2)
+function Erase.EraseTouched(drawingTask, board, canvasPos: Vector2)
+
+	local DrawingTask = require(Common.DrawingTask)
 
 	local changedMasks = {}
 
-	board.EraseGrid:QueryCircle(canvasPos, self.ThicknessYScale/2, function(figureId: string, figureType: string, maybeTouchedMask: Figure.AnyMask)
+	board.EraseGrid:QueryCircle(canvasPos, drawingTask.ThicknessYScale/2, function(figureId: string, figureType: string, maybeTouchedMask: Figure.AnyMask)
 
-		local figure = board.DrawingTasks[figureId] and board.DrawingTasks[figureId]:Render() or board.Figures[figureId]
+		local figure = board.DrawingTasks[figureId] and DrawingTask.Render(board.DrawingTasks[figureId]) or board.Figures[figureId]
 
-		local doesActuallyIntersect = Figure.IntersectsCircle(canvasPos, self.ThicknessYScale/2, figureType, figure, maybeTouchedMask)
+		local doesActuallyIntersect = Figure.IntersectsCircle(canvasPos, drawingTask.ThicknessYScale/2, figureType, figure, maybeTouchedMask)
 
 		if not doesActuallyIntersect then
 			return false
 		end
 
-		local oldMask = changedMasks[figureId] or self.FigureIdToMask[figureId]
+		local oldMask = changedMasks[figureId] or drawingTask.FigureIdToMask[figureId]
 		if oldMask == nil then
 			changedMasks[figureId] = maybeTouchedMask
 		else
@@ -47,42 +52,85 @@ function Erase:EraseTouched(board, canvasPos: Vector2)
 		end
 
 		-- The return value of this function decides whether the touched part of this figure should be removed from the erase grid.
-		-- We only want to remove it if this is a verified drawing task.
-		return self.Verified
+		-- We only want t8o remove it if this is a verified drawing task.
+		return drawingTask.Verified
 
 	end)
 
 	if next(changedMasks) then
 
-		self.FigureIdToMask = Dictionary.merge(self.FigureIdToMask, changedMasks)
+		return set(drawingTask, "FigureIdToMask", merge(drawingTask.FigureIdToMask, changedMasks))
+
+	else
+
+		return drawingTask
 
 	end
 end
 
-function Erase:Init(board, canvasPos: Vector2)
-	self:EraseTouched(board, canvasPos)
+function Erase.Init(drawingTask, board, canvasPos: Vector2)
+	return Erase.EraseTouched(drawingTask, board, canvasPos)
 end
 
-function Erase:Update(board, canvasPos: Vector2)
-	self:EraseTouched(board, canvasPos)
+function Erase.Update(drawingTask, board, canvasPos: Vector2)
+	return Erase.EraseTouched(drawingTask, board, canvasPos)
 end
 
-function Erase:Finish(board)
-
+function Erase.Finish(drawingTask, board)
+	return drawingTask
 end
 
-function Erase:Commit(figures)
+function Erase.Commit(drawingTask, figures)
 	local updatedFigures = {}
 
 	for figureId, figure in pairs(figures) do
-		local mask = self.FigureIdToMask[figureId]
+		local mask = drawingTask.FigureIdToMask[figureId]
 
-		updatedFigures[figureId] = Dictionary.merge(figure, {
-			Mask = Figure.MergeMask(figure.Type, figure.Mask, mask)
-		})
+		updatedFigures[figureId] = set(figure, "Mask", Figure.MergeMask(figure.Type, figure.Mask, mask))
 	end
 
-	return Dictionary.merge(figures, updatedFigures)
+	return merge(figures, updatedFigures)
+end
+
+function Erase.Undo(drawingTask, board)
+	
+	if drawingTask.Verified then
+
+		local DrawingTask = require(Common.DrawingTask)
+
+		local affectedFigures = {}
+
+		for figureId, figure in pairs(board.Figures) do
+			if drawingTask.FigureIdToMask[figureId] then
+				affectedFigures[figureId] = figure
+			end
+		end
+		
+		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+			if drawingTask.FigureIdToMask[otherDrawingTask.Id] and otherDrawingTask.Type ~= "Erase" then
+				affectedFigures[taskId] = DrawingTask.Render(otherDrawingTask)
+			end
+		end
+
+		local remaskedFigures = affectedFigures
+		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+			if otherDrawingTask.Type == "Erase" then
+				remaskedFigures = DrawingTask.Commit(otherDrawingTask, remaskedFigures)
+			end
+		end
+
+		for figureId, figure in pairs(remaskedFigures) do
+			board.EraseGrid:RemoveFigure(figureId, figure)
+			board.EraseGrid:AddFigure(figureId, figure)
+		end
+
+	end
+end
+
+function Erase.Redo(drawingTask, board)
+	for figureId, mask in pairs(drawingTask.FigureIdToMask) do
+		board.EraseGrid:SubtractMask(figureId, mask)
+	end
 end
 
 return Erase

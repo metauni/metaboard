@@ -94,6 +94,10 @@ local function wrap(n: number, capacity: number)
 	return ((n-1) % capacity) + 1
 end
 
+function History:SetMostRecent(item: any)
+	self._table[wrap(self._next - 1, self._capacity)] = item
+end
+
 function History:MostRecent()
 	assert(self._behind > 0, "Cannot get most recent from empty past")
 	return self._table[wrap(self._next - 1, self._capacity)]
@@ -238,8 +242,15 @@ function History:Expand(capacity)
 	self._capacity = capacity
 end
 
-function History:MapPrint(f)
-	return 
+function History:Clone()
+	return setmetatable({
+		_capacity = self._capacity,
+		_next = self._next,
+		_behind = self._behind,
+		_ahead = self._ahead,
+		_table = table.clone(self._table),
+		_itemToString = self._itemToString,
+	}, History)
 end
 
 return History

@@ -6,7 +6,8 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local Dictionary = require(Common.Packages.Llama).Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 
 return function(props)
 

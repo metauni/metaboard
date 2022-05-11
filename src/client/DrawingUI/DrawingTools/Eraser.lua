@@ -10,6 +10,6 @@ return {
 		local taskId = Config.GenerateUUID()
 		local thicknessYScale = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName] / self.CanvasAbsoluteSizeBinding:getValue().Y
 
-		return Erase.newUnverified(taskId, thicknessYScale)
+		return Erase.new(taskId, thicknessYScale)
 	end,
 }

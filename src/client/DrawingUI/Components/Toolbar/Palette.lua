@@ -4,8 +4,8 @@ local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 -- Imports
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local Llama = require(Common.Packages.Llama)
-local Dictionary = Llama.Dictionary
+local Sift = require(Common.Packages.Sift)
+local Dictionary = Sift.Dictionary
 
 local ColorButton = require(script.Parent.ColorButton)
 
@@ -80,8 +80,6 @@ function Palette:render()
 		}),
 		buttons = Roact.createFragment(buttons),
 	})
-
-	
 	
 	return e("Frame", {
 		Size = UDim2.new(UDim.new(0,250), height),
@@ -90,10 +88,10 @@ function Palette:render()
 		LayoutOrder = layoutOrder,
 		BackgroundTransparency = 1,
 		
-		[Roact.Children] = Dictionary.merge(self.props[Roact.Children], {
+		[Roact.Children] = {
 			ButtonList = buttonList,
 			SubMenu = subMenu,
-		})
+		}
 	})
 
 
