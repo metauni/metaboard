@@ -2,7 +2,7 @@
 
 -- Import
 local RunService = game:GetService("RunService")
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Config = require(Common.Config)
 local Board = require(Common.Board)
 local Destructor = require(Common.Packages.Destructor)

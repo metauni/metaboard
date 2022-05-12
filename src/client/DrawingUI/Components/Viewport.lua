@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Imports
 local Roact: Roact = require(Common.Packages.Roact)
@@ -42,8 +42,8 @@ function Viewport:render()
 		ImageColor3 = self.props.ImageColor3 or Color3.new(1,1,1),
 
 		Ambient = Color3.new(1,1,1),
-		LightColor = Color3.new(1,1,1),
-		LightDirection = Vector3.new(0,1,0),
+		LightColor = Color3.new(140/255,140/255,140/255),
+		LightDirection = Vector3.new(0,-2,-1),
 
 		[Roact.Change.AbsoluteSize] = function(vpfInstance)
 			self.SetViewportAbsoluteSize(vpfInstance.AbsoluteSize)

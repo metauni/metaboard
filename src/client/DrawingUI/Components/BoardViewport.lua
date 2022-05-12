@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Imports
 local Roact: Roact = require(Common.Packages.Roact)
@@ -41,7 +41,7 @@ function BoardViewport:render()
 
 		ZIndex = self.props.ZIndex,
 
-		FieldOfView = 10,
+		FieldOfView = 70,
 
 		[Roact.Children] = {
 			Board = folder

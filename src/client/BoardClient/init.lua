@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
@@ -28,7 +28,7 @@ BoardClient.__index = BoardClient
 function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string?)
 	local self = setmetatable(Board.new(instance, boardRemotes, persistId), BoardClient)
 
-	self._status = persistId and "NotLoaded" or "Loaded"
+	self._status = "NotLoaded"
 	self.StatusChangedSignal = Signal.new()
 
 	self.BoardDataChangedSignal = Signal.new()

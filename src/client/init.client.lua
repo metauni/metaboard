@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 

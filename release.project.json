@@ -4,11 +4,11 @@
 		"$className": "Folder",
 		"$path": "src/server",
 
-		"MetaBoardCommon": {
+		"Common": {
 			"$path": "src/common"
 		},
 
-		"MetaBoardPlayer" : {
+		"metaboardPlayer" : {
 			"$path": "src/client"
 		}
 

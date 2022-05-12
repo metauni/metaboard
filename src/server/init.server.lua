@@ -1,12 +1,12 @@
 do
 	-- Move folder/guis around if this is the package version of metaboard
 
-	local metaBoardCommon = script.Parent:FindFirstChild("MetaBoardCommon")
+	local metaBoardCommon = script.Parent:FindFirstChild("metaboardCommon")
 	if metaBoardCommon then
 		metaBoardCommon.Parent = game:GetService("ReplicatedStorage")
 	end
 
-	local metaBoardPlayer = script.Parent:FindFirstChild("MetaBoardPlayer")
+	local metaBoardPlayer = script.Parent:FindFirstChild("metaboardPlayer")
 	if metaBoardPlayer then
 		metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
 	end
@@ -16,7 +16,7 @@ end
 -- Services
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local BoardService = require(Common.BoardService)
 
 -- Imports
@@ -91,9 +91,9 @@ local function bindInstance(instance: Model | Part)
 
 end
 
-CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstance)
+CollectionService:GetInstanceAddedSignal("metaboard-roact"):Connect(bindInstance)
 
-for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+for _, instance in ipairs(CollectionService:GetTagged("metaboard-roact")) do
 	bindInstance(instance)
 end
 

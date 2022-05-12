@@ -1,5 +1,5 @@
 return function(target)
-	local Roact = require(game:GetService("ReplicatedStorage").MetaBoardCommon.Packages.Roact)
+	local Roact = require(game:GetService("ReplicatedStorage").metaboardCommon.Packages.Roact)
 	local e = Roact.createElement
 
 	local ToolMenu = require(script.Parent.ToolMenu)

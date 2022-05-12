@@ -6,7 +6,7 @@
 		"ReplicatedStorage": {
 			"$ignoreUnknownInstances": true,
 			"$className": "ReplicatedStorage",
-			"MetaBoardCommon": {
+			"metaboardCommon": {
 				"$path": "src/common"
 			}
 		},
@@ -14,7 +14,7 @@
 		"ServerScriptService": {
 			"$ignoreUnknownInstances": true,
 			"$className": "ServerScriptService",
-			"metaboard": {
+			"metaboardServer": {
 				"$path": "src/server"
 			}
 		},
@@ -25,7 +25,7 @@
 			"StarterPlayerScripts": {
 				"$ignoreUnknownInstances": true,
 				"$className": "StarterPlayerScripts",
-				"MetaBoardPlayer" : {
+				"metaboardPlayer" : {
 					"$path": "src/client"
 				}
 			}

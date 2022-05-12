@@ -1,7 +1,7 @@
 -- Services
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 

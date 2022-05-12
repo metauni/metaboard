@@ -1,6 +1,6 @@
 -- Services
 local Players = game:GetService("Players")
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local RunService = game:GetService("RunService")
 
 -- Imports
@@ -196,23 +196,23 @@ function App:render()
 
 	})
 
-	local cursorWidth, cursorColor do
-		if self.state.EquippedTool == Eraser then
-			cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
-			cursorColor = Config.UITheme.Highlight
-		else
-			cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
-			cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
-		end
-	end
+	-- local cursorWidth, cursorColor do
+	-- 	if self.state.EquippedTool == Eraser then
+	-- 		cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
+	-- 		cursorColor = Config.UITheme.Highlight
+	-- 	else
+	-- 		cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
+	-- 		cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
+	-- 	end
+	-- end
 
-	local cursor = e(Cursor, {
-		Size = UDim2.fromOffset(cursorWidth, cursorWidth),
-		Position = self.ToolPosBinding:map(function(toolPos)
-			return UDim2.fromOffset(toolPos.X, toolPos.Y)
-		end),
-		Color = cursorColor
-	})
+	-- local cursor = e(Cursor, {
+	-- 	Size = UDim2.fromOffset(cursorWidth, cursorWidth),
+	-- 	Position = self.ToolPosBinding:map(function(toolPos)
+	-- 		return UDim2.fromOffset(toolPos.X, toolPos.Y)
+	-- 	end),
+	-- 	Color = cursorColor
+	-- })
 
 	local boardViewport = e(BoardViewport, {
 		TargetAbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
@@ -224,7 +224,7 @@ function App:render()
 	local figureMaskBundles = {}
 	local allFigures = table.clone(self.props.Figures)
 
-	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
+	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
 
 		if drawingTask.Type == "Erase" then
 			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
@@ -240,7 +240,7 @@ function App:render()
 		end
 	end
 
-	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
+	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
 
 		if drawingTask.Type == "Erase" then
 			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
@@ -269,7 +269,7 @@ function App:render()
 
 			CanvasIO = canvasIO,
 
-			Cursor = cursor,
+			-- Cursor = cursor,
 
 			Canvas = e(Canvas, {
 

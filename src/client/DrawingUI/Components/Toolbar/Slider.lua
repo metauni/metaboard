@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local UserInputService = game:GetService("UserInputService")
 
 -- Imports
@@ -160,8 +160,8 @@ end
 -- 	end)
 -- end
 
-function Slider:willUnmount()
-	print('Unmounted')
-end
+-- function Slider:willUnmount()
+-- 	print('Unmounted')
+-- end
 
 return Slider

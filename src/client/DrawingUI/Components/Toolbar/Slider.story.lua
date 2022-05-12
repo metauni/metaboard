@@ -1,5 +1,5 @@
 return function(target)
-	local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+	local Common = game:GetService("ReplicatedStorage").metaboardCommon
 	local Roact: Roact = require(Common.Packages.Roact)
 	local e = Roact.createElement
 

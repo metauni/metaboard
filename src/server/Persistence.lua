@@ -3,7 +3,7 @@ local HTTPService = game:GetService("HttpService")
 local PlayersService = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Config = require(Common.Config)
 local LineInfo = require(Common.LineInfo)
 

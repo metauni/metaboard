@@ -1,7 +1,7 @@
 --!strict
 
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Imports
 local Config = require(Common.Config)

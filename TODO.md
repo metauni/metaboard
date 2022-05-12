@@ -25,7 +25,7 @@
 		it'd be ideal if this didn't affect the drawing task data itself. Perhaps I'm being
 		paranoid.
 	- Maybe only applicable for non-erasing drawing tasks.
-- [ ] What should happen to old drawing tasks?
+- [x] What should happen to old drawing tasks?
 	- Answer. Drawing Task queue + finalised "figures"
 - [ ] Make low detail canvas
 	- [ ] Limited lines per curve canvas
@@ -38,7 +38,8 @@
 - [ ] Persistence
 	- [x] Make a curve serialisation method
 	- [x] Make drawing task serialisation methods
-	- [ ] Get startup and shutdown working (especially with lots of full boards)
+	- [x] "mini persistence" working
+	- [ ] Integrate with full persistence module
 - [x] Erase Grid
 - [ ] Make board permissions work (Admin commands)
 	- [ ] Make UI dependent on permission
@@ -60,5 +61,3 @@
 - [ ] Web app board viewing
 - [ ] Screenshot Mode https://github.com/metauni/metaboard/issues/49
 - [ ] Info display and delete button for historical boards https://github.com/metauni/metaboard/issues/51
-
-{string} -> {number} -> {number}

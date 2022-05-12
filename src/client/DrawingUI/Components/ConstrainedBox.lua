@@ -1,5 +1,5 @@
 -- Services
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Imports
 local Config = require(Common.Config)
@@ -10,7 +10,7 @@ return function(props)
 
 	local box = e("Frame", {
 
-		BackgroundTransparency = 0.9,
+		BackgroundTransparency = 1,
 
 		AnchorPoint = Vector2.new(0.5,0.5),
 		Position = UDim2.fromScale(0.5,0.5),

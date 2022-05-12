@@ -1,4 +1,4 @@
-local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Config = require(Common.Config)
 local PersonalBoardRemoteEvent = Common.Remotes.PersonalBoard
 
