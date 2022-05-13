@@ -15,6 +15,10 @@ local Dictionary = Sift.Dictionary
 local set = Dictionary.set
 local merge = Dictionary.merge
 
+-- Array Operations
+local Array = Sift.Array
+local slice = Array.slice
+
 -- Drawing Tools
 local DrawingTools = script.Parent.DrawingTools
 local Pen = require(DrawingTools.Pen)
@@ -46,62 +50,85 @@ function App:init()
 
 	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(Vector2.new(0,0))
 
-	-- local figures = table.clone(self.props.Board.Figures)
-	-- local bundledFigureMasks = {}
-	-- for taskId, drawingTask in pairs(self.props.Board.DrawingTasks) do
-	-- 	if drawingTask.Type == "Erase" then
-	-- 		bundledFigureMasks[taskId] = drawingTask:Render(self.props.Board)
-	-- 	else
-	-- 		figures[taskId] = drawingTask:Render()
-	-- 	end
-	-- end
+	local toolState do
+
+		if self.props.Board.ToolState then
+			toolState = self.props.Board.ToolState
+		else
+
+			local colorWells = {
+				{
+					BaseName = "White",
+					Color = Config.ColorPalette.White.BaseColor,
+				},
+				{
+					BaseName = "Black",
+					Color = Config.ColorPalette.Black.BaseColor,
+				},
+				{
+					BaseName = "Blue",
+					Color = Config.ColorPalette.Blue.BaseColor,
+				},
+				{
+					BaseName = "Green",
+					Color = Config.ColorPalette.Green.BaseColor,
+				},
+				{
+					BaseName = "Red",
+					Color = Config.ColorPalette.Red.BaseColor,
+				},
+			}
+
+			if self.props.Board.DefaultColorWells then
+				for i=1, 5 do
+					colorWells[i] = self.props.Board.DefaultColorWells[i] or colorWells[i]
+				end
+			end
+
+			toolState = {
+				EquippedTool = Pen,
+				SelectedEraserSizeName = "Small",
+				StrokeWidths = {
+					Small = Config.Drawing.Defaults.SmallStrokeWidth,
+					Medium = Config.Drawing.Defaults.MediumStrokeWidth,
+					Large = Config.Drawing.Defaults.LargeStrokeWidth,
+				},
+				SelectedStrokeWidthName = "Small",
+				SelectedColorWellIndex = 1,
+				ColorWells = colorWells,
+			}
+
+		end
+
+	end
+
 
 	self:setState({
 
-		-- Figures = figures,
-
-		-- BundledFigureMasks = bundledFigureMasks,
-
 		ToolHeld = false,
+		ToolState = toolState,
 		SubMenu = Roact.None,
-		EquippedTool = Pen,
-		SelectedEraserSizeName = "Small",
-		StrokeWidths = {
-			Small = Config.Drawing.Defaults.SmallStrokeWidth,
-			Medium = Config.Drawing.Defaults.MediumStrokeWidth,
-			Large = Config.Drawing.Defaults.LargeStrokeWidth,
-		},
-		SelectedStrokeWidthName = "Small",
-		ColorWells = {
-			{
-				BaseName = "White",
-				Color = Config.ColorPalette.White.BaseColor,
-			},
-			{
-				BaseName = "Black",
-				Color = Config.ColorPalette.Black.BaseColor,
-			},
-			{
-				BaseName = "Blue",
-				Color = Config.ColorPalette.Blue.BaseColor,
-			},
-			{
-				BaseName = "Green",
-				Color = Config.ColorPalette.Green.BaseColor,
-			},
-			{
-				BaseName = "Red",
-				Color = Config.ColorPalette.Red.BaseColor,
-			},
-		},
-		SelectedColorWellIndex = 3,
-
 		UnverifiedDrawingTasks = {},
-		CurrentUnverifiedDrawingTaskId = nil
+		CurrentUnverifiedDrawingTaskId = nil,
+
 	})
 end
 
+function App:willUnmount()
+	self.props.Board.ToolState = self.state.ToolState
+end
+
 function App:render()
+
+	local toolState = self.state.ToolState
+
+	local setToolState = function(stateSlice)
+
+		self:setState({
+			ToolState = merge(toolState, stateSlice)
+		})
+
+	end
 
 	local toolbar = e(Toolbar, {
 
@@ -110,39 +137,39 @@ function App:render()
 			self:setState({ SubMenu = subMenu })
 		end,
 
-		EquippedTool = self.state.EquippedTool,
+		EquippedTool = toolState.EquippedTool,
 		EquipTool = function(tool)
-			self:setState({ EquippedTool = tool })
+			setToolState({ EquippedTool = tool })
 		end,
 
-		StrokeWidths = self.state.StrokeWidths,
-		SelectedStrokeWidthName = self.state.SelectedStrokeWidthName,
+		StrokeWidths = toolState.StrokeWidths,
+		SelectedStrokeWidthName = toolState.SelectedStrokeWidthName,
 		SelectStrokeWidth = function(name)
-			self:setState({ SelectedStrokeWidthName = name })
+			setToolState({ SelectedStrokeWidthName = name })
 		end,
 		UpdateStrokeWidth = function(strokeWidth)
-			self:setState({
+			setToolState({
 
-				StrokeWidths = Dictionary.merge(self.state.StrokeWidths,{
-					[self.state.SelectedStrokeWidthName] = strokeWidth
+				StrokeWidths = merge(toolState.StrokeWidths,{
+					[toolState.SelectedStrokeWidthName] = strokeWidth
 				})
 
 			})
 		end,
 
-		SelectedEraserSizeName = self.state.SelectedEraserSizeName,
+		SelectedEraserSizeName = toolState.SelectedEraserSizeName,
 		SelectEraserSize = function(name)
-			self:setState({ SelectedEraserSizeName = name })
+			setToolState({ SelectedEraserSizeName = name })
 		end,
 
-		ColorWells = self.state.ColorWells,
-		SelectedColorWellIndex = self.state.SelectedColorWellIndex,
+		ColorWells = toolState.ColorWells,
+		SelectedColorWellIndex = toolState.SelectedColorWellIndex,
 		SelectColorWell = function(index)
-			self:setState({ SelectedColorWellIndex = index })
+			setToolState({ SelectedColorWellIndex = index })
 		end,
 		UpdateColorWell = function(index, shadedColor)
-			self:setState({
-				ColorWells = Dictionary.merge(self.state.ColorWells, {
+			setToolState({
+				ColorWells = merge(toolState.ColorWells, {
 					[index] = shadedColor
 				})
 			})
@@ -188,7 +215,7 @@ function App:render()
 			Window = e(ConfirmClearModal, {
 
 				OnCancel = function()
-					
+
 					self:setState({
 						SubMenu = Roact.None
 					})
@@ -204,7 +231,7 @@ function App:render()
 					self:setState({
 						SubMenu = Roact.None
 					})
-				
+
 				end,
 
 			})
@@ -224,12 +251,12 @@ function App:render()
 	})
 
 	local cursorWidth, cursorColor do
-		if self.state.EquippedTool == Eraser then
-			cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
+		if toolState.EquippedTool == Eraser then
+			cursorWidth = Config.Drawing.EraserStrokeWidths[toolState.SelectedEraserSizeName]
 			cursorColor = Config.UITheme.Highlight
 		else
-			cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
-			cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
+			cursorWidth = toolState.StrokeWidths[toolState.SelectedStrokeWidthName]
+			cursorColor = toolState.ColorWells[toolState.SelectedColorWellIndex].Color
 		end
 	end
 
@@ -247,7 +274,7 @@ function App:render()
 
 		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
 		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
-		Margin = self.state.EquippedTool ~= Eraser and cursorWidth or 0,
+		Margin = toolState.EquippedTool ~= Eraser and cursorWidth or 0,
 
 		SetCursorPosition = self.SetToolPos,
 
@@ -263,7 +290,6 @@ function App:render()
 		end,
 
 	})
-
 
 	local boardViewport = e(BoardViewport, {
 		TargetAbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
@@ -377,7 +403,7 @@ function App.getDerivedStateFromProps(nextProps, lastState)
 end
 
 function App:ToolDown(canvasPos)
-	local drawingTask = self.state.EquippedTool.newDrawingTask(self)
+	local drawingTask = self.state.ToolState.EquippedTool.newDrawingTask(self)
 
 	if not self.props.SilenceRemoteEventFire then
 		self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)

@@ -32,7 +32,7 @@ local function open(board, onClose)
 			Board = board,
 			AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,
 			
-			OnClose = function()
+			OnClose = function(toolState)
 				close()
 			end,
 
@@ -42,7 +42,6 @@ local function open(board, onClose)
 
 			CanUndo = localPlayerHistory and localPlayerHistory:CountPast() > 0,
 			CanRedo = localPlayerHistory and localPlayerHistory:CountFuture() > 0,
-
 			
 		})
 	end
