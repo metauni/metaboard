@@ -1,11 +1,11 @@
 ## Now
 
 ### UI/Drawing Tools
-- [ ] Clear Button
-	- [ ] Add button to UI
-	- [ ] Set up remote events
-- [ ] Store tool state with board on UI close (and restore on open) 
-- [ ] Allow default color palette per-board
+- [x] Clear Button
+	- [x] Add button to UI
+	- [x] Set up remote events
+- [x] Store tool state with board on UI close (and restore on open) 
+- [x] Allow default color palette per-board
 	- [ ] Cleanup Config File (colors)
 - [ ] Attention Pen Tool
 - [ ] Palm rejection

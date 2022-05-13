@@ -192,18 +192,6 @@ function App:render()
 
 	})
 
-	local toolBarGui = e("ScreenGui", {
-
-		DisplayOrder = self.props.NextFigureZIndex + 10,
-		IgnoreGuiInset = true,
-		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-
-		[Roact.Children] = {
-			Toolbar = toolbar,
-		}
-
-	})
-
 	local ConfirmClearModalGui = self.state.SubMenu == "ClearModal" and e("ScreenGui", {
 
 		DisplayOrder = self.props.NextFigureZIndex + 11,
@@ -265,7 +253,21 @@ function App:render()
 		Position = self.ToolPosBinding:map(function(toolPos)
 			return UDim2.fromOffset(toolPos.X, toolPos.Y)
 		end),
-		Color = cursorColor
+		Color = cursorColor,
+	})
+
+	local toolBarGui = e("ScreenGui", {
+
+		DisplayOrder = self.props.NextFigureZIndex + 10,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+
+		[Roact.Children] = {
+			Toolbar = toolbar,
+
+			Cursor = cursor
+		}
+
 	})
 
 	local canvasIO = e(CanvasIO, {
@@ -345,8 +347,6 @@ function App:render()
 			CanvasBox = canvasBox,
 
 			CanvasIO = canvasIO,
-
-			Cursor = cursor,
 
 			ConfirmClearModalGui = ConfirmClearModalGui,
 
