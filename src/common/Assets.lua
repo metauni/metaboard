@@ -14,5 +14,7 @@ return {
 	redo = "rbxassetid://9276894292",
 	["straightedge-deselected"] = "rbxassetid://9278385380",
 	["straightedge-selected"] = "rbxassetid://9278137537",
+	["trash-clickable"] = "rbxassetid://9613675307",
+	["trash-unclickable"] = "rbxassetid://9613675381",
 	undo = "rbxassetid://9276894383",
 }

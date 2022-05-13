@@ -68,6 +68,16 @@ hash = "a9a9931734ed299db16250f4c2ddc71dce36c8380f38c9668f842d8f1ac1e15e"
 id = 9278137537
 packable = false
 
+[inputs."assets/trash-clickable.png"]
+hash = "fbeebff61f9c967517791b8464da1ebb96420093bf989ff40e3b5ffd2cbc0de9"
+id = 9613675307
+packable = false
+
+[inputs."assets/trash-unclickable.png"]
+hash = "024cc44d5de4a490afc8e17162416ec10462a137008c0e99abe17c3e7ff1883b"
+id = 9613675381
+packable = false
+
 [inputs."assets/undo.png"]
 hash = "a49d43bbb29792b4c306b77f94ae7f33fb26db73867d247280b812a4734ea87f"
 id = 9276894383

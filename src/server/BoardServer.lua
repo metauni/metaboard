@@ -7,6 +7,7 @@ local Config = require(Common.Config)
 local Board = require(Common.Board)
 local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
+local EraseGrid = require(Common.EraseGrid)
 local History = require(Common.History)
 local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
 local DelayedJobQueue = require(Common.DelayedJobQueue)
@@ -145,6 +146,19 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			self.DrawingTasks = set(self.DrawingTasks, drawingTask.Id, drawingTask)
 			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+
+		end)
+	end))
+
+	destructor:Add(self.Remotes.Clear.OnServerEvent:Connect(function(player: Player)
+		self._jobQueue:Enqueue(function(yielder)
+
+			self.Remotes.Clear:FireAllClients(player)
+
+			self.PlayerHistories = {}
+			self.DrawingTasks = {}
+			self.Figures = {}
+			self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
 		end)
 	end))

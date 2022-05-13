@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local Config = require(Common.Config)
 local History = require(Common.History)
 local DrawingTask = require(Common.DrawingTask)
+local EraseGrid = require(Common.EraseGrid)
 local Sift = require(Common.Packages.Sift)
 
 -- Dictionary Operations
@@ -127,6 +128,20 @@ return function(board, destructor)
 
 				board:DataChanged()
 
+			end)
+		end))
+
+		destructor:Add(board.Remotes.Clear.OnClientEvent:Connect(function(player: Player)
+			board._jobQueue:Enqueue(function(yielder)
+	
+				board.PlayerHistories = {}
+				board.DrawingTasks = {}
+				board.Figures = {}
+				board.EraseGrid = EraseGrid.new(board:SurfaceSize().X / board:SurfaceSize().Y)
+
+				print('x')
+				board:DataChanged()
+	
 			end)
 		end))
 

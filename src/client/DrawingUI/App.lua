@@ -29,6 +29,7 @@ local CanvasIO = require(Components.CanvasIO)
 local BoardViewport = require(Components.BoardViewport)
 local Toolbar = require(Components.Toolbar)
 local Cursor = require(Components.Cursor)
+local ConfirmClearModal = require(Components.ConfirmClearModal)
 
 -- Constants
 -- local CANVAS_REGION_POSITION = UDim2.fromScale(0, 0)
@@ -149,6 +150,7 @@ function App:render()
 
 		CanUndo = self.props.CanUndo,
 		CanRedo = self.props.CanRedo,
+		CanClear = next(self.props.Figures) or next(self.props.DrawingTasks),
 
 		OnUndo = function()
 			self.props.Board.Remotes.Undo:FireServer()
@@ -162,6 +164,40 @@ function App:render()
 		end,
 
 	})
+
+	local ConfirmClearModalGui = self.state.SubMenu == "ClearModal" and e("ScreenGui", {
+
+		DisplayOrder = 10,
+		IgnoreGuiInset = true,
+
+		[Roact.Children] = {
+
+			Window = e(ConfirmClearModal, {
+
+				OnCancel = function()
+					
+					self:setState({
+						SubMenu = Roact.None
+					})
+
+				end,
+
+				OnConfirm = function()
+
+					if not self.props.SilenceRemoteEventFire then
+						self.props.Board.Remotes.Clear:FireServer()
+					end
+
+					self:setState({
+						SubMenu = Roact.None
+					})
+				
+				end,
+
+			})
+
+		}
+	}) or nil
 
 	local canvasBox = e(ConstrainedBox, {
 
@@ -270,6 +306,8 @@ function App:render()
 			CanvasIO = canvasIO,
 
 			-- Cursor = cursor,
+
+			ConfirmClearModalGui = ConfirmClearModalGui,
 
 			Canvas = e(Canvas, {
 

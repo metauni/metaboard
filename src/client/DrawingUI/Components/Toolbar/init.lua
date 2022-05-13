@@ -20,6 +20,7 @@ local Eraser = require(DrawingTools.Eraser)
 local Palette = require(script.Palette)
 local StrokeButton = require(script.StrokeButton)
 local CloseButton = require(script.CloseButton)
+local ClearButton = require(script.ClearButton)
 local UndoRedoButton = require(script.UndoRedoButton)
 local EraserChoices = require(script.EraserChoices)
 local ShadedColorSubMenu = require(script.ShadedColorSubMenu)
@@ -31,9 +32,9 @@ local Toolbar = Roact.Component:extend("Toolbar")
 
 Toolbar.defaultProps = {
 
-	ToolMenuWidth = 260,
+	ToolMenuWidth = 240,
 	StrokeMenuWidth= 360,
-	HistoryMenuWidth = 180,
+	HistoryMenuWidth = 200,
 
 	ButtonHeight = 50,
 	ToolbarHeight = 70,
@@ -85,7 +86,7 @@ function Toolbar:render()
 
 			LayoutOrder = 1,
 
-			Size = UDim2.fromOffset(80,80),
+			Size = UDim2.fromOffset(60,60),
 
 			Icon = Assets.undo,
 
@@ -102,7 +103,7 @@ function Toolbar:render()
 
 			LayoutOrder = 2,
 
-			Size = UDim2.fromOffset(80,80),
+			Size = UDim2.fromOffset(60,60),
 
 			Icon = Assets.redo,
 
@@ -113,6 +114,18 @@ function Toolbar:render()
 
 			Clickable = self.props.CanRedo
 
+		})
+
+		local clearButton = e(ClearButton, {
+			LayoutOrder = 3,
+
+			Size = UDim2.fromOffset(60,60),
+
+			OnClick = self.props.CanClear and function()
+				self.props.SetSubMenu("ClearModal")
+			end or nil,
+
+			Clickable = self.props.CanClear,
 		})
 
 		return e("Frame", {
@@ -130,6 +143,7 @@ function Toolbar:render()
 				}),
 				Undo = undoButton,
 				Redo = redoButton,
+				Clear = clearButton,
 			}
 		})
 	end
