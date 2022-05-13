@@ -165,10 +165,23 @@ function App:render()
 
 	})
 
+	local toolBarGui = e("ScreenGui", {
+
+		DisplayOrder = self.props.NextFigureZIndex + 10,
+		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+
+		[Roact.Children] = {
+			Toolbar = toolbar,
+		}
+
+	})
+
 	local ConfirmClearModalGui = self.state.SubMenu == "ClearModal" and e("ScreenGui", {
 
-		DisplayOrder = 10,
+		DisplayOrder = self.props.NextFigureZIndex + 11,
 		IgnoreGuiInset = true,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 
 		[Roact.Children] = {
 
@@ -301,7 +314,7 @@ function App:render()
 
 		[Roact.Children] = {
 
-			Toolbar = toolbar,
+			ToolbarGui = toolBarGui,
 
 			CanvasBox = canvasBox,
 

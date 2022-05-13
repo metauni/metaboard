@@ -139,7 +139,6 @@ return function(board, destructor)
 			board.Figures = {}
 			board.EraseGrid = EraseGrid.new(board:SurfaceSize().X / board:SurfaceSize().Y)
 
-			print('x')
 			board:DataChanged()
 
 		end)

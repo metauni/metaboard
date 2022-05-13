@@ -38,9 +38,12 @@ local function open(board, onClose)
 
 			Figures = board.Figures,
 			DrawingTasks = board.DrawingTasks,
+			NextFigureZIndex = board.NextFigureZIndex,
+
 			CanUndo = localPlayerHistory and localPlayerHistory:CountPast() > 0,
 			CanRedo = localPlayerHistory and localPlayerHistory:CountFuture() > 0,
 
+			
 		})
 	end
 
