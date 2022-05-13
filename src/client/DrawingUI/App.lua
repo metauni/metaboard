@@ -210,12 +210,31 @@ function App:render()
 
 	})
 
+	local cursorWidth, cursorColor do
+		if self.state.EquippedTool == Eraser then
+			cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
+			cursorColor = Config.UITheme.Highlight
+		else
+			cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
+			cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
+		end
+	end
+
+	local cursor = e(Cursor, {
+		Width = cursorWidth,
+		Position = self.ToolPosBinding:map(function(toolPos)
+			return UDim2.fromOffset(toolPos.X, toolPos.Y)
+		end),
+		Color = cursorColor
+	})
+
 	local canvasIO = e(CanvasIO, {
 
 		IgnoreGuiInset = true,
 
 		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
 		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		Margin = self.state.EquippedTool ~= Eraser and cursorWidth or 0,
 
 		SetCursorPosition = self.SetToolPos,
 
@@ -232,23 +251,6 @@ function App:render()
 
 	})
 
-	-- local cursorWidth, cursorColor do
-	-- 	if self.state.EquippedTool == Eraser then
-	-- 		cursorWidth = Config.Drawing.EraserStrokeWidths[self.state.SelectedEraserSizeName]
-	-- 		cursorColor = Config.UITheme.Highlight
-	-- 	else
-	-- 		cursorWidth = self.state.StrokeWidths[self.state.SelectedStrokeWidthName]
-	-- 		cursorColor = self.state.ColorWells[self.state.SelectedColorWellIndex].Color
-	-- 	end
-	-- end
-
-	-- local cursor = e(Cursor, {
-	-- 	Size = UDim2.fromOffset(cursorWidth, cursorWidth),
-	-- 	Position = self.ToolPosBinding:map(function(toolPos)
-	-- 		return UDim2.fromOffset(toolPos.X, toolPos.Y)
-	-- 	end),
-	-- 	Color = cursorColor
-	-- })
 
 	local boardViewport = e(BoardViewport, {
 		TargetAbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
@@ -305,7 +307,7 @@ function App:render()
 
 			CanvasIO = canvasIO,
 
-			-- Cursor = cursor,
+			Cursor = cursor,
 
 			ConfirmClearModalGui = ConfirmClearModalGui,
 
