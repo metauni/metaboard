@@ -13,6 +13,14 @@ local set = Sift.Dictionary.set
 
 return function(board, destructor)
 
+	destructor:Add(RunService.Heartbeat:Connect(function()
+		if board._changedSinceHeartbeat then
+			board.BoardDataChangedSignal:Fire()
+		end
+
+		board._changedSinceHeartbeat = false
+	end))
+
 		-- Connect remote event callbacks to respond to init/update/finish's of a drawing task.
 		-- The callbacks queue the changes to be made in the order they are triggered
 		-- The order these remote events are received is the globally agreed order
@@ -37,7 +45,7 @@ return function(board, destructor)
 
 				board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
 
-				board.BoardDataChangedSignal:Fire()
+				board:DataChanged()
 			end)
 		end))
 
@@ -55,7 +63,7 @@ return function(board, destructor)
 
 				board.DrawingTasks = set(board.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
 
-				board.BoardDataChangedSignal:Fire()
+				board:DataChanged()
 			end)
 		end))
 
@@ -71,7 +79,7 @@ return function(board, destructor)
 
 				board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
 
-				board.BoardDataChangedSignal:Fire()
+				board:DataChanged()
 			end)
 		end))
 
@@ -94,7 +102,7 @@ return function(board, destructor)
 
 				DrawingTask.Undo(drawingTask, board)
 
-				board.BoardDataChangedSignal:Fire()
+				board:DataChanged()
 			end)
 		end))
 
@@ -117,7 +125,7 @@ return function(board, destructor)
 
 				DrawingTask.Redo(drawingTask, board)
 
-				board.BoardDataChangedSignal:Fire()
+				board:DataChanged()
 
 			end)
 		end))

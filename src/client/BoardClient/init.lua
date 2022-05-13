@@ -32,7 +32,7 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 	self.StatusChangedSignal = Signal.new()
 
 	self.BoardDataChangedSignal = Signal.new()
-
+	self._changedSinceHeartbeat = false
 
 	self._jobQueue = JobQueue.new()
 
@@ -76,6 +76,10 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 	end
 
 	return self
+end
+
+function BoardClient:DataChanged()
+	self._changedSinceHeartbeat = true
 end
 
 function BoardClient:ConnectToRemoteClientEvents()
