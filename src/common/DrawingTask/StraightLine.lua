@@ -13,6 +13,9 @@ local Dictionary = Sift.Dictionary
 local set = Dictionary.set
 local merge = Dictionary.merge
 
+-- Array Operations
+local Array = Sift.Array
+
 local StraightLine = {}
 
 function StraightLine.new(taskId: string, color: Color3, thicknessYScale: number)
@@ -20,19 +23,18 @@ function StraightLine.new(taskId: string, color: Color3, thicknessYScale: number
 	return {
 		Id = taskId,
 		Type = script.Name,
-		Line = {
-			Type = "Line",
-			P0 = nil, -- Not sure if this value has any consequences
-			P1 = nil, -- Not sure if this value has any consequences
+		Curve = {
+			Type = "Curve",
+			Points = nil, -- Not sure if this value has any consequences
 			Width = thicknessYScale,
 			Color = color,
-		} :: Figure.Line
+		} :: Figure.Curve
 	}
 end
 
 function StraightLine.Render(drawingTask): Figure.AnyFigure
 
-	return drawingTask.Line
+	return drawingTask.Curve
 end
 
 function StraightLine.Init(drawingTask, board, canvasPos: Vector2)
@@ -43,42 +45,63 @@ function StraightLine.Init(drawingTask, board, canvasPos: Vector2)
 		board.NextFigureZIndex += 1
 	end
 
-	local newLine = merge(drawingTask.Line, {
-		
-		P0 = canvasPos,
-		P1 = canvasPos,
+	local newLine = merge(drawingTask.Curve, {
+
+		Points = {canvasPos, canvasPos},
 		ZIndex = zIndex,
 
 	})
 
-	return set(drawingTask, "Line", newLine)
+	return set(drawingTask, "Curve", newLine)
 end
 
 function StraightLine.Update(drawingTask, board, canvasPos: Vector2)
 
-	local newLine = set(drawingTask.Line, "P1", canvasPos)
+	local newPoints = Array.set(drawingTask.Curve.Points, 2, canvasPos)
 
-	return set(drawingTask, "Line", newLine)
+	local newLine = set(drawingTask.Curve, "Points", newPoints)
+
+	return set(drawingTask, "Curve", newLine)
 end
 
 function StraightLine.Finish(drawingTask, board)
 
-	if drawingTask.Verified then
-		board.EraseGrid:AddLine(drawingTask.Id, drawingTask.Line)
+	local function lerp(a, b, t)
+		if t < 0.5 then
+			return a + (b - a) * t
+		else
+			return b - (b - a) * (1 - t)
+		end
 	end
 
-	return drawingTask
+	local line = drawingTask.Curve
+	local p0, p1 = unpack(line.Points)
+	local length = (p0 - p1).Magnitude
+	local numSegments = math.ceil(length/Config.Drawing.LineSubdivisionLengthYScale)
+	local newPoints = {}
+
+	for i=0, numSegments do
+		newPoints[i+1] = lerp(p0, p1, i/numSegments)
+	end
+
+	local newCurve = set(drawingTask.Curve, "Points", newPoints)
+
+	if drawingTask.Verified then
+		board.EraseGrid:AddCurve(drawingTask.Id, newCurve)
+	end
+
+	return set(drawingTask, "Curve", newCurve)
 end
 
 function StraightLine.Commit(drawingTask, figures)
 
-	return set(figures, drawingTask.Id, drawingTask.Line)
+	return set(figures, drawingTask.Id, drawingTask.Curve)
 end
 
 function StraightLine.Undo(drawingTask, board)
 
 	if drawingTask.Verified then
-		board.EraseGrid:RemoveFigure(drawingTask.Id, drawingTask.Line)
+		board.EraseGrid:RemoveFigure(drawingTask.Id, drawingTask.Curve)
 	end
 
 	return drawingTask
@@ -96,7 +119,7 @@ function StraightLine.Redo(drawingTask, board)
 			adding the result back to the erase grid.
 		--]]
 
-		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Line }
+		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Curve }
 
 		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
 			if otherDrawingTask.Type == "Erase" then
