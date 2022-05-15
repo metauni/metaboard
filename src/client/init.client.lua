@@ -2,6 +2,7 @@
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 
 
 -- Imports
@@ -10,6 +11,7 @@ local BoardClient = require(script.BoardClient)
 local BoardRemotes = require(Common.BoardRemotes)
 local DrawingUI = require(script.DrawingUI)
 local BoardService = require(Common.BoardService)
+local Assets = require(Common.Assets)
 
 -- Helper functions
 local boardLoader = require(script.boardLoader)
@@ -74,6 +76,20 @@ local function bindBoardInstance(instance, remotes, persistId)
 		whenLoaded()
 	end
 
+end
+
+
+-- Preload all of the assets
+do
+	local assetList = {}
+	for _, asset in pairs(Assets) do
+		table.insert(assetList, asset)
+	end
+
+	task.spawn(function()
+		ContentProvider:PreloadAsync(assetList)
+		print("[metaboard] Assets preloaded")
+	end)
 end
 
 BoardService.BoardAdded.OnClientEvent:Connect(function(instance, serverBoard)
