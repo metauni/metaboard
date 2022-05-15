@@ -1,5 +1,6 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local UserInputService = game:GetService("UserInputService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -15,6 +16,9 @@ function CanvasIO:render()
 
 	local ignoreGuiInset = self.props.IgnoreGuiInset
 	local setCursorPosition = self.props.SetCursorPosition
+	local cursorPositionBinding = self.props.CursorPositionBinding
+
+	local toolHeld = self.props.ToolHeld
 
 	local insetOffset = ignoreGuiInset and 36 or 0
 	
@@ -52,14 +56,23 @@ function CanvasIO:render()
 		end),
 		
 		[Roact.Event.MouseButton1Down] = function(rbx, x, y)
-			local canvasPos = toScalar(x, y)
+			setCursorPosition(Vector2.new(x,y))
 			if withinCanvas(x, y) then
 				self.props.ToolDown(toScalar(x, y))
 			end
 		end,
 		[Roact.Event.MouseMoved] = function(rbx, x, y)
-			setCursorPosition(Vector2.new(x,y))
 			if withinCanvas(x, y) then
+				setCursorPosition(Vector2.new(x,y))
+
+				-- Simple palm rejection
+				if toolHeld and UserInputService.TouchEnabled then
+					local diff = (Vector2.new(x,y) - cursorPositionBinding:getValue()).Magnitude
+					if diff > Config.Drawing.MaxLineLengthTouchPixels then
+						return
+					end
+				end
+
 				self.props.ToolMoved(toScalar(x, y))
 			else
 				self.props.ToolUp()

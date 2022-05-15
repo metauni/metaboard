@@ -1,7 +1,7 @@
 -- Services
 local Players = game:GetService("Players")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -256,6 +256,10 @@ function App:render()
 		Color = cursorColor,
 	})
 
+	if UserInputService.TouchEnabled and not self.state.ToolHeld then
+		cursor = nil
+	end
+
 	local toolBarGui = e("ScreenGui", {
 
 		DisplayOrder = self.props.NextFigureZIndex + 10,
@@ -278,6 +282,7 @@ function App:render()
 		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
 		Margin = toolState.EquippedTool ~= Eraser and cursorWidth or 0,
 
+		CursorPositionBinding = self.ToolPosBinding,
 		SetCursorPosition = self.SetToolPos,
 
 		ToolDown = function(canvasPos)
