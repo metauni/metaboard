@@ -12,7 +12,7 @@ local e = Roact.createElement
 local App = require(script.App)
 local Sift = require(Common.Packages.Sift)
 
-local function open(board, onClose)
+local function open(board, boardViewMode, onClose)
 
 	local handle, dataUpdateConnection
 
@@ -28,6 +28,8 @@ local function open(board, onClose)
 		local localPlayerHistory = board.PlayerHistories[Players.LocalPlayer]
 
 		return e(App, {
+
+			BoardViewMode = boardViewMode,
 
 			Board = board,
 			AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,

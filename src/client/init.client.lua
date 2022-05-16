@@ -20,6 +20,9 @@ local makeSurfaceCanvas = require(script.makeSurfaceCanvas)
 local Boards = {}
 
 local openedBoard = nil
+local canvasFolder = Instance.new("Folder")
+canvasFolder.Name = "Canvases"
+canvasFolder.Parent = workspace
 
 local function bindBoardInstance(instance, remotes, persistId)
 
@@ -49,16 +52,47 @@ local function bindBoardInstance(instance, remotes, persistId)
 
 	local whenLoaded = function()
 
+		local surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
+
+		--[[
+			Pick one of these for different board view modes.
+			Notice the workspace one destroys the surface canvas when the drawing UI
+			opens and recreates it on close, whereas the gui one doesn't touch it.
+		--]]
+
+		----------------------------------------------------------------------------
+		-- Workspace Board View Mode (move the camera to the board)
+		----------------------------------------------------------------------------
+
+		-- local boardViewMode = "Workspace"
+		-- board.ClickedSignal:Connect(function()
+		-- 	if openedBoard == nil then
+		-- 		surfaceCanvasDestroyer()
+		-- 		DrawingUI.Open(board, boardViewMode, function()
+		-- 			openedBoard = nil
+		-- 			surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
+		-- 		end)
+		-- 		openedBoard = board
+		-- 	end
+		-- end)
+
+		----------------------------------------------------------------------------
+		-- Gui Board View Mode (show the board inside a viewport and draw gui curves)
+		----------------------------------------------------------------------------
+
+		local boardViewMode = "Gui"
+		makeSurfaceCanvas(board, canvasFolder)
 		board.ClickedSignal:Connect(function()
 			if openedBoard == nil then
-				DrawingUI.Open(board, function()
+				DrawingUI.Open(board, boardViewMode, function()
 					openedBoard = nil
 				end)
 				openedBoard = board
 			end
 		end)
 
-		makeSurfaceCanvas(board)
+		----------------------------------------------------------------------------
+
 		board:ConnectToRemoteClientEvents()
 
 

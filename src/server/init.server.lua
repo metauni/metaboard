@@ -91,9 +91,9 @@ local function bindInstance(instance: Model | Part)
 
 end
 
-CollectionService:GetInstanceAddedSignal("metaboard-roact"):Connect(bindInstance)
+CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstance)
 
-for _, instance in ipairs(CollectionService:GetTagged("metaboard-roact")) do
+for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 	bindInstance(instance)
 end
 

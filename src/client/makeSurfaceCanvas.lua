@@ -50,7 +50,7 @@ function SurfaceCanvas:render()
 
 end
 
-return function (board)
+return function (board, target)
 
 	local handle, dataUpdateConnection
 
@@ -71,7 +71,7 @@ return function (board)
 		Roact.update(handle, makeSurfaceCanvas())
 	end)
 
-	handle = Roact.mount(makeSurfaceCanvas(), workspace, board._instance.Name)
+	handle = Roact.mount(makeSurfaceCanvas(), target, board._instance.Name.."Canvas")
 
 	return function()
 		Roact.unmount(handle)

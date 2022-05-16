@@ -5,9 +5,9 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Imports
 local Config = require(Common.Config)
-local DrawingTask = require(Common.DrawingTask)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
+local DrawingTask = require(Common.DrawingTask)
 local Sift = require(Common.Packages.Sift)
 
 -- Dictionary Operations
@@ -28,9 +28,9 @@ local Eraser = require(DrawingTools.Eraser)
 -- Components
 local Components = script.Parent.Components
 local ConstrainedBox = require(Components.ConstrainedBox)
-local Canvas = require(Components.Canvas)
 local CanvasIO = require(Components.CanvasIO)
-local BoardViewport = require(Components.BoardViewport)
+local GuiBoardViewer = require(Components.GuiBoardViewer)
+local WorkspaceBoardViewer = require(Components.WorkspaceBoardViewer)
 local Toolbar = require(Components.Toolbar)
 local Cursor = require(Components.Cursor)
 local ConfirmClearModal = require(Components.ConfirmClearModal)
@@ -298,12 +298,6 @@ function App:render()
 
 	})
 
-	local boardViewport = e(BoardViewport, {
-		TargetAbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
-		TargetAbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
-		Board = self.props.Board,
-		ZIndex = 0,
-	})
 
 	local figureMaskBundles = {}
 	local allFigures = table.clone(self.props.Figures)
@@ -340,6 +334,31 @@ function App:render()
 		end
 	end
 
+	local BoardViewerComponent do
+		local comp = {
+			Workspace = WorkspaceBoardViewer,
+			Gui = GuiBoardViewer,
+		}
+
+		BoardViewerComponent = comp[self.props.BoardViewMode]
+	end
+
+	local boardViewer = e(BoardViewerComponent, {
+
+		Figures = allFigures,
+
+		FigureMaskBundles = figureMaskBundles,
+
+		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+
+		Board = self.props.Board,
+
+		ZIndex = 1,
+
+	})
+
+
 	return e("ScreenGui", {
 
 		IgnoreGuiInset = true,
@@ -355,23 +374,7 @@ function App:render()
 
 			ConfirmClearModalGui = ConfirmClearModalGui,
 
-			Canvas = e(Canvas, {
-
-				Figures = allFigures,
-
-				FigureMaskBundles = figureMaskBundles,
-
-				AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
-				AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
-
-				CanvasSize = self.props.Board:SurfaceSize(),
-				CanvasCFrame = CFrame.identity,
-
-				ZIndex = 1,
-
-			}),
-
-			BoardViewport = boardViewport,
+			BoardViewer = boardViewer,
 
 		}
 	})
