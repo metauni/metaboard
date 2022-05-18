@@ -17,30 +17,33 @@ local BoardViewport = require(script.Parent.BoardViewport)
 local GuiBoardViewer = Roact.PureComponent:extend("GuiBoardViewer")
 
 function GuiBoardViewer:init()
-	self.spring, self.api = RoactSpring.Controller.new({
-		alpha = 0,
+	-- self.spring, self.api = RoactSpring.Controller.new({
+	-- 	alpha = 0,
+	-- })
+	self.one = Roact.createBinding(1)
+
+	self:setState({
+
+		IntroAnimationDone = true,
+
 	})
 end
 
 function GuiBoardViewer:didMount()
-	self.api:start({ 
-		alpha = 1,
-		config = { mass = 0.01, tension = 100, friction = 3, clamp = false },
-	}):andThen(function()
-		self:setState({
-			IntroAnimationDone = true,
-		})
-	end)
-end
-
-function GuiBoardViewer:willUnmount()
-	print("unmount")
+	-- self.api:start({
+	-- 	alpha = 1,
+	-- 	config = { mass = 0.01, tension = 100, friction = 2, clamp = true },
+	-- }):andThen(function()
+	-- 	self:setState({
+	-- 		IntroAnimationDone = true,
+	-- 	})
+	-- end)
 end
 
 function GuiBoardViewer:render()
 
 
-	local canvas = self.state.IntroAnimationDone and e(FrameCanvas, {
+	local canvas = e(FrameCanvas, {
 
 		Figures = self.props.Figures,
 
@@ -50,11 +53,12 @@ function GuiBoardViewer:render()
 		AbsoluteSizeBinding = self.props.AbsoluteSizeBinding,
 
 		ZIndex = 1,
-	}) or nil
+	})
 
 
 	local boardViewport = e(BoardViewport, {
-		SpringAlphaBinding = self.spring.alpha,
+		-- SpringAlphaBinding = self.spring.alpha,
+		SpringAlphaBinding = self.one,
 
 		TargetAbsolutePositionBinding = self.props.AbsolutePositionBinding,
 		TargetAbsoluteSizeBinding = self.props.AbsoluteSizeBinding,
@@ -64,12 +68,22 @@ function GuiBoardViewer:render()
 
 	return e("Folder", {}, {
 
-		Canvas = canvas,
+		Canvas = e("ScreenGui", {
+
+			IgnoreGuiInset = true,
+			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+			Enabled = false,
+
+			[Roact.Children] = {
+				Canvas = canvas
+			}
+
+		}),
 
 		BoardViewport = boardViewport,
 
 	})
-	
+
 end
 
 return GuiBoardViewer
