@@ -411,6 +411,11 @@ function App.getDerivedStateFromProps(nextProps, lastState)
 end
 
 function App:ToolDown(canvasPos)
+	-- Must finish tool drawing task before starting a new one
+	if self.state.ToolHeld then
+		self:ToolUp()
+	end
+
 	local drawingTask = self.state.ToolState.EquippedTool.newDrawingTask(self)
 
 	if not self.props.SilenceRemoteEventFire then

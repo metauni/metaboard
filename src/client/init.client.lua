@@ -9,6 +9,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local Config = require(Common.Config)
 local BoardClient = require(script.BoardClient)
 local BoardRemotes = require(Common.BoardRemotes)
+local EraseGrid = require(Common.EraseGrid)
 local DrawingUI = require(script.DrawingUI)
 local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
@@ -34,10 +35,10 @@ local function bindBoardInstance(instance, remotes, persistId)
 	if board:Status() == "NotLoaded" then
 
 		local connection
-		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
+		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
 
 			if success then
-				board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
+				board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
 			end
 
 			board:SetStatus("Loaded")

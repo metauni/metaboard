@@ -15,6 +15,7 @@ end
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
+local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local BoardService = require(Common.BoardService)
@@ -25,6 +26,7 @@ local BoardServer = require(script.BoardServer)
 local BoardRemotes = require(Common.BoardRemotes)
 local Figure = require(Common.Figure)
 local Sift = require(Common.Packages.Sift)
+local Array = Sift.Array
 
 -- Dictionary Operations
 local Dictionary = Sift.Dictionary
@@ -33,8 +35,11 @@ local merge = Dictionary.merge
 -- Helper Functions
 local miniPersistence = require(script.miniPersistence)
 
-local Boards = {}
+local InstanceToBoard = {}
+local PersistentBoards = {}
+local ChangedSinceStore = {}
 
+local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 local function bindInstance(instance: Model | Part)
 	if not instance:IsDescendantOf(workspace) then return end
@@ -44,23 +49,22 @@ local function bindInstance(instance: Model | Part)
 	local boardRemotes = BoardRemotes.new(instance)
 
 	local board = BoardServer.new(instance, boardRemotes, persistId)
-	Boards[instance] = board
+	InstanceToBoard[instance] = board
 
 	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
 
 		if board:Status() == "NotLoaded" then
-
+			
 			local connection
 			connection = board.StatusChangedSignal:Connect(function(newStatus)
 				if newStatus == "Loaded" then
-					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+					board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex, nil)
 					connection:Disconnect()
 				end
 			end)
 
 		else
-
-			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex)
+			board.Remotes.RequestBoardData:FireClient(player, true, board.Figures, board.DrawingTasks, board.PlayerHistories, board.NextFigureZIndex, nil)
 
 		end
 	end)
@@ -69,19 +73,12 @@ local function bindInstance(instance: Model | Part)
 
 	if persistId then
 
-		task.spawn(function()
+		table.insert(PersistentBoards, board)
 
-			local success, figures, nextFigureZIndex = miniPersistence.Restore(persistId)
-
-			if success then
-				board:LoadData(figures, {}, {}, nextFigureZIndex)
-			else
-				board:LoadData({}, {}, {}, 0)
-			end
-
-			board:SetStatus("Loaded")
-
+		board.DataChangedSignal:Connect(function()
+			ChangedSinceStore[board] = true
 		end)
+
 
 	else
 
@@ -100,49 +97,64 @@ end
 
 BoardService.GetBoards.OnServerInvoke = function(player)
 
-	--[[ Cannot just pass `Boards` table, since the instance-keys get converted
+	--[[
+		Cannot just pass `Boards` table, since the instance-keys get converted
 		to strings, so if two boards instances have the same name, only one
 		key-value pair will survive. Instead, we pass a numeric table of boards,
-		and the client can extract the instance from each board. --]]
+		and the client can extract the instance from each board.
+		
+		We also don't pass the whole board, just the critical data the client needs.
+		Complex class-objects like Signals will probably trigger "tables cannot be
+		cyclic".
+	--]]
 
 	local numericBoardTable = {}
-	for _, board in pairs(Boards) do
-		table.insert(numericBoardTable, board)
+	for _, board in pairs(InstanceToBoard) do
+		table.insert(numericBoardTable, {
+			_instance = board._instance,
+			Remotes = board.Remotes,
+			PersistId = board.PersistId
+		})
 	end
 
 	return numericBoardTable
 end
 
-task.delay(10, function()
-
-	while true do
-		print('Storing')
-		for instance, board in pairs(Boards) do
-			if board.PersistId then
-
-				local committedFigures = board:CommitAllDrawingTasks()
-
-				local removals = {}
-
-				for figureId, figure in pairs(committedFigures) do
-					if Figure.FullyMasked(figure) then
-						removals[figureId] = Sift.None
-					end
-				end
-
-				committedFigures = merge(committedFigures, removals)
-
-				task.spawn(miniPersistence.Store, committedFigures, board.NextFigureZIndex, board.PersistId)
-			end
-		end
-		task.wait(10)
-	end
-
-end)
-
-	-- MetaBoard.Init()
--- PersonalBoardManager.Init()
--- ServerDrawingTasks.Init()
 
 -- -- Delay loading persistent boards so as to avoid delaying server startup
--- task.delay( 5, Persistence.Init )
+task.delay(5, function()
+	miniPersistence.RestoreAll(persistenceDataStore, PersistentBoards)
+
+	-- task.delay(10, function()
+
+	-- 	while true do
+	-- 		print("checking if need to store")
+	-- 		print(ChangedSinceStore)
+	-- 		if next(ChangedSinceStore) then
+	-- 			print('Storing')
+	-- 		end
+	
+	-- 		for board in pairs(ChangedSinceStore) do
+	-- 			local committedFigures = board:CommitAllDrawingTasks()
+	
+	-- 			local removals = {}
+	
+	-- 			for figureId, figure in pairs(committedFigures) do
+	-- 				if Figure.FullyMasked(figure) then
+	-- 					removals[figureId] = Sift.None
+	-- 				end
+	-- 			end
+	
+	-- 			committedFigures = merge(committedFigures, removals)
+	
+	-- 			task.spawn(miniPersistence.Store, persistenceDataStore, committedFigures, board.NextFigureZIndex, board.PersistId)
+	-- 		end
+			
+	-- 		ChangedSinceStore = {}
+	
+	-- 		task.wait(10)
+	-- 	end
+	
+	-- end)
+end)
+

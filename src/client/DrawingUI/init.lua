@@ -25,7 +25,7 @@ local function open(board, boardViewMode, onClose)
 
 	local makeApp = function()
 
-		local localPlayerHistory = board.PlayerHistories[Players.LocalPlayer]
+		local localPlayerHistory = board.PlayerHistories[tostring(Players.LocalPlayer.UserId)]
 
 		return e(App, {
 
@@ -53,7 +53,7 @@ local function open(board, boardViewMode, onClose)
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
 
-	dataUpdateConnection = board.BoardDataChangedSignal:Connect(function()
+	dataUpdateConnection = board.DataChangedSignal:Connect(function()
 		Roact.update(handle, makeApp())
 	end)
 

@@ -16,7 +16,7 @@ return function(board, destructor)
 
 	destructor:Add(RunService.Heartbeat:Connect(function()
 		if board._changedSinceHeartbeat then
-			board.BoardDataChangedSignal:Fire()
+			board.DataChangedSignal:Fire()
 		end
 
 		board._changedSinceHeartbeat = false
@@ -31,7 +31,7 @@ return function(board, destructor)
 		board._jobQueue:Enqueue(function(yielder)
 
 			-- Get or create the player history for this player
-			local playerHistory = board.PlayerHistories[player] or History.new(Config.History.Capacity)
+			local playerHistory = board.PlayerHistories[tostring(player.UserId)] or History.new(Config.History.Capacity)
 
 			local initialisedDrawingTask = DrawingTask.Init(drawingTask, board, canvasPos)
 			board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, initialisedDrawingTask)
@@ -44,7 +44,7 @@ return function(board, destructor)
 			local newHistory = playerHistory:Clone()
 			newHistory:Push(initialisedDrawingTask, pastForgetter)
 
-			board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
 
 			board:DataChanged()
 		end)
@@ -52,15 +52,16 @@ return function(board, destructor)
 
 	destructor:Add(board.Remotes.UpdateDrawingTask.OnClientEvent:Connect(function(player: Player, canvasPos: Vector2)
 		board._jobQueue:Enqueue(function(yielder)
-			local drawingTask = board.PlayerHistories[player]:MostRecent()
+
+			local drawingTask = board.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
 
 			local updatedDrawingTask = DrawingTask.Update(drawingTask, board, canvasPos)
 
-			local newHistory = board.PlayerHistories[player]:Clone()
+			local newHistory = board.PlayerHistories[tostring(player.UserId)]:Clone()
 			newHistory:SetMostRecent(updatedDrawingTask)
 
-			board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
 
 			board.DrawingTasks = set(board.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
 
@@ -70,12 +71,12 @@ return function(board, destructor)
 
 	destructor:Add(board.Remotes.FinishDrawingTask.OnClientEvent:Connect(function(player: Player)
 		board._jobQueue:Enqueue(function(yielder)
-			local drawingTask = board.PlayerHistories[player]:MostRecent()
+			local drawingTask = board.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
 
 			local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, board), "Finished", true)
 
-			local newHistory = board.PlayerHistories[player]:Clone()
+			local newHistory = board.PlayerHistories[tostring(player.UserId)]:Clone()
 			newHistory:SetMostRecent(finishedDrawingTask)
 
 			board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
@@ -87,7 +88,7 @@ return function(board, destructor)
 
 	destructor:Add(board.Remotes.Undo.OnClientEvent:Connect(function(player: Player)
 		board._jobQueue:Enqueue(function(yielder)
-			local playerHistory = board.PlayerHistories[player]
+			local playerHistory = board.PlayerHistories[tostring(player.UserId)]
 
 			if playerHistory:CountPast() < 1 then
 				error("Cannot undo, past empty")
@@ -99,7 +100,7 @@ return function(board, destructor)
 			assert(drawingTask)
 
 			board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, nil)
-			board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
 
 			DrawingTask.Undo(drawingTask, board)
 
@@ -110,7 +111,7 @@ return function(board, destructor)
 	destructor:Add(board.Remotes.Redo.OnClientEvent:Connect(function(player: Player)
 		board._jobQueue:Enqueue(function(yielder)
 
-			local playerHistory = board.PlayerHistories[player]
+			local playerHistory = board.PlayerHistories[tostring(player.UserId)]
 
 			if playerHistory:CountFuture() < 1 then
 				error("Cannot redo, future empty")
@@ -122,7 +123,7 @@ return function(board, destructor)
 			assert(drawingTask)
 
 			board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, drawingTask)
-			board.PlayerHistories = set(board.PlayerHistories, player, newHistory)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
 
 			DrawingTask.Redo(drawingTask, board)
 

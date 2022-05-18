@@ -31,7 +31,6 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 	self._status = "NotLoaded"
 	self.StatusChangedSignal = Signal.new()
 
-	self.BoardDataChangedSignal = Signal.new()
 	self._changedSinceHeartbeat = false
 
 	self._jobQueue = JobQueue.new()

@@ -182,6 +182,8 @@ function History:ToDebugString()
 end
 
 function History:ToFormattedString()
+	self._itemToString = self._itemToString or tostring
+
 	local past = ""
 	for j=1, self._behind do
 		past = self._itemToString(self._table[wrap(self._next - j, self._capacity)])..(j > 1 and "," or "")..past

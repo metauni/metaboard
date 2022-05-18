@@ -1,19 +1,25 @@
+-- NOTES
+-- On server shutdown there is a `30sec` hard limit, within which all boards which have changed
+-- after the last autosave must be saved if we are to avoid dataloss. Given that `SetAsync` has a rate
+-- limit of `60 + numPlayers * 10` calls per minute, and assuming we can spend at most `20sec` on boards,
+-- that means we can support at most `20 + numPlayers * 3` changed boards since the last autosave if we are
+-- to avoid dataloss, purely due to rate limits. A full board costs about `1.2sec` to save under adversarial
+-- conditions (i.e. many other full boards). So to be safe we can afford at most `16` changed boards per
+-- autosave period.
+
 local CollectionService = game:GetService("CollectionService")
 local HTTPService = game:GetService("HttpService")
 local PlayersService = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 
-local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local Common = game:GetService("ReplicatedStorage").MetaBoardCommon
 local Config = require(Common.Config)
-local LineInfo = require(Common.LineInfo)
-
-local MetaBoard
 
 local Persistence = {}
 Persistence.__index = Persistence
 
 local function isPrivateServer()
-	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId ~= 0
+	return game.PrivateServerId ~= ""
 end
 
 -- GetAsync and SetAsync have a rate limit of 60 + numPlayers * 10 calls per minute
@@ -26,7 +32,152 @@ local function asyncWaitTime()
 	return 60/( 60 + 10 * #PlayersService:GetPlayers() )
 end
 
-local function storeAll()
+function Persistence.Init()
+
+	Persistence.RestoreAllCoroutinesPocket = {}
+	Persistence.RestoreAllCoroutinesNormal = {}
+	Persistence.FetchedBoardData = {}
+
+	game:BindToClose(Persistence.StoreAll)
+	
+	Persistence.RestoreAll()
+
+	task.spawn(function()
+		while true do
+			task.wait(Config.AutoSaveInterval)
+			Persistence.StoreAll()
+		end
+	end)
+end
+
+function Persistence.RestoreAll()
+	-- We are guaranteed that any requests made at this rate
+	-- will not decrease our budget, so our strategy is on startup
+	-- to spend down our budget to near zero and then throttle to this speed
+	local waitTime = asyncWaitTime()
+
+	local boards = CollectionService:GetTagged(Config.BoardTag)
+	for _, board in ipairs(boards) do
+		local persistId = board:FindFirstChild("PersistId")
+		if persistId == nil then continue end
+
+		local boardKey = Persistence.KeyForBoard(board)
+		task.spawn(Persistence.Fetch, board, boardKey)
+
+		local budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
+		if budget < 100 then
+			print("[MetaBoard] GetAsync budget hit, throttling")
+			task.wait(waitTime)
+		end
+	end
+
+	task.spawn(function()
+		local restoreAllTask = coroutine.create(Persistence.RestoreAllTask)
+	
+		while coroutine.status(restoreAllTask) ~= "dead" do
+			local success, result = coroutine.resume(restoreAllTask)
+			if not success then
+				print("[MetaBoard] Main RestoreAll task failed to resume: ".. result)
+			end
+
+			task.wait(Config.RestoreAllIntermission)
+		end
+
+		print("[MetaBoard] Restore All complete")
+	end)
+end
+
+function Persistence.RestoreAllTask()
+	-- Loading boards can take significant time (sometimes several minutes) and places
+	-- significant load on the server. To keep the server responsive (e.g. to teleport
+	-- requests) we explicitly manage the loading process using coroutines
+
+	-- Our first step is create all the tasks and populate the list of coroutines
+	local boards = CollectionService:GetTagged(Config.BoardTag)
+	local pocketPortalBoards = {}
+	local normalBoards = {}
+
+	for _, board in ipairs(boards) do
+		local persistId = board:FindFirstChild("PersistId")
+		if persistId == nil then continue end
+
+		if CollectionService:HasTag(board.Parent, "metapocket") then
+			table.insert(pocketPortalBoards, board)
+		else
+			table.insert(normalBoards, board)
+		end
+	end
+	
+	-- We do boards on pocket portals first
+	for _, board in ipairs(pocketPortalBoards) do
+		local boardTask = coroutine.create(Persistence.Restore)
+		table.insert(Persistence.RestoreAllCoroutinesPocket, boardTask)
+	
+		local boardKey = Persistence.KeyForBoard(board)
+		local success, result = coroutine.resume(boardTask, board, boardKey)
+
+		if not success then
+			print("[MetaBoard] Problem resuming RestoreAll coroutine")
+		end
+	end
+
+	-- Normal boards
+	for _, board in ipairs(normalBoards) do
+		local boardTask = coroutine.create(Persistence.Restore)
+		table.insert(Persistence.RestoreAllCoroutinesNormal, boardTask)
+
+		local boardKey = Persistence.KeyForBoard(board)
+		local success, result = coroutine.resume(boardTask, board, boardKey)
+		
+		if not success then
+			print("[MetaBoard] Problem resuming RestoreAll coroutine")
+		end
+	end
+
+	local coroutineLists = { Persistence.RestoreAllCoroutinesPocket, 
+							Persistence.RestoreAllCoroutinesNormal }
+	
+	local numBoardsProcessed = 0
+
+	for _, coroutineList in ipairs(coroutineLists) do
+		while #coroutineList > 0 do
+			local finishedTasks = {}
+	
+			for i = 1, #coroutineList do
+				local boardTask = coroutineList[i]
+				local status = coroutine.status(boardTask)
+				if status == "suspended" then
+					local success, result = coroutine.resume(boardTask)
+
+					if not success then
+						print("[MetaBoard] Failed to resume Persistence.Restore: "..result)
+					end
+
+					numBoardsProcessed += 1
+				elseif status == "dead" then
+					table.insert(finishedTasks, boardTask)
+				else
+					print("[MetaBoard] Restore coroutine in unexpected status: "..status)
+				end
+
+				if numBoardsProcessed >= Config.RestoreAllNumSimultaneousBoards then
+					numBoardsProcessed = 0
+					coroutine.yield()
+				end
+			end
+
+			for _, boardTask in ipairs(finishedTasks) do
+				for i, t in ipairs(coroutineList) do
+					if t == boardTask then
+						table.remove(coroutineList, i)
+					end
+				end
+			end
+		end
+	end
+end
+
+function Persistence.StoreAll()
 	local startTime = tick()
 	local boards = CollectionService:GetTagged(Config.BoardTag)
 	
@@ -39,46 +190,27 @@ local function storeAll()
 	end
 
 	local waitTime = asyncWaitTime()
+	--local fastWaitTime = 0.1
+	local budget
 	
 	for _, board in ipairs(changedBoards) do
+		budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
+		print("[Persistence] SetAsync budget is ".. budget)
 		task.spawn(Persistence.Save, board)
+
+		--if budget < 100 then
+		--    print("[Persistence] SetAsync budget hit, throttling")
 		task.wait(waitTime)
+		--else
+		--    task.wait(fastWaitTime)
+		--end
 	end
 
 	local elapsedTime = math.floor(100 * (tick() - startTime))/100
 	
-	if #changedBoards > 0 then
-		print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
-	end
-end
-
-function Persistence.Init()
-	MetaBoard = require(script.Parent.MetaBoard)
-
-	-- Restore all boards
-	local boards = CollectionService:GetTagged(Config.BoardTag)
-
-	local waitTime = asyncWaitTime()
-
-	for _, board in ipairs(boards) do
-		local persistId = board:FindFirstChild("PersistId")
-		if persistId then
-			-- Restore this board and all its subscribers
-			local boardKey = Persistence.KeyForBoard(board)
-			task.spawn(Persistence.Restore, board, boardKey, true)
-			task.wait(waitTime)
-		end
-	end
-
-	-- Store all boards on shutdown
-	game:BindToClose(storeAll)
-	
-	task.spawn(function()
-		while true do
-			task.wait(Config.AutoSaveInterval)
-			storeAll()
-		end
-	end)
+	--if #changedBoards > 0 then
+	--    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
+	--end
 end
 
 function Persistence.KeyForBoard(board)
@@ -87,7 +219,19 @@ function Persistence.KeyForBoard(board)
 	-- If we are in a private server the key is prefixed by the 
 	-- private server's ID
 	if isPrivateServer() then
-		boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+		if game.PrivateServerOwnerId ~= 0 then
+			boardKey = "ps" .. game.PrivateServerOwnerId .. ":" .. boardKey
+		else
+			-- We are in a private server created using TeleportService:ReserveServer
+			-- we assume in this case that someone has created a StringValue in the workspace
+			-- called PrivateServerKey
+			local idValue = workspace:FindFirstChild("PrivateServerKey")
+			if idValue and idValue:IsA("StringValue") then
+				boardKey = "ps" .. idValue.Value .. ":" .. boardKey
+			else
+				boardKey = "ps:" .. boardKey
+			end
+		end
 	end
 
 	if string.len(boardKey) > 50 then
@@ -97,91 +241,18 @@ function Persistence.KeyForBoard(board)
 	return boardKey
 end
 
-local function serialiseVector2(v)
-	local vData = {}
-	vData.X = v.X
-	vData.Y = v.Y
-	return vData
+function Persistence.SuffixForCurveSegment(segmentId)
+	return ":c" .. segmentId
 end
 
-local function deserialiseVector2(vData)
-	return Vector2.new(vData.X, vData.Y)
+function Persistence.KeyForHistoricalBoard(board, clearCount)
+	local boardKey = Persistence.KeyForBoard(board)
+	return boardKey .. ":" .. clearCount
 end
 
-local function serialiseColor3(c)
-	local cData = {}
-	cData.R = c.R
-	cData.G = c.G
-	cData.B = c.B
-	return cData
-end
-
-local function deserialiseColor3(cData)
-	return Color3.new(cData.R, cData.G, cData.B)
-end
-
-local function deserialiseLine(canvas, lineData, zIndex)
-	local start = deserialiseVector2(lineData.Start)
-	local stop = deserialiseVector2(lineData.Stop)
-	local color = deserialiseColor3(lineData.Color)
-	local thicknessYScale = lineData.ThicknessYScale
-
-	local lineInfo = LineInfo.new(start, stop, thicknessYScale, color)
-	
-	local worldLine = MetaBoard.CreateWorldLine(Config.WorldBoard.LineType, canvas, lineInfo, zIndex)
-
-	return worldLine
-end
-
-local function serialiseLine(line)
-	local lineData = {}
-	lineData.Start = serialiseVector2(line:GetAttribute("Start"))
-	lineData.Stop = serialiseVector2(line:GetAttribute("Stop"))
-	lineData.Color = serialiseColor3(line:GetAttribute("Color"))
-	lineData.ThicknessYScale = line:GetAttribute("ThicknessYScale")
-	return lineData
-end
-
-local function deserialiseCurve(canvas, curveData)
-	local curve = Instance.new("Folder")
-	curve.Name = curveData.Name
-	-- TODO, do in general
-	curve:SetAttribute("AuthorUserId", curveData.AuthorUserId)
-	curve:SetAttribute("ZIndex", curveData.ZIndex)
-	curve:SetAttribute("CurveType", curveData.CurveType)
-	
-	for _, lineData in ipairs(curveData.Lines) do
-		local line = deserialiseLine(canvas, lineData, curveData.ZIndex)
-		line.Parent = curve
-	end
-
-	return curve
-end
-
-local function serialiseCurve(curve)
-	local curveData = {}
-	curveData.Name = curve.Name
-	curveData.AuthorUserId = curve:GetAttribute("AuthorUserId")
-	curveData.ZIndex = curve:GetAttribute("ZIndex")
-	curveData.CurveType = curve:GetAttribute("CurveType")
-
-	local lines = {}
-
-	for _, line in ipairs(curve:GetChildren()) do
-		table.insert(lines, serialiseLine(line))
-	end
-
-	curveData.Lines = lines
-
-	return curveData
-end
-
--- Restores an empty board to the contents stored in the DataStore
--- with the given persistence ID string. Optionally, it restores the
--- contents to all subscribers of the given board
-function Persistence.Restore(board, boardKey, restoreSubscribers)
+-- Populates a dictionary with the DataStore values for this board
+function Persistence.Fetch(board, boardKey)
 	local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
-	local startTime = tick()
 
 	if not DataStore then
 		print("[Persistence] DataStore not loaded")
@@ -195,7 +266,8 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 
 	-- Get the value stored for the given persistId. Note that this may not
 	-- have been set, which is fine
-	local success, boardJSON = pcall(function()
+	local success, boardJSON
+	success, boardJSON = pcall(function()
 		return DataStore:GetAsync(boardKey)
 	end)
 	if not success then
@@ -203,27 +275,9 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 		return
 	end
 
-	-- If restoreSubscribers is false, we just count the board
-	-- itself as a subscriber
-	local subscriberFamily = {board}
-	if restoreSubscribers then
-		for _, subscriber in ipairs(MetaBoard.GatherSubscriberFamily(board)) do
-			-- If we have a subscriber which is itself persistent, we do not
-			-- restore it using the curves on this board
-			if subscriber ~= board and subscriber:FindFirstChild("PersistId") then
-				continue
-			end
-
-			table.insert(subscriberFamily, subscriber)
-		end
-	end
-
 	-- Return if this board has not been stored
 	if not boardJSON then
-		for _, subscriber in ipairs(subscriberFamily) do
-			subscriber.HasLoaded.Value = true
-		end
-
+		board.HasLoaded.Value = true
 		return
 	end
 
@@ -234,61 +288,102 @@ function Persistence.Restore(board, boardKey, restoreSubscribers)
 		return
 	end
 
-	local curves = boardData.Curves
+	local curves
+	if not boardData.numCurveSegments then
+		-- For old versions the curve data is stored under the main key
+		-- print("[Persistence] DEBUG: loading from old datastructure")
+		curves = boardData.Curves
+	else
+		-- print("[Persistence] DEBUG: loading from new datastructure")
+		local curveJSON = ""
+		local boardCurvesJSON
+
+		for curveSegmentId = 1, boardData.numCurveSegments do
+			local boardCurvesKey = boardKey .. Persistence.SuffixForCurveSegment(curveSegmentId)
+
+			success, boardCurvesJSON = pcall(function()
+				return DataStore:GetAsync(boardCurvesKey)
+			end)
+			if not success then
+				print("[Persistence] GetAsync fail for " .. boardCurvesKey)
+				return
+			end
+
+			if boardCurvesJSON then
+				curveJSON = curveJSON .. boardCurvesJSON
+			else
+				print("[Persistence] Got bad value for " .. boardCurvesKey )
+				return
+			end
+		end
+
+		if string.len(curveJSON) == 0 then
+			print("[Persistence] Empty curveJSON")
+			return
+		end
+
+		curves = HTTPService:JSONDecode(curveJSON)
+	end
 
 	if not curves then
 		print("[Persistence] Failed to get curve data")
 		return
 	end
 
-	if boardData.ClearCount then
+	local data = { BoardData = boardData, Curves = curves }
+	Persistence.FetchedBoardData[board] = data
+end
+
+-- Restores an empty board to the contents stored in the DataStore
+-- with the given persistence ID string. This is meant to be resumed until it
+-- finishes, see RestoreAll.
+function Persistence.Restore(board, boardKey)
+	while Persistence.FetchedBoardData[board] == nil do
+		if board.HasLoaded.Value == true then
+			return
+		end
+	
+		coroutine.yield("no data")
+	end
+
+	local boardData = Persistence.FetchedBoardData[board].BoardData
+	local curves = Persistence.FetchedBoardData[board].Curves
+	Persistence.FetchedBoardData[board] = nil
+
+	if boardData.ClearCount and board:FindFirstChild("ClearCount") then
 		board.ClearCount.Value = boardData.ClearCount
 	end
 
 	if boardData.CurrentZIndex then
-		for _, subscriber in ipairs(subscriberFamily) do
-			if subscriber.CurrentZIndex then
-				subscriber.CurrentZIndex.Value = boardData.CurrentZIndex
-			end
+		if board.CurrentZIndex then
+			board.CurrentZIndex.Value = boardData.CurrentZIndex
 		end
 	end
 
 	-- The board data is a table, each entry of which is a dictionary defining a curve
-	for subIndex, subscriber in ipairs(subscriberFamily) do
-		local lineCount = 0
+	local lineCount = 0
 
-		for curIndex, curveData in ipairs(curves) do
-			local curve = deserialiseCurve(subscriber.Canvas, curveData)
-			curve.Parent = subscriber.Canvas.Curves
-			lineCount += #curveData.Lines
+	for curIndex, curveData in ipairs(curves) do
+		local curve = deserialiseCurve(board.Canvas, curveData)
+		curve.Parent = board.Canvas.Curves
+		lineCount += #curveData.Lines
 
-			if lineCount > Config.LinesLoadedBeforeWait then
-				lineCount = 0
-				-- Give control back to the engine until the next frame,
-				-- then continue loading, to prevent low frame rates on
-				-- server startup with many persistent boards
-				task.wait()
-			end
+		if lineCount > Config.LinesLoadedBeforeWait then
+			lineCount = 0
+			-- Give control back to the engine until the next frame,
+			-- then continue loading, to prevent low frame rates on
+			-- server startup with many persistent boards
+			coroutine.yield("line count")
 		end
 	end
-	
-	for _, subscriber in ipairs(subscriberFamily) do
-		subscriber.HasLoaded.Value = true
-		subscriber.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
-	end
+
+	board.HasLoaded.Value = true
 
 	-- Count number of lines
-	local lineCount = 0
-	for curIndex, curveData in ipairs(curves) do
-		lineCount += #curveData.Lines
-	end
-
-	local elapsedTime = math.floor(100 * (tick() - startTime))/100
-	-- print("[Persistence] Restored " .. boardKey .. " " .. #curves .. " curves, " .. lineCount .. " lines, " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .. "s.")
-
-	if string.len(boardJSON) > Config.BoardFullThreshold then
-		print("[Persistence] board ".. boardKey .." is full.")
-	end
+	--lineCount = 0
+	--for curIndex, curveData in ipairs(curves) do
+	--    lineCount += #curveData.Lines
+	--end
 end
 
 function Persistence.Save(board)
@@ -325,10 +420,10 @@ function Persistence.Store(board, boardKey)
 	local curves = {}
 	for _, curve in ipairs(board.Canvas.Curves:GetChildren()) do
 		local curveData = serialiseCurve(curve)
-		table.insert(curves, curveData)
+		if curveData then
+			table.insert(curves, curveData)
+		end
 	end
-
-	boardData.Curves = curves
 
 	if board:FindFirstChild("ClearCount") then
 		boardData.ClearCount = board.ClearCount.Value
@@ -338,6 +433,42 @@ function Persistence.Store(board, boardKey)
 		boardData.CurrentZIndex = board.CurrentZIndex.Value
 	end
 
+	local curveJSON = HTTPService:JSONEncode(curves)
+
+	if not curveJSON then
+		print("[Persistence] Curve JSON encoding failed")
+		return
+	end
+
+	local success, errormessage
+
+	-- The curveJSON may be too big to fit in one key, in which
+	-- case we split it across several keys
+	local curveSegmentId = 0
+	local currPos = 0
+	local segmentSize = 3500000 -- max value in a key is 4Mb
+
+	-- print("[Persistence] Length of curveJSON = " .. string.len(curveJSON))
+
+	while currPos < string.len(curveJSON) do
+		curveSegmentId += 1
+		local boardCurvesKey = boardKey .. Persistence.SuffixForCurveSegment(curveSegmentId)
+		local boardCurvesJSON = string.sub(curveJSON, currPos + 1, currPos + segmentSize)
+
+		print("[Persistence] Writing to key " .. boardCurvesKey)
+		success, errormessage = pcall(function()
+			return DataStore:SetAsync(boardCurvesKey, boardCurvesJSON)
+		end)
+		if not success then
+			print("[Persistence] SetAsync fail for " .. boardCurvesKey .. " with ".. errormessage)
+			return
+		end
+
+		currPos += segmentSize
+	end
+
+	boardData.numCurveSegments = curveSegmentId
+
 	local boardJSON = HTTPService:JSONEncode(boardData)
 
 	if not boardJSON then
@@ -345,26 +476,17 @@ function Persistence.Store(board, boardKey)
 		return
 	end
 
-	-- TODO pre-empt "value too big" error
-	-- print("Persistence: Board JSON length is " .. string.len(boardJSON))
-	
-	local success, errormessage = pcall(function()
+	success, errormessage = pcall(function()
 		return DataStore:SetAsync(boardKey, boardJSON)
 	end)
 	if not success then
 		print("[Persistence] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
-		board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
 		return
 	end
 
-	board.IsFull.Value = string.len(boardJSON) > Config.BoardFullThreshold
 	local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-	print("[Persistence] Stored " .. boardKey .. " " .. string.len(boardJSON) .. " bytes in ".. elapsedTime .."s.")
-
-	if board.IsFull.Value then
-		print("[Persistence] board ".. boardKey .." is full.")
-	end
+	print("[Persistence] Stored " .. boardKey .. " in ".. elapsedTime .."s.")
 end
 
 return Persistence

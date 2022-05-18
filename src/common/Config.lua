@@ -12,6 +12,8 @@ local Config = {
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 30,
+	RestoreAllIntermission = 3,
+	RestoreAllNumSimultaneousBoards = 3,
 
 	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
 

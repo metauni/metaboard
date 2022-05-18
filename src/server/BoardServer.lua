@@ -45,7 +45,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			self.Remotes.InitDrawingTask:FireAllClients(player, verifiedDrawingTask, canvasPos)
 
 			-- Get or create the player history for this player
-			local playerHistory = self.PlayerHistories[player] or History.new(Config.History.Capacity)
+			local playerHistory = self.PlayerHistories[tostring(player.UserId)] or History.new(Config.History.Capacity)
 
 			local initialisedDrawingTask = DrawingTask.Init(verifiedDrawingTask, self, canvasPos)
 			self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask)
@@ -58,7 +58,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			local newHistory = playerHistory:Clone()
 			newHistory:Push(initialisedDrawingTask, pastForgetter)
 
-			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
+
+			self.DataChangedSignal:Fire()
 
 		end)
 	end))
@@ -68,17 +70,20 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			self.Remotes.UpdateDrawingTask:FireAllClients(player, canvasPos)
 
-			local drawingTask = self.PlayerHistories[player]:MostRecent()
+			local drawingTask = self.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
 
 			local updatedDrawingTask = DrawingTask.Update(drawingTask, self, canvasPos)
 
-			local newHistory = self.PlayerHistories[player]:Clone()
+			local newHistory = self.PlayerHistories[tostring(player.UserId)]:Clone()
 			newHistory:SetMostRecent(updatedDrawingTask)
 
-			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
 
 			self.DrawingTasks = set(self.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
+
+			self.DataChangedSignal:Fire()
+
 		end)
 	end))
 
@@ -87,17 +92,19 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			self.Remotes.FinishDrawingTask:FireAllClients(player, canvasPos)
 
-			local drawingTask = self.PlayerHistories[player]:MostRecent()
+			local drawingTask = self.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
 
 			local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, self), "Finished", true)
 
-			local newHistory = self.PlayerHistories[player]:Clone()
+			local newHistory = self.PlayerHistories[tostring(player.UserId)]:Clone()
 			newHistory:SetMostRecent(finishedDrawingTask)
 
-			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
 
 			self.DrawingTasks = set(self.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+
+			self.DataChangedSignal:Fire()
 
 		end)
 	end))
@@ -107,7 +114,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			self.Remotes.Undo:FireAllClients(player)
 
-			local playerHistory = self.PlayerHistories[player]
+			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
 
 			if playerHistory:CountPast() < 1 then
 				error("Cannot undo, past empty")
@@ -119,9 +126,11 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			assert(drawingTask)
 
 			self.DrawingTasks = set(self.DrawingTasks, drawingTask.Id, nil)
-			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
 
 			DrawingTask.Undo(drawingTask, self)
+
+			self.DataChangedSignal:Fire()
 
 		end)
 	end))
@@ -131,7 +140,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			self.Remotes.Redo:FireAllClients(player)
 
-			local playerHistory = self.PlayerHistories[player]
+			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
 
 			if playerHistory:CountFuture() < 1 then
 				error("Cannot redo, future empty")
@@ -145,7 +154,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			DrawingTask.Redo(drawingTask, self)
 
 			self.DrawingTasks = set(self.DrawingTasks, drawingTask.Id, drawingTask)
-			self.PlayerHistories = set(self.PlayerHistories, player, newHistory)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
+
+			self.DataChangedSignal:Fire()
 
 		end)
 	end))
@@ -159,6 +170,8 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			self.DrawingTasks = {}
 			self.Figures = {}
 			self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+
+			self.DataChangedSignal:Fire()
 
 		end)
 	end))

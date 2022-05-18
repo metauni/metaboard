@@ -67,7 +67,7 @@ return function (board, target)
 		})
 	end
 
-	dataUpdateConnection = board.BoardDataChangedSignal:Connect(function()
+	dataUpdateConnection = board.DataChangedSignal:Connect(function()
 		Roact.update(handle, makeSurfaceCanvas())
 	end)
 

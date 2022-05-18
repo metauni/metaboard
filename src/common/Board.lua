@@ -7,6 +7,7 @@ local EraseGrid = require(Common.EraseGrid)
 local Figure = require(Common.Figure)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
+local Signal = require(Common.Packages.GoodSignal)
 local Sift = require(Common.Packages.Sift)
 
 -- Dictionary Operations
@@ -26,7 +27,8 @@ function Board.new(instance: Model | Part, boardRemotes, persistId: string?)
 		DrawingTasks = {},
 		Figures = {},
 		NextFigureZIndex = 0,
-		PersistId = persistId
+		PersistId = persistId,
+		DataChangedSignal = Signal.new()
 	}, Board)
 
 
@@ -76,23 +78,31 @@ function Board:CommitAllDrawingTasks()
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
+function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
 
-	for player, playerHistory in pairs(playerHistories) do
+	for userId, playerHistory in pairs(playerHistories) do
 		setmetatable(playerHistory, History)
 	end
 
 	self.Figures = figures
 	self.DrawingTasks = drawingTasks
 	self.PlayerHistories = playerHistories
-
 	self.NextFigureZIndex = nextFigureZIndex
-	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
-	local committedFigures = self:CommitAllDrawingTasks()
+	if eraseGrid == nil then
+		eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
-	for figureId, figure in pairs(committedFigures) do
-		eraseGrid:AddFigure(figureId, figure)
+		local committedFigures = self:CommitAllDrawingTasks()
+
+		for figureId, figure in pairs(committedFigures) do
+			eraseGrid:AddFigure(figureId, figure)
+		end
+
+	else
+
+		-- Need to set the metatables that were lost in the remote event
+		eraseGrid = EraseGrid.deserialise(eraseGrid)
+
 	end
 
 	self.EraseGrid = eraseGrid
@@ -142,6 +152,11 @@ local _faceDimensionsGetter = {
 
 function Board:SurfaceSize()
 	return _faceDimensionsGetter[self.Face](self._surfacePart.Size)
+end
+
+function Board:AspectRatio()
+	local size = self:SurfaceSize()
+	return size.X / size.Y
 end
 
 return Board
