@@ -285,6 +285,8 @@ function App:render()
 		CursorPositionBinding = self.ToolPosBinding,
 		SetCursorPosition = self.SetToolPos,
 
+		ToolHeld = self.state.ToolHeld,
+
 		ToolDown = function(canvasPos)
 			self:ToolDown(canvasPos)
 			self:setState({ SubMenu = Roact.None })

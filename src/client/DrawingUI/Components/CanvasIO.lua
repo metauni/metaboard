@@ -63,16 +63,16 @@ function CanvasIO:render()
 		end,
 		[Roact.Event.MouseMoved] = function(rbx, x, y)
 			if withinCanvas(x, y) then
-				setCursorPosition(Vector2.new(x,y))
-
+				
 				-- Simple palm rejection
-				if toolHeld and UserInputService.TouchEnabled then
+				if UserInputService.TouchEnabled and toolHeld then
 					local diff = (Vector2.new(x,y) - cursorPositionBinding:getValue()).Magnitude
 					if diff > Config.Drawing.MaxLineLengthTouchPixels then
 						return
 					end
 				end
-
+				
+				setCursorPosition(Vector2.new(x,y))
 				self.props.ToolMoved(toScalar(x, y))
 			else
 				self.props.ToolUp()
