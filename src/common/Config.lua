@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.12.6",
+	Version = "v0.12.7",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	BoardTagHistory = "metaboard_history",
@@ -12,7 +12,7 @@ local Config = {
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
-	AutoSaveInterval = 20,
+	AutoSaveInterval = 60,
 	LinesLoadedBeforeWait = 2000, -- Number of lines to load in Restore before task.wait
 	RestoreAllIntermission = 3,
 	RestoreAllNumSimultaneousBoards = 3,

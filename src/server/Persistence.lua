@@ -28,9 +28,6 @@ end
 -- GetAsync and SetAsync have a rate limit of 60 + numPlayers * 10 calls per minute
 -- (see https://developer.roblox.com/en-us/articles/Data-store)
 -- 60/waitTime < 60 + numPlayers * 10 => waitTime > 60/( 60 + numPlayers * 10 )
-
--- In an experiment with 124 full persistent boards, all updated, we averaged
--- 1.13 seconds per board to store (i.e. 124 boards stored in 140sec)
 local function asyncWaitTime()
     return 60/( 60 + 10 * #PlayersService:GetPlayers() )
 end
@@ -41,6 +38,8 @@ function Persistence.Init()
     Persistence.RestoreAllCoroutinesPocket = {}
     Persistence.RestoreAllCoroutinesNormal = {}
     Persistence.FetchedBoardData = {}
+    Persistence.RunningAvgSetAsyncPerBoard = 1
+    Persistence.RunningAvgGetAsyncPerBoard = 1
 
 	game:BindToClose(Persistence.StoreAll)
 	
@@ -71,14 +70,20 @@ function Persistence.RestoreAll()
         local budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync)
         if budget < 100 then
             print("[MetaBoard] GetAsync budget hit, throttling")
-            task.wait(waitTime)
+            print("            GetAsync budget = ".. budget)
+            print("            GetAsyncPerBoard = "..Persistence.RunningAvgGetAsyncPerBoard)
+            local factor = 1
+            if Persistence.RunningAvgGetAsyncPerBoard > 1 then
+                factor = Persistence.RunningAvgGetAsyncPerBoard * 2 -- for safety
+            end
+            task.wait(factor * waitTime)
         end
     end
 
     task.spawn(function()
 		local restoreAllTask = coroutine.create(Persistence.RestoreAllTask)
     
-        while coroutine.status(restoreAllTask) ~= "dead" do
+        while restoreAllTask ~= nil and coroutine.status(restoreAllTask) ~= "dead" do
             local success, result = coroutine.resume(restoreAllTask)
             if not success then
                 print("[MetaBoard] Main RestoreAll task failed to resume: ".. result)
@@ -194,27 +199,27 @@ function Persistence.StoreAll()
 	end
 
     local waitTime = asyncWaitTime()
-    --local fastWaitTime = 0.1
     local budget
     
 	for _, board in ipairs(changedBoards) do
         budget = DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
-        print("[Persistence] SetAsync budget is ".. budget)
         task.spawn(Persistence.Save, board)
 
-        --if budget < 100 then
-        --    print("[Persistence] SetAsync budget hit, throttling")
-        task.wait(waitTime)
-        --else
-        --    task.wait(fastWaitTime)
-        --end
+        if budget < 100 then
+            print("[MetaBoard] SetAsync budget hit, throttling")
+            print("            SetAsync budget = ".. budget)
+            print("            SetAsyncPerBoard = "..Persistence.RunningAvgSetAsyncPerBoard)
+            local factor = 1
+            if Persistence.RunningAvgSetAsyncPerBoard > 1 then
+                factor = Persistence.RunningAvgSetAsyncPerBoard * 2 -- for safety
+            end
+            task.wait(factor * waitTime)
+        else
+            task.wait(waitTime)
+        end
 	end
 
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
-    
-    --if #changedBoards > 0 then
-    --    print("[Persistence] stored ".. #changedBoards .. " boards in ".. elapsedTime .. "s.")
-    --end
 end
 
 function Persistence.KeyForBoard(board)
@@ -239,7 +244,7 @@ function Persistence.KeyForBoard(board)
 	end
 
     if string.len(boardKey) > 50 then
-        print("[Persistence] ERROR: Board key length exceeds DataStore limit.")
+        print("[MetaBoard] ERROR: Board key length exceeds DataStore limit.")
     end
 
 	return boardKey
@@ -342,14 +347,15 @@ end
 -- Populates a dictionary with the DataStore values for this board
 function Persistence.Fetch(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local getAsyncCount = 0
 
     if not DataStore then
-        print("[Persistence] DataStore not loaded")
+        print("[MetaBoard] DataStore not loaded")
         return
     end
 
     if #board.Canvas.Curves:GetChildren() > 0 then
-        print("[Persistence] Called Restore on a nonempty board ".. boardKey)
+        print("[MetaBoard] Called Restore on a nonempty board ".. boardKey)
         return
     end
 
@@ -360,9 +366,11 @@ function Persistence.Fetch(board, boardKey)
         return DataStore:GetAsync(boardKey)
     end)
     if not success then
-        print("[Persistence] GetAsync fail for " .. boardKey .. " " .. boardJSON)
+        print("[MetaBoard] GetAsync fail for " .. boardKey .. " " .. boardJSON)
         return
     end
+
+    getAsyncCount += 1
 
     -- Return if this board has not been stored
     if not boardJSON then
@@ -373,17 +381,15 @@ function Persistence.Fetch(board, boardKey)
 	local boardData = HTTPService:JSONDecode(boardJSON)
 
     if not boardData then
-        print("[Persistence] Failed to decode JSON")
+        print("[MetaBoard] Failed to decode JSON")
         return
     end
 
     local curves
     if not boardData.numCurveSegments then
         -- For old versions the curve data is stored under the main key
-        -- print("[Persistence] DEBUG: loading from old datastructure")
         curves = boardData.Curves
     else
-        -- print("[Persistence] DEBUG: loading from new datastructure")
         local curveJSON = ""
         local boardCurvesJSON
 
@@ -394,20 +400,22 @@ function Persistence.Fetch(board, boardKey)
                 return DataStore:GetAsync(boardCurvesKey)
             end)
             if not success then
-                print("[Persistence] GetAsync fail for " .. boardCurvesKey)
+                print("[MetaBoard] GetAsync fail for " .. boardCurvesKey)
                 return
             end
+
+            getAsyncCount += 1
 
             if boardCurvesJSON then
                 curveJSON = curveJSON .. boardCurvesJSON
             else
-                print("[Persistence] Got bad value for " .. boardCurvesKey )
+                print("[MetaBoard] Got bad value for " .. boardCurvesKey )
                 return
             end
         end
 
         if string.len(curveJSON) == 0 then
-            print("[Persistence] Empty curveJSON")
+            print("[MetaBoard] Empty curveJSON")
             return
         end
 
@@ -415,9 +423,11 @@ function Persistence.Fetch(board, boardKey)
     end
 
     if not curves then
-        print("[Persistence] Failed to get curve data")
+        print("[MetaBoard] Failed to get curve data")
         return
     end
+
+    Persistence.RunningAvgGetAsyncPerBoard = 0.5*(Persistence.RunningAvgGetAsyncPerBoard + getAsyncCount)
 
     local data = { BoardData = boardData, Curves = curves }
     Persistence.FetchedBoardData[board] = data
@@ -497,9 +507,10 @@ end
 -- _before_ Persistence.Init has been run
 function Persistence.Store(board, boardKey)
     local DataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+    local setAsyncCount = 0
 
     if not DataStore then
-        print("[Persistence] DataStore not loaded")
+        print("[MetaBoard] DataStore not loaded")
         return
     end
 
@@ -525,7 +536,7 @@ function Persistence.Store(board, boardKey)
     local curveJSON = HTTPService:JSONEncode(curves)
 
     if not curveJSON then
-        print("[Persistence] Curve JSON encoding failed")
+        print("[MetaBoard] Curve JSON encoding failed")
         return
     end
 
@@ -537,22 +548,23 @@ function Persistence.Store(board, boardKey)
     local currPos = 0
     local segmentSize = 3500000 -- max value in a key is 4Mb
 
-    -- print("[Persistence] Length of curveJSON = " .. string.len(curveJSON))
+    -- print("[MetaBoard] Length of curveJSON = " .. string.len(curveJSON))
 
     while currPos < string.len(curveJSON) do
         curveSegmentId += 1
         local boardCurvesKey = boardKey .. Persistence.SuffixForCurveSegment(curveSegmentId)
         local boardCurvesJSON = string.sub(curveJSON, currPos + 1, currPos + segmentSize)
 
-        print("[Persistence] Writing to key " .. boardCurvesKey)
+        print("[MetaBoard] Writing to key " .. boardCurvesKey)
         success, errormessage = pcall(function()
             return DataStore:SetAsync(boardCurvesKey, boardCurvesJSON)
         end)
         if not success then
-            print("[Persistence] SetAsync fail for " .. boardCurvesKey .. " with ".. errormessage)
+            print("[MetaBoard] SetAsync fail for " .. boardCurvesKey .. " with ".. errormessage)
             return
         end
 
+        setAsyncCount += 1
         currPos += segmentSize
     end
 
@@ -561,7 +573,7 @@ function Persistence.Store(board, boardKey)
     local boardJSON = HTTPService:JSONEncode(boardData)
 
     if not boardJSON then
-        print("[Persistence] Board JSON encoding failed")
+        print("[MetaBoard] Board JSON encoding failed")
         return
     end
 
@@ -569,13 +581,16 @@ function Persistence.Store(board, boardKey)
         return DataStore:SetAsync(boardKey, boardJSON)
     end)
     if not success then
-        print("[Persistence] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
+        print("[MetaBoard] SetAsync fail for " .. boardKey .. " with " .. string.len(boardJSON) .. " bytes ".. errormessage)
         return
 	end
 
+    setAsyncCount += 1
     local elapsedTime = math.floor(100 * (tick() - startTime))/100
 
-    print("[Persistence] Stored " .. boardKey .. " in ".. elapsedTime .."s.")
+    Persistence.RunningAvgSetAsyncPerBoard = 0.5*(Persistence.RunningAvgSetAsyncPerBoard + setAsyncCount)
+
+    print("[MetaBoard] Stored " .. boardKey .. " in ".. elapsedTime .."s.")
 end
 
 return Persistence
