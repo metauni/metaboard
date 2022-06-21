@@ -69,7 +69,9 @@ function CanvasState.Init(boardGui)
 	end
 
 	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(board)
-		CanvasState.ConnectOpenBoardButton(board, board:WaitForChild("Canvas").SurfaceGui.Button)
+		local canvas = board:WaitForChild("Canvas")
+		local surfaceGui = canvas:WaitForChild("SurfaceGui")
+		CanvasState.ConnectOpenBoardButton(board, surfaceGui:WaitForChild("Button"))
 	end)
 	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(function(board)
 		if board == CanvasState.EquippedBoard then
