@@ -29,4 +29,6 @@
 	- [ ] Design line/curve -> memory usage heuristic -> Num boards viewable
 	- [x] Debug active -> dead -> active bug from last week
 
-- [ ] 
+- [ ] Spatial Audio Button Blocker
+
+- [ ] Decrease canvas margins

@@ -39,8 +39,8 @@ local ConfirmClearModal = require(Components.ConfirmClearModal)
 -- Constants
 -- local CANVAS_REGION_POSITION = UDim2.fromScale(0, 0)
 -- local CANVAS_REGION_SIZE = UDim2.fromScale(1,1)
-local CANVAS_REGION_POSITION = UDim2.new(0, 50 , 0, 150)
-local CANVAS_REGION_SIZE = UDim2.new(1,-100,1,-200)
+local CANVAS_REGION_POSITION = UDim2.new(0, 50 , 0, 100)
+local CANVAS_REGION_SIZE = UDim2.new(1,-100,1,-125)
 
 -- Helper functions
 local toolFunctions = require(script.Parent.toolFunctions)
