@@ -4,18 +4,13 @@ local Common = game:GetService("ReplicatedStorage").metaboardCommon
 -- Imports
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
-local RoactSpring = require(Common.Packages.RoactSpring)
 
 local BoardViewport = Roact.Component:extend("BoardViewport")
 
 function BoardViewport:init()
-	self.ViewportAbsoluteSizeBinding, self.SetViewportAbsoluteSize = Roact.createBinding(Vector2.new(100,100))
+	self.ViewportAbsoluteSizeBinding, self.SetViewportAbsoluteSize = Roact.createBinding(workspace.CurrentCamera.ViewportSize)
 	self.CamRef = Roact.createRef()
 	self.VpfRef = Roact.createRef()
-	
-
-	self.CamStartCFrame = workspace.CurrentCamera.CFrame
-	self.fov = workspace.CurrentCamera.FieldOfView
 end
 
 function BoardViewport:didMount()
@@ -34,17 +29,15 @@ function BoardViewport:render()
 
 	local cam = e("Camera", {
 
-		FieldOfView = self.fov,
+		FieldOfView = self.props.FieldOfView,
 		CFrame = Roact.joinBindings({
 			self.ViewportAbsoluteSizeBinding,
 			targetAbsolutePositionBinding,
 			targetAbsoluteSizeBinding,
-			self.props.SpringAlphaBinding,
 		}):map(function(values)
 			local boardCFrame = self.props.Board:SurfaceCFrame()
-			return boardCFrame * boardCFrame:Lerp(self.CamStartCFrame * self:BoardToCameraCFrame(values[1], values[2], values[3]):Inverse(), values[4]):Inverse() * self.CamStartCFrame
+			return boardCFrame * self:BoardToCameraCFrame(values[1], values[2], values[3])
 		end),
-		
 
 		[Roact.Ref] = self.CamRef,
 
@@ -79,7 +72,7 @@ function BoardViewport:render()
 end
 
 function BoardViewport:BoardToCameraCFrame(viewportAbsoluteSize, targetAbsolutePosition, targetAbsoluteSize)
-	local fov = self.fov
+	local fov = self.props.FieldOfView
 	local subjectHeight = self.props.Board:SurfaceSize().Y
 
 	local tanHalfFOV = math.tan(math.rad(fov/2))

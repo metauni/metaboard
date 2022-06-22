@@ -9,8 +9,7 @@ local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
 local PartCanvas = require(script.Parent.Parent.PartCanvas)
-local BoardViewport = require(script.Parent.BoardViewport)
--- local SurfaceFrameCanvas = require(script.Parent.Parent.SurfaceFrameCanvas2)
+local CanvasViewport = require(script.Parent.CanvasViewport)
 
 local SurfaceCanvas = Roact.PureComponent:extend("SurfaceCanvas")
 
@@ -118,7 +117,7 @@ function SurfaceCanvas:render()
 
 	})
 
-	-- local boardViewport = e(BoardViewport, {
+	-- local canvasViewport = e(CanvasViewport, {
 
 	-- 	Board = board,
 	-- 	FieldOfView = 70,
@@ -130,7 +129,7 @@ function SurfaceCanvas:render()
 	-- return e("SurfaceGui", {
 	-- 	Adornee = board._surfacePart,
 
-	-- 	[Roact.Children] = boardViewport,
+	-- 	[Roact.Children] = canvasViewport,
 	-- })
 
 	return e("Model", {

@@ -7,14 +7,14 @@ local e = Roact.createElement
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
-local BoardViewport = Roact.Component:extend("BoardViewport")
+local CanvasViewport = Roact.Component:extend("CanvasViewport")
 
-function BoardViewport:init()
+function CanvasViewport:init()
 	self.CamRef = Roact.createRef()
 	self.VpfRef = Roact.createRef()
 end
 
-function BoardViewport:render()
+function CanvasViewport:render()
 
 	local cam = e("Camera", {
 
@@ -51,7 +51,7 @@ function BoardViewport:render()
 
 end
 
-function BoardViewport:BoardToCameraCFrame()
+function CanvasViewport:BoardToCameraCFrame()
 	local subjectHeight = self.props.Board:SurfaceSize().Y
 
 	local tanHalfFOV = math.tan(math.rad(self.props.FieldOfView/2))
@@ -61,4 +61,4 @@ function BoardViewport:BoardToCameraCFrame()
 	return CFrame.Angles(0,math.pi,0) * CFrame.new(0, 0, zDistance)
 end
 
-return BoardViewport
+return CanvasViewport

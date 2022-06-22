@@ -31,4 +31,4 @@
 
 - [ ] Spatial Audio Button Blocker
 
-- [ ] Decrease canvas margins
+- [x] Decrease canvas margins
