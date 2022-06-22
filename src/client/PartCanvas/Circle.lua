@@ -35,7 +35,7 @@ return function(props)
 		- Config.Canvas.InitialZOffsetStuds
 		- zIndex * Config.Canvas.StudsPerZIndex
 
-	return e(NonPhysicalPart, {
+	return e("Part", {
 		
 		Size = Vector3.new(
 			Config.Canvas.ZThicknessStuds,

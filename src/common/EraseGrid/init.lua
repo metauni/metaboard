@@ -21,11 +21,6 @@ function EraseGrid.new(aspectRatio: number)
 	}, EraseGrid)
 end
 
-function EraseGrid.deserialise(eraseGrid)
-	eraseGrid.ShapeGrid = setmetatable(eraseGrid.ShapeGrid, ShapeGrid)
-	return setmetatable(eraseGrid, EraseGrid)
-end
-
 local function pairer(sep)
 	return function (a, b)
 		return a..sep..b

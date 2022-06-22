@@ -1,6 +1,6 @@
-return function(self)
+return function(state)
 	return {
-		Width = math.round(self.state.ToolState.StrokeWidths[self.state.ToolState.SelectedStrokeWidthName]),
-		ShadedColor = self.state.ToolState.ColorWells[self.state.ToolState.SelectedColorWellIndex]
+		Width = math.round(state.ToolState.StrokeWidths[state.ToolState.SelectedStrokeWidthName]),
+		ShadedColor = state.ToolState.ColorWells[state.ToolState.SelectedColorWellIndex]
 	}
 end

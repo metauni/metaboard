@@ -11,7 +11,7 @@ return function(props)
 		return nil
 	end
 
-	local length = (props.P0 - props.P1).Magnitude + props.Width
+	local length = (props.P0 - props.P1).Magnitude
 	local rotation = props.P1 == props.P0 and 0 or math.deg(math.atan2((props.P0 - props.P1).Y, (props.P0 - props.P1).X))
 	local centre = (props.P0 + props.P1)/2
 
@@ -26,10 +26,9 @@ return function(props)
 		BorderSizePixel = 0,
 
 		[Roact.Children] = {
-			UICorner = e("UICorner", {
+			UICorner = props.Rounded and e("UICorner", {
 				CornerRadius = UDim.new(0.5, 0)
-			})
+			}) or nil
 		}
-
 	})
 end

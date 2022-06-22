@@ -39,7 +39,6 @@ function PureFigure:render()
 		}))
 
 	else
-
 		return e("ScreenGui", {
 
 			IgnoreGuiInset = true,
@@ -88,7 +87,6 @@ function PureFigure:shouldUpdate(nextProps, nextState)
 				return true
 			end
 		end
-
 		return false
 	end
 end

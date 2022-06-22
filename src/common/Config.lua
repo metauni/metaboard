@@ -20,9 +20,11 @@ local Config = {
 	-- Number of lines to iterate over while erasing before task.wait
 	LinesSeenBeforeWait = 50,
 
-	-- Number of chars of board Json before which we freeze persistent boards
-	-- The DataStore limit is 4M chars
-	BoardFullThreshold = 3500000,
+	-- How many bytes of data to store per key (limit is 4MB)
+	ChunkSizeLimit = 3500000,
+
+	JSONDecodeTime = 5 * 0.001,
+	DeserialiseTime = 5 * 0.001,
 }
 
 Config.Drawing = {
@@ -188,7 +190,7 @@ Config.PersonalBoard = {
 }
 
 Config.History = {
-	Capacity = 5,
+	Capacity = 15,
 }
 
 Config.MaxLoadedBoards = 1

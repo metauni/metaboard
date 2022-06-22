@@ -1,8 +1,8 @@
 -- Services
+local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local RunService = game:GetService("RunService")
 
 -- Import
-local RunService = game:GetService("RunService")
-local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Config = require(Common.Config)
 local Board = require(Common.Board)
 local Destructor = require(Common.Packages.Destructor)
@@ -23,22 +23,17 @@ local set = Dictionary.set
 local BoardServer = setmetatable({}, Board)
 BoardServer.__index = BoardServer
 
-function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string?)
+function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string?, status: string)
 	-- A server board has no canvas, so we pass nil
-	local self = setmetatable(Board.new(instance, boardRemotes, persistId), BoardServer)
+	local self = setmetatable(Board.new(instance, boardRemotes, persistId, status), BoardServer)
 
-	self._status = persistId and "NotLoaded" or "Loaded"
-	self.StatusChangedSignal = Signal.new()
 
 	self._jobQueue = JobQueue.new()
-
-	local destructor = Destructor.new()
-	self._destructor = destructor
 
 	-- Respond to each remote event by repeating it to all of the clients, then
 	-- performing the described change to the server's copy of the board
 
-	destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
+	self._destructor:Add(self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
 
 			local verifiedDrawingTask = merge(drawingTask, { Verified = true })
@@ -65,7 +60,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
+	self._destructor:Add(self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
 
 			self.Remotes.UpdateDrawingTask:FireAllClients(player, canvasPos)
@@ -87,7 +82,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
+	self._destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
 
 			self.Remotes.FinishDrawingTask:FireAllClients(player, canvasPos)
@@ -109,7 +104,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(self.Remotes.Undo.OnServerEvent:Connect(function(player: Player)
+	self._destructor:Add(self.Remotes.Undo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
 			self.Remotes.Undo:FireAllClients(player)
@@ -135,7 +130,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
+	self._destructor:Add(self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
 			self.Remotes.Redo:FireAllClients(player)
@@ -161,7 +156,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(self.Remotes.Clear.OnServerEvent:Connect(function(player: Player)
+	self._destructor:Add(self.Remotes.Clear.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
 			self.Remotes.Clear:FireAllClients(player)
@@ -176,7 +171,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	destructor:Add(RunService.Heartbeat:Connect(function()
+	self._destructor:Add(RunService.Heartbeat:Connect(function()
 		self._jobQueue:RunJobsUntilYield(coroutine.yield)
 	end))
 

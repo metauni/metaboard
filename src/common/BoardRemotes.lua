@@ -45,6 +45,12 @@ function BoardRemotes.new(instance : Model | Part)
 	return self
 end
 
+function BoardRemotes:Destroy()
+	for _, eventName in ipairs(events) do
+		self[eventName]:Destroy()
+	end
+end
+
 function BoardRemotes.WaitForRemotes(instance)
 	local remotesFolder = instance:WaitForChild("Remotes")
 

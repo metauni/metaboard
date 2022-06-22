@@ -58,7 +58,7 @@ function CanvasIO:render()
 		[Roact.Event.MouseButton1Down] = function(rbx, x, y)
 			setCursorPosition(Vector2.new(x,y))
 			if withinCanvas(x, y) then
-				self.props.ToolDown(toScalar(x, y))
+				self.props.QueueToolDown(toScalar(x, y))
 			end
 		end,
 		[Roact.Event.MouseMoved] = function(rbx, x, y)
@@ -73,16 +73,20 @@ function CanvasIO:render()
 				end
 				
 				setCursorPosition(Vector2.new(x,y))
-				self.props.ToolMoved(toScalar(x, y))
+				if toolHeld then
+					self.props.QueueToolMoved(toScalar(x, y))
+				end
 			else
-				self.props.ToolUp()
+				if toolHeld then
+					self.props.QueueToolUp()
+				end
 			end
 		end,
 		[Roact.Event.MouseLeave] = function(rbx, x, y)
-			self.props.ToolUp()
+			self.props.QueueToolUp()
 		end,
 		[Roact.Event.MouseButton1Up] = function(rbx, x, y)
-			self.props.ToolUp()
+			self.props.QueueToolUp()
 		end,
 	})
 end

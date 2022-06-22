@@ -25,26 +25,14 @@ local makePart = require(script.makePart)
 local BoardClient = setmetatable({}, Board)
 BoardClient.__index = BoardClient
 
-function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string?)
-	local self = setmetatable(Board.new(instance, boardRemotes, persistId), BoardClient)
+function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string?, status: string)
+	local self = setmetatable(Board.new(instance, boardRemotes, persistId, status), BoardClient)
 
-	self._status = "NotLoaded"
-	self.StatusChangedSignal = Signal.new()
-
-	self._changedSinceHeartbeat = false
+	self._changedThisFrame = false
 
 	self._jobQueue = JobQueue.new()
 
-	self._provisionalJobQueue = JobQueue.new()
-	self._provisionalDrawingTasks = {}
-
-	self.LocalHistoryChangedSignal = Signal.new()
-	self.DrawingTaskChangedSignal = Signal.new()
-
-	self._isClientLoaded = false
-
 	self.ClickedSignal = Signal.new()
-	self._destructor = Destructor.new()
 	self._destructor:Add(function() self.ClickedSignal:DisconnectAll() end)
 
 	local surfacePart do
@@ -69,6 +57,19 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 		button.Size = UDim2.new(1, 0, 1, 0)
 		button.Parent = surfaceGui
 
+		-- -- Show distance to board on board
+		-- RunService.Heartbeat:Connect(function()
+		-- 	local character = Players.LocalPlayer.Character
+		-- 	if not character then return end
+		-- 	local humanoidRootPart = character.HumanoidRootPart
+		-- 	if not humanoidRootPart then return end
+		-- 	button.Text = tostring(math.floor((humanoidRootPart.Position - instance:GetPivot().Position).Magnitude))
+		-- 	-- button.Text = Dictionary.count(self.Figures)
+		-- 	button.TextScaled = true
+		-- 	button.TextColor3 = Color3.new(1,1,1)
+		-- 	button.TextStrokeColor3 = Color3.new(0,0,0)
+		-- end)
+
 		self._destructor:Add(button.Activated:Connect(function()
 			self.ClickedSignal:Fire()
 		end))
@@ -78,7 +79,7 @@ function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string
 end
 
 function BoardClient:DataChanged()
-	self._changedSinceHeartbeat = true
+	self._changedThisFrame = true
 end
 
 function BoardClient:ConnectToRemoteClientEvents()

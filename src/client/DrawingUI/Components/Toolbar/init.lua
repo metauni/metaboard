@@ -160,7 +160,10 @@ function Toolbar:render()
 
 	local toolbarLength = self.props.ToolMenuWidth + self.props.StrokeMenuWidth + self.props.HistoryMenuWidth + 6
 
-	local mainToolbar = e("Frame", {
+	local mainToolbar = e("TextButton", {
+
+		Modal = true,
+		AutoButtonColor = false,
 
 		Size = UDim2.fromScale(1,1),
 		AnchorPoint = Vector2.new(0.5,0.5),

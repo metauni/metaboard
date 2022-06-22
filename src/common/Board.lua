@@ -8,6 +8,7 @@ local Figure = require(Common.Figure)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
 local Signal = require(Common.Packages.GoodSignal)
+local Destructor = require(Common.Packages.Destructor)
 local Sift = require(Common.Packages.Sift)
 
 -- Dictionary Operations
@@ -18,7 +19,7 @@ local merge = Dictionary.merge
 local Board = {}
 Board.__index = Board
 
-function Board.new(instance: Model | Part, boardRemotes, persistId: string?)
+function Board.new(instance: Model | Part, boardRemotes, persistId: string?, status: string)
 	local self = setmetatable({
 		_instance = instance,
 		_surfacePart = instance:IsA("Model") and instance.PrimaryPart or instance,
@@ -30,6 +31,14 @@ function Board.new(instance: Model | Part, boardRemotes, persistId: string?)
 		PersistId = persistId,
 		DataChangedSignal = Signal.new()
 	}, Board)
+
+	self._destructor = Destructor.new()
+
+	self._status = status
+	self.StatusChangedSignal = Signal.new()
+	self._destructor:Add(function()
+		self.StatusChangedSignal:DisconnectAll()
+	end)
 
 
 	do
@@ -78,7 +87,7 @@ function Board:CommitAllDrawingTasks()
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
+function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
 
 	for userId, playerHistory in pairs(playerHistories) do
 		setmetatable(playerHistory, History)
@@ -89,20 +98,12 @@ function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex
 	self.PlayerHistories = playerHistories
 	self.NextFigureZIndex = nextFigureZIndex
 
-	if eraseGrid == nil then
-		eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
-		local committedFigures = self:CommitAllDrawingTasks()
+	local committedFigures = self:CommitAllDrawingTasks()
 
-		for figureId, figure in pairs(committedFigures) do
-			eraseGrid:AddFigure(figureId, figure)
-		end
-
-	else
-
-		-- Need to set the metatables that were lost in the remote event
-		eraseGrid = EraseGrid.deserialise(eraseGrid)
-
+	for figureId, figure in pairs(committedFigures) do
+		eraseGrid:AddFigure(figureId, figure)
 	end
 
 	self.EraseGrid = eraseGrid

@@ -8,6 +8,7 @@ local e = Roact.createElement
 
 -- Components
 local Line = require(script.Parent.Line)
+local Circle = require(script.Parent.Circle)
 
 local SECTION_LENGTH = 50
 
@@ -20,14 +21,92 @@ function SubCurve:render()
 	local firstIndex = self.props.FirstIndex
   local lastIndex = self.props.LastIndex
 
-	local ithline = function(i)
-		return not lineMask[tostring(i)] and e(Line, {
-			P0 = points[i],
-			P1 = points[i+1],
+  local ithline = function(i)
+		local a, b, c, d = points[i-1], points[i], points[i+1], points[i+2]
+		local mab = lineMask[tostring(i-1)]
+		local mbc = lineMask[tostring(i)]
+		local mcd = lineMask[tostring(i+1)]
+
+		if mbc then
+			return false
+		end
+
+		if b == c then
+
+			return Circle({
+
+				Position = b,
+				Width = self.props.Width,
+				Color = self.props.Color,
+
+			})
+		end
+
+		local roundedP0 = i == 1 or mab
+		local roundedP1 = i+1 == #points or mcd
+		-- roundedP1 = true
+
+		local p0Extend, p1Extend = 0, 0
+
+		if i > 1 and not mab and a ~= b then
+			local u = a - b
+			local v = c - b
+
+			if u:Dot(v) <= 0 then
+
+				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
+				local cosTheta = u.Unit:Dot(v.Unit)
+
+				-- Check that sin(theta) is non zero and that both sin(theta) and
+				-- cos(theta) are not NaN.
+				if sinTheta > 0 and cosTheta == cosTheta then
+					p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				end
+			else
+				roundedP0 = true
+			end
+		end
+
+		if i+1 < #points and not mbc and c ~= d then
+			local u = b - c
+			local v = d - c
+
+			if u:Dot(v) <= 0 then
+				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
+				local cosTheta = u.Unit:Dot(v.Unit)
+
+				-- Check that sin(theta) is non zero and that both sin(theta) and
+				-- cos(theta) are not NaN.
+				if sinTheta > 0 and cosTheta == cosTheta then
+					p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				end
+			end
+			-- No "else roundedP1 = true" because this would double up"
+		end
+    
+    -- local rounded = roundedP0 or roundedP1
+    local rounded = true
+
+    if rounded then
+      p0Extend = self.props.Width/2
+      p1Extend = self.props.Width/2
+    end
+
+
+		local p0E = points[i] + p0Extend * (points[i] - points[i+1]).Unit
+		local p1E = points[i+1] + p1Extend * (points[i+1] - points[i]).Unit
+
+
+		return Line({
+
+			P0 = p0E,
+			P1 = p1E,
 			Width = self.props.Width,
 			Color = self.props.Color,
-			ZIndex = 0,
-		}) or nil
+
+			Rounded = rounded,
+
+		})
 	end
 
 	local lines = {}
@@ -41,7 +120,9 @@ function SubCurve:render()
     DisplayOrder = self.props.ZIndex + self.props.ZIndexOffset,
 
     [Roact.Children] = {
-      Container = e(self.props.Container, {}, lines),
+      Container = self.props.Container({
+				[Roact.Children] = lines,
+			}),
     },
 
   })

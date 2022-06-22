@@ -9,9 +9,9 @@ local StraightLine = require(Common.DrawingTask.StraightLine)
 local deriveStroke = require(script.Parent.deriveStroke)
 
 return {
-	newDrawingTask = function(self)
+	newDrawingTask = function(self, state)
 		local taskId = Config.GenerateUUID()
-		local stroke = deriveStroke(self)
+		local stroke = deriveStroke(state)
 		local thicknessYScale = stroke.Width / self.CanvasAbsoluteSizeBinding:getValue().Y
 		local color = stroke.ShadedColor.Color
 

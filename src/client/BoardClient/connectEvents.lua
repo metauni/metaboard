@@ -14,12 +14,12 @@ local set = Sift.Dictionary.set
 
 return function(board, destructor)
 
-	destructor:Add(RunService.Heartbeat:Connect(function()
-		if board._changedSinceHeartbeat then
+	destructor:Add(RunService.RenderStepped:Connect(function()
+		if board._changedThisFrame then
 			board.DataChangedSignal:Fire()
 		end
 
-		board._changedSinceHeartbeat = false
+		board._changedThisFrame = false
 	end))
 
 	-- Connect remote event callbacks to respond to init/update/finish's of a drawing task.
@@ -38,7 +38,7 @@ return function(board, destructor)
 
 			local pastForgetter = function(pastDrawingTask)
 				board.Figures = DrawingTask.Commit(pastDrawingTask, board.Figures)
-				board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, nil)
+				board.DrawingTasks = set(board.DrawingTasks, pastDrawingTask.Id, nil)
 			end
 
 			local newHistory = playerHistory:Clone()

@@ -56,7 +56,10 @@ end
 
 function FreeHand.Update(drawingTask, board, canvasPos: Vector2)
 
-	local newPoints = push(drawingTask.Curve.Points, canvasPos)
+	-- This means that the points array cannot be treated as immutable
+	-- We still return a new drawingTask with a new curve in it.
+	local newPoints = drawingTask.Curve.Points
+	table.insert(newPoints, canvasPos)
 
 	local newCurve = set(drawingTask.Curve, "Points", newPoints)
 

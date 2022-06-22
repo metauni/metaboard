@@ -82,14 +82,22 @@ end
 
 function Erase.Commit(drawingTask, figures)
 	local updatedFigures = {}
+	local removals = {}
 
 	for figureId, figure in pairs(figures) do
 		local mask = drawingTask.FigureIdToMask[figureId]
+		local mergedMask = Figure.MergeMask(figure.Type, figure.Mask, mask)
+		local newFigure = set(figure, "Mask", mergedMask)
 
-		updatedFigures[figureId] = set(figure, "Mask", Figure.MergeMask(figure.Type, figure.Mask, mask))
+		if Figure.FullyMasked(newFigure) then
+			removals[figureId] = Sift.None
+		else
+			updatedFigures[figureId] = newFigure
+		end
+
 	end
 
-	return merge(figures, updatedFigures)
+	return merge(figures, updatedFigures, removals)
 end
 
 function Erase.Undo(drawingTask, board)

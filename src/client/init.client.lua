@@ -2,8 +2,8 @@
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
-
 
 -- Imports
 local Config = require(Common.Config)
@@ -13,47 +13,57 @@ local EraseGrid = require(Common.EraseGrid)
 local DrawingUI = require(script.DrawingUI)
 local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
+local BoardController = require(script.BoardController)
+local Sift = require(Common.Packages.Sift)
+local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+local Roact: Roact = require(Common.Packages.Roact)
 
--- Helper functions
-local boardLoader = require(script.boardLoader)
-local makeSurfaceCanvas = require(script.makeSurfaceCanvas)
+Roact.setGlobalConfig({
+	defaultHostProps = {
+		["Part"] = {
+			Material = Enum.Material.SmoothPlastic,
+			TopSurface = Enum.SurfaceType.Smooth,
+			BottomSurface = Enum.SurfaceType.Smooth,
+			Anchored = true,
+			CanCollide = false,
+			CastShadow = false,
+			CanTouch = false, -- Do not trigger Touch events
+			CanQuery = false, -- Does not take part in e.g. GetPartsInPart
+		},
+	},
+})
 
-local Boards = {}
+local InstanceToBoard = {}
 
 local openedBoard = nil
-local canvasFolder = Instance.new("Folder")
-canvasFolder.Name = "Canvases"
-canvasFolder.Parent = workspace
 
 local function bindBoardInstance(instance, remotes, persistId)
-
 	-- Ignore if already seen this board
-	if Boards[instance] then return end
-
-	local board = BoardClient.new(instance, remotes, persistId)
-
-	if board:Status() == "NotLoaded" then
-
-		local connection
-		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(function(success, figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
-
-			if success then
-				board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
-			end
-
-			board:SetStatus("Loaded")
-
-			connection:Disconnect()
-
-		end)
-
-		board.Remotes.RequestBoardData:FireServer()
-
+	if InstanceToBoard[instance] then
+		return
 	end
 
-	local whenLoaded = function()
+	local board = BoardClient.new(instance, remotes, persistId, "NotLoaded")
 
-		local surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
+	do
+		local connection
+		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(
+			function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
+				if success then
+					board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
+				end
+
+				board:SetStatus("Loaded")
+
+				connection:Disconnect()
+			end
+		)
+	end
+
+	board.Remotes.RequestBoardData:FireServer()
+
+	local whenLoaded = function()
+		-- local surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
 
 		--[[
 			Pick one of these for different board view modes.
@@ -82,7 +92,6 @@ local function bindBoardInstance(instance, remotes, persistId)
 		----------------------------------------------------------------------------
 
 		local boardViewMode = "Gui"
-		makeSurfaceCanvas(board, canvasFolder)
 		board.ClickedSignal:Connect(function()
 			if openedBoard == nil then
 				DrawingUI.Open(board, boardViewMode, function()
@@ -96,7 +105,7 @@ local function bindBoardInstance(instance, remotes, persistId)
 
 		board:ConnectToRemoteClientEvents()
 
-
+		InstanceToBoard[instance] = board
 	end
 
 	if board:Status() == "NotLoaded" then
@@ -110,9 +119,7 @@ local function bindBoardInstance(instance, remotes, persistId)
 	else
 		whenLoaded()
 	end
-
 end
-
 
 -- Preload all of the assets
 do
@@ -132,9 +139,21 @@ BoardService.BoardAdded.OnClientEvent:Connect(function(instance, serverBoard)
 end)
 
 do
-	local serverBoards = BoardService.GetBoards:InvokeServer()
+	local boards = BoardService.GetBoards:InvokeServer()
 
-	for _, serverBoard in ipairs(serverBoards) do
-		bindBoardInstance(serverBoard._instance, serverBoard.Remotes, serverBoard.PersistId)
+	for _, board in ipairs(boards) do
+		bindBoardInstance(board.Instance, board.Remotes, board.PersistId)
 	end
 end
+
+local boardController = BoardController.new()
+
+task.spawn(function()
+	while true do
+		debug.setmemorycategory("BoardController (heap)")
+		boardController:Update(Dictionary.filter(InstanceToBoard, function(board)
+			return board:Status() == "Loaded"
+		end))
+		task.wait(5)
+	end
+end)

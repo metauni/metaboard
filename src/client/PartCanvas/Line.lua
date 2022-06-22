@@ -25,13 +25,13 @@ return function(props)
 
 	local canvasSize = props.CanvasSize
 	local canvasCFrame = props.CanvasCFrame
-	
+
 	local aspectRatio = canvasSize.X / canvasSize.Y
 
 	local roundedP0 = props.RoundedP0
 	local roundedP1 = props.RoundedP1
 
-	local length = (props.P0 - props.P1).Magnitude + ((roundedP0 or roundedP1) and 0 or props.Width)
+	local length = (props.P0 - props.P1).Magnitude
 	local centre = (props.P0 + props.P1)/2
 	local rotation = math.atan2((props.P0 - props.P1).Y, (props.P0 - props.P1).X)
 
@@ -43,8 +43,8 @@ return function(props)
 		- Config.Canvas.InitialZOffsetStuds
 		- props.ZIndex * Config.Canvas.StudsPerZIndex
 
-	return e(NonPhysicalPart, {
-		
+	return e("Part", {
+
 		Size = Vector3.new(
 			length * canvasSize.Y,
 			props.Width * canvasSize.Y,
@@ -56,9 +56,9 @@ return function(props)
 		CFrame = canvasCFrame * CFrame.new(x,y,z) * CFrame.Angles(0, 0, rotation),
 
 		[Roact.Children] = {
-			
-			P0 = roundedP0 and e(Circle, {
-				
+
+			P0 = roundedP0 and Circle({
+
 				Point = props.P0,
 				Width = props.Width,
 				Color = props.Color,
@@ -69,8 +69,8 @@ return function(props)
 
 			}) or nil,
 
-			P1 = roundedP1 and e(Circle, {
-				
+			P1 = roundedP1 and Circle({
+
 				Point = props.P1,
 				Width = props.Width,
 				Color = props.Color,

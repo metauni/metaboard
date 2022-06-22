@@ -8,6 +8,7 @@ local e = Roact.createElement
 
 -- Components
 local Line = require(script.Parent.Line)
+local Circle = require(script.Parent.Circle)
 
 local SECTION_LENGTH = 50
 
@@ -21,26 +22,92 @@ function SubCurve:render()
 	local lineMask = self.props.Mask
 
 	local firstIndex = self.props.FirstIndex
-  local lastIndex = self.props.LastIndex
+	local lastIndex = self.props.LastIndex
 
 	local ithline = function(i)
-    local roundedP0 = i == 1 or lineMask[tostring(i)]
-		local roundedP1 = true
+		local a, b, c, d = points[i-1], points[i], points[i+1], points[i+2]
+		local mab = lineMask[tostring(i-1)]
+		local mbc = lineMask[tostring(i)]
+		local mcd = lineMask[tostring(i+1)]
 
-		return not lineMask[tostring(i)] and e(Line, {
-      
-			P0 = points[i],
-			P1 = points[i+1],
+		if mbc then
+			return false
+		end
+
+		if b == c then
+
+			return Circle({
+
+				Point = b,
+				Width = self.props.Width,
+				Color = self.props.Color,
+				ZIndex = self.props.ZIndex,
+
+				CanvasSize = canvasSize,
+				CanvasCFrame = canvasCFrame,
+
+			})
+		end
+
+		local roundedP0 = i == 1 or mab
+		local roundedP1 = i+1 == #points or mcd
+		-- roundedP1 = true
+
+		local p0Extend, p1Extend = 0, 0
+
+		if i > 1 and not mab and a ~= b then
+			local u = a - b
+			local v = c - b
+
+			if u:Dot(v) <= 0 then
+
+				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
+				local cosTheta = u.Unit:Dot(v.Unit)
+
+				-- Check that sin(theta) is non zero and that both sin(theta) and
+				-- cos(theta) are not NaN.
+				if sinTheta > 0 and cosTheta == cosTheta then
+					p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				end
+			else
+				roundedP0 = true
+			end
+		end
+
+		if i+1 < #points and not mbc and c ~= d then
+			local u = b - c
+			local v = d - c
+
+			if u:Dot(v) <= 0 then
+				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
+				local cosTheta = u.Unit:Dot(v.Unit)
+
+				-- Check that sin(theta) is non zero and that both sin(theta) and
+				-- cos(theta) are not NaN.
+				if sinTheta > 0 and cosTheta == cosTheta then
+					p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				end
+			end
+			-- No "else roundedP1 = true" because this would double up"
+		end
+
+		local p0E = points[i] + p0Extend * (points[i] - points[i+1]).Unit
+		local p1E = points[i+1] + p1Extend * (points[i+1] - points[i]).Unit
+
+		return Line({
+
+			P0 = p0E,
+			P1 = p1E,
 			Width = self.props.Width,
 			Color = self.props.Color,
 			ZIndex = self.props.ZIndex,
 
-      RoundedP0 = roundedP0,
-      RoundedP1 = roundedP1,
+			RoundedP0 = roundedP0,
+			RoundedP1 = roundedP1,
 
 			CanvasSize = canvasSize,
 			CanvasCFrame = canvasCFrame,
-		}) or nil
+		})
 	end
 
 	local lines = {}
@@ -52,60 +119,62 @@ function SubCurve:render()
 end
 
 function SubCurve:shouldUpdate(newProps, newState)
-  if newProps.FirstIndex ~= self.props.FirstIndex then return true end
-  if newProps.LastIndex ~= self.props.LastIndex then return true end
-  if newProps.Width ~= self.props.Width then return true end
-  if newProps.Color ~= self.props.Color then return true end
+	if newProps.FirstIndex ~= self.props.FirstIndex then return true end
+	if newProps.LastIndex ~= self.props.LastIndex then return true end
+	if newProps.Width ~= self.props.Width then return true end
+	if newProps.Color ~= self.props.Color then return true end
 
-  for i=self.props.FirstIndex, self.props.LastIndex do
-    if newProps.Points[i] ~= self.props.Points[i] then return true end
-    if i < self.props.LastIndex and newProps.Mask[tostring(i)] ~= self.props.Mask[tostring(i)] then return true end
-  end
+	for i=self.props.FirstIndex, self.props.LastIndex do
+		if newProps.Points[i] ~= self.props.Points[i] then return true end
+		if i < self.props.LastIndex and newProps.Mask[tostring(i)] ~= self.props.Mask[tostring(i)] then return true end
+	end
 
-  return false
+	return false
 end
 
 local Curve = Roact.PureComponent:extend("Curve")
 
 function Curve:render()
-  local points = self.props.Points
-  local elements = {}
+	local points = self.props.Points
+	local elements = {}
 
-  local i = 1
-  local n = #points
+	local i = 1
+	local n = #points
 
-  while i * SECTION_LENGTH < n do
-    elements[i] = e(SubCurve, {
-      Points = points,
-      FirstIndex = (i-1) * SECTION_LENGTH + (if i == 1 then 1 else 0),
-      LastIndex = i * SECTION_LENGTH,
-      Width = self.props.Width,
-      Color = self.props.Color,
+	while i * SECTION_LENGTH < n do
+		elements[i] = e(SubCurve, {
+			Points = points,
+			FirstIndex = (i-1) * SECTION_LENGTH + (if i == 1 then 1 else 0),
+			LastIndex = i * SECTION_LENGTH,
+			Width = self.props.Width,
+			Color = self.props.Color,
 			ZIndex = self.props.ZIndex,
-      Mask = self.props.Mask,
+			Mask = self.props.Mask,
 
 			CanvasSize = self.props.CanvasSize,
 			CanvasCFrame = self.props.CanvasCFrame,
+			ID = self.props.ID,
 
-    })
-    i += 1
-  end
+		})
+		i += 1
+	end
 
-  elements[i] = e(SubCurve, {
-    Points = points,
-    FirstIndex = (i-1) * SECTION_LENGTH + (if i == 1 then 1 else 0),
-    LastIndex = n,
-    Width = self.props.Width,
-    Color = self.props.Color,
+	elements[i] = e(SubCurve, {
+		Points = points,
+		FirstIndex = (i-1) * SECTION_LENGTH + (if i == 1 then 1 else 0),
+		LastIndex = n,
+		Width = self.props.Width,
+		Color = self.props.Color,
 		ZIndex = self.props.ZIndex,
-    Mask = self.props.Mask,
+		Mask = self.props.Mask,
 
 		CanvasSize = self.props.CanvasSize,
 		CanvasCFrame = self.props.CanvasCFrame,
+		ID = self.props.ID,
 
-  })
+	})
 
-  return e("Folder", {}, elements)
+	return e("Folder", {}, elements)
 end
 
 

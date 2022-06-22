@@ -1,6 +1,7 @@
 -- Services
 local Players = game:GetService("Players")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 -- Imports
@@ -40,6 +41,9 @@ local ConfirmClearModal = require(Components.ConfirmClearModal)
 -- local CANVAS_REGION_SIZE = UDim2.fromScale(1,1)
 local CANVAS_REGION_POSITION = UDim2.new(0, 50 , 0, 150)
 local CANVAS_REGION_SIZE = UDim2.new(1,-100,1,-200)
+
+-- Helper functions
+local toolFunctions = require(script.Parent.toolFunctions)
 
 local App = Roact.PureComponent:extend("App")
 
@@ -102,6 +106,21 @@ function App:init()
 
 	end
 
+	self.ToolQueue = {}
+
+	RunService:BindToRenderStep("ToolQueue", Enum.RenderPriority.First.Value, function()
+		if #self.ToolQueue > 0 then
+			self:setState(function(state)
+				local stateUpdate = {}
+				for i, action in ipairs(self.ToolQueue) do
+					stateUpdate = merge(stateUpdate, action(merge(state, stateUpdate)))
+				end
+
+				return stateUpdate
+			end)
+			self.ToolQueue = {}
+		end
+	end)
 
 	self:setState({
 
@@ -115,6 +134,7 @@ function App:init()
 end
 
 function App:willUnmount()
+	RunService:UnbindFromRenderStep("ToolQueue")
 	self.props.Board.ToolState = self.state.ToolState
 end
 
@@ -287,25 +307,28 @@ function App:render()
 
 		ToolHeld = self.state.ToolHeld,
 
-		ToolDown = function(canvasPos)
-			self:ToolDown(canvasPos)
-			self:setState({ SubMenu = Roact.None })
+		QueueToolDown = function(canvasPos)
+			table.insert(self.ToolQueue, function(state)
+				return toolFunctions.ToolDown(self, state, canvasPos)
+			end)
 		end,
-		ToolMoved = function(canvasPos)
-			self:ToolMoved(canvasPos)
+		QueueToolMoved = function(canvasPos)
+			table.insert(self.ToolQueue, function(state)
+				return toolFunctions.ToolMoved(self, state, canvasPos)
+			end)
 		end,
-		ToolUp = function()
-			self:ToolUp()
+		QueueToolUp = function(canvasPos)
+			table.insert(self.ToolQueue, function(state)
+				return toolFunctions.ToolUp(self, state)
+			end)
 		end,
-
 	})
-
 
 	local figureMaskBundles = {}
 	local allFigures = table.clone(self.props.Figures)
-
+	
 	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
-
+		
 		if drawingTask.Type == "Erase" then
 			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
 			for figureId, figureMask in pairs(figureIdToFigureMask) do
@@ -313,13 +336,13 @@ function App:render()
 				bundle[taskId] = figureMask
 				figureMaskBundles[figureId] = bundle
 			end
-
+			
 		else
-
+			
 			allFigures[taskId] = DrawingTask.Render(drawingTask)
 		end
 	end
-
+	
 	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
 
 		if drawingTask.Type == "Erase" then
@@ -383,7 +406,6 @@ function App:render()
 end
 
 function App.getDerivedStateFromProps(nextProps, lastState)
-
 	--[[
 		Unverified drawing tasks should be removed when their verified version
 		becomes "Finished"
@@ -403,89 +425,16 @@ function App.getDerivedStateFromProps(nextProps, lastState)
 		end
 
 	end
-
+	
 	if next(removals) then
 		return {
 			UnverifiedDrawingTasks = merge(lastState.UnverifiedDrawingTasks, removals)
 		}
 	end
 
-end
-
-function App:ToolDown(canvasPos)
-	-- Must finish tool drawing task before starting a new one
-	if self.state.ToolHeld then
-		self:ToolUp()
-	end
-
-	local drawingTask = self.state.ToolState.EquippedTool.newDrawingTask(self)
-
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
-	end
-
-	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.props.Board, canvasPos)
-
-	self:setState(function(state)
-
-		return {
-
-			ToolHeld = true,
-
-			CurrentUnverifiedDrawingTaskId = initialisedDrawingTask.Id,
-
-			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask),
-
-		}
-	end)
 
 end
 
-function App:ToolMoved(canvasPos)
-	if not self.state.ToolHeld then return end
-
-	local drawingTask = self.state.UnverifiedDrawingTasks[self.state.CurrentUnverifiedDrawingTaskId]
-
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
-	end
-
-	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.props.Board, canvasPos)
-
-	self:setState(function(state)
-		return {
-
-			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, updatedDrawingTask.Id, updatedDrawingTask),
-
-		}
-	end)
-end
-
-function App:ToolUp()
-	if not self.state.ToolHeld then return end
-
-	local drawingTask = self.state.UnverifiedDrawingTasks[self.state.CurrentUnverifiedDrawingTaskId]
-
-	local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, self.props.Board), "Finished", true)
-
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.FinishDrawingTask:FireServer()
-	end
-
-	self:setState(function(state)
-
-		return {
-
-			ToolHeld = false,
-
-			CurrentUnverifiedDrawingTaskId = Roact.None,
-
-			UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, finishedDrawingTask.Id, finishedDrawingTask),
-
-		}
-	end)
-
-end
 
 
 return App
