@@ -29,6 +29,10 @@
 	- [ ] Design line/curve -> memory usage heuristic -> Num boards viewable
 	- [x] Debug active -> dead -> active bug from last week
 
-- [ ] Spatial Audio Button Blocker
+- [x] Spatial Audio Button Blocker
 
 - [x] Decrease canvas margins
+
+- [ ] VR
+	- [x] Extend SurfaceCanvas to support drawing
+	- [ ] Plug in VR code to SurfaceCanvas

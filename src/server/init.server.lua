@@ -46,7 +46,7 @@ local function bindInstance(instance: Model | Part)
 		return
 	end
 
-	local randomised = CollectionService:HasTag(instance, "Randomised2")
+	local randomised = CollectionService:HasTag(instance, "Randomised")
 
 	local persistId: string? = instance:GetAttribute("PersistId")
 	local status = (persistId or randomised) and "NotLoaded" or "Loaded"
@@ -93,7 +93,12 @@ local function bindInstance(instance: Model | Part)
 		board.DataChangedSignal:Connect(function()
 			Set.add(ChangedSinceStore, board)
 		end)
-	elseif not randomised then
+	elseif randomised then
+		local figures = randomFigures(board:AspectRatio(), math.random(1000, 8000), 10, 100)
+		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
+	
+		board:SetStatus("Loaded")
+	else
 		board:SetStatus("Loaded")
 	end
 end
@@ -161,19 +166,6 @@ local function saveChangedBoards()
 	end
 
 	ChangedSinceStore = {}
-end
-
-for i, instance in ipairs(CollectionService:GetTagged("Randomised2")) do
-	local board = InstanceToBoard[instance]
-
-	local figures = randomFigures(board:AspectRatio(), 20000, 10, 100)
-	board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
-
-	board:SetStatus("Loaded")
-
-	if math.fmod(i,4) == 0 then
-		task.wait()
-	end
 end
 
 -- 5 seconds after startup, start restoring all of the boards.

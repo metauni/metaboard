@@ -89,6 +89,8 @@ local PartCanvas = Roact.PureComponent:extend("PartCanvas")
 
 function PartCanvas:render()
 
+	assert(self.props.CanvasCFrame)
+
 	local pureFigures = {}
 
 	for figureId, figure in pairs(self.props.Figures) do

@@ -110,6 +110,45 @@ function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex
 
 end
 
+--[[
+	An upper bound on the number of lines on the board
+	(doesn't account for erased lines)
+--]]
+function Board:LinesForBudget()
+	local count = 0
+
+	for figureId, figure in pairs(self.Figures) do
+		if figure.Type == "Curve" then
+			count += #figure.Points
+		else
+			count += 1
+		end
+	end
+
+	for taskId, drawingTask in pairs(self.DrawingTasks) do
+		if drawingTask.Type ~= "Erase" then
+			local figure = DrawingTask.Render(drawingTask)
+
+			if figure.Type == "Curve" then
+				count += #figure.Points
+			else
+				count += 1
+			end
+		end
+	end
+
+	return count
+end
+
+--[[
+	Set the transparency of the board part.
+--]]
+function Board:SetTransparency(transparency)
+	local boardPart = self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
+
+	boardPart.Transparency = transparency
+end
+
 local _faceAngleCFrame = {
 	Front  = CFrame.Angles(0, 0, 0),
 	Left   = CFrame.Angles(0, math.pi / 2, 0),

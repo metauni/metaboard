@@ -4,6 +4,7 @@ local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
+local UserGameSettings = UserSettings():GetService("UserGameSettings")
 
 -- Imports
 local Config = require(Common.Config)
@@ -13,7 +14,7 @@ local EraseGrid = require(Common.EraseGrid)
 local DrawingUI = require(script.DrawingUI)
 local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
-local BoardController = require(script.BoardController)
+local ViewStateManager = require(script.ViewStateManager)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local Roact: Roact = require(Common.Packages.Roact)
@@ -63,33 +64,6 @@ local function bindBoardInstance(instance, remotes, persistId)
 	board.Remotes.RequestBoardData:FireServer()
 
 	local whenLoaded = function()
-		-- local surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
-
-		--[[
-			Pick one of these for different board view modes.
-			Notice the workspace one destroys the surface canvas when the drawing UI
-			opens and recreates it on close, whereas the gui one doesn't touch it.
-		--]]
-
-		----------------------------------------------------------------------------
-		-- Workspace Board View Mode (move the camera to the board)
-		----------------------------------------------------------------------------
-
-		-- local boardViewMode = "Workspace"
-		-- board.ClickedSignal:Connect(function()
-		-- 	if openedBoard == nil then
-		-- 		surfaceCanvasDestroyer()
-		-- 		DrawingUI.Open(board, boardViewMode, function()
-		-- 			openedBoard = nil
-		-- 			surfaceCanvasDestroyer = makeSurfaceCanvas(board, canvasFolder)
-		-- 		end)
-		-- 		openedBoard = board
-		-- 	end
-		-- end)
-
-		----------------------------------------------------------------------------
-		-- Gui Board View Mode (show the board inside a viewport and draw gui curves)
-		----------------------------------------------------------------------------
 
 		local boardViewMode = "Gui"
 		board.ClickedSignal:Connect(function()
@@ -100,8 +74,6 @@ local function bindBoardInstance(instance, remotes, persistId)
 				openedBoard = board
 			end
 		end)
-
-		----------------------------------------------------------------------------
 
 		board:ConnectToRemoteClientEvents()
 
@@ -146,14 +118,20 @@ do
 	end
 end
 
-local boardController = BoardController.new()
+local viewStateManager = ViewStateManager.new()
 
 task.spawn(function()
 	while true do
-		debug.setmemorycategory("BoardController (heap)")
-		boardController:Update(Dictionary.filter(InstanceToBoard, function(board)
+		local loadedBoards = Dictionary.filter(InstanceToBoard, function(board)
 			return board:Status() == "Loaded"
-		end))
-		task.wait(5)
+		end)
+
+		local lineBudget = 10 * 10000
+		if UserGameSettings.SavedQualityLevel ~= Enum.SavedQualitySetting.Automatic then
+			lineBudget = UserGameSettings.SavedQualityLevel.Value * 10000
+		end
+
+		viewStateManager:UpdateStatus(loadedBoards, lineBudget)
+		task.wait(2)
 	end
 end)

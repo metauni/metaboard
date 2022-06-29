@@ -54,12 +54,12 @@ local function partCanvasFigure(props)
 	)
 end
 
-return function(canvas, board, oldFigures, oldDrawingTasks)
+return function(board, viewData)
 
 	local oldFigureMaskBundles = {}
-	local oldAllFigures = table.clone(oldFigures)
+	local oldAllFigures = table.clone(viewData.Figures)
 
-	for taskId, drawingTask in pairs(oldDrawingTasks) do
+	for taskId, drawingTask in pairs(viewData.DrawingTasks) do
 
 		if drawingTask.Type == "Erase" then
 
@@ -127,7 +127,7 @@ return function(canvas, board, oldFigures, oldDrawingTasks)
 
 	-- Remove all removed figures
 	for figureId in pairs(removed) do
-		local figureInstance = canvas:FindFirstChild(figureId)
+		local figureInstance = viewData.Canvas:FindFirstChild(figureId)
 		if figureInstance == nil then
 			print(("Tried removing figureInstance %s that wasn't there"):format(figureId))
 		else
@@ -137,13 +137,16 @@ return function(canvas, board, oldFigures, oldDrawingTasks)
 
 	-- Replace all modifed figures
 	for figureId, figureAndMasks in pairs(modified) do
-		local oldFigureInstance = canvas:FindFirstChild(figureId)
+		local oldFigureInstance = viewData.Canvas:FindFirstChild(figureId)
 
 		if oldFigureInstance ~= nil then
 			oldFigureInstance:Destroy()
 		end
 
-		Roact.mount(e(partCanvasFigure, figureAndMasks), canvas, figureId)
+		Roact.mount(e(partCanvasFigure, figureAndMasks), viewData.Canvas, figureId)
 	end
+
+	viewData.Figures = board.Figures
+	viewData.DrawingTasks = board.DrawingTasks
 
 end

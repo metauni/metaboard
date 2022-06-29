@@ -28,8 +28,8 @@ return function(aspectRatio, totalLines, minLinesPerCurve, maxLinesPerCurve)
 			local ydir = rd() > 0.5 and 1 or -1
 			local xdir = rd() > 0.5 and 1 or -1
 			point = Vector2.new(
-				math.clamp(point.X + 0.01 * xdir * rd(), 0, aspectRatio),
-				math.clamp(point.Y + 0.01 * ydir * rd(), 0, 1)
+				math.clamp(point.X + 0.03 * xdir * rd(), 0, aspectRatio),
+				math.clamp(point.Y + 0.03 * ydir * rd(), 0, 1)
 			)
 			table.insert(points, point)
 		end

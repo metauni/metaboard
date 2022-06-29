@@ -20,6 +20,8 @@ end
 return function(props)
 	local canvasSize = props.CanvasSize
 	local canvasCFrame = props.CanvasCFrame
+
+	assert(canvasCFrame)
 	
 	local aspectRatio = canvasSize.X / canvasSize.Y
 
