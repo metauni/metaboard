@@ -135,16 +135,16 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 	self._destructor:Add(self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
-			self.Remotes.Redo:FireAllClients(player)
-
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
-
+			
 			if playerHistory:CountFuture() < 1 then
 				-- error("Cannot redo, future empty")
 				-- No error so clients can just attempt redo
 				return
 			end
 
+			self.Remotes.Redo:FireAllClients(player)
+			
 			local newHistory = playerHistory:Clone()
 
 			local drawingTask = newHistory:StepForward()
