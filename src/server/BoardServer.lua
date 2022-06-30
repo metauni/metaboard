@@ -107,13 +107,15 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 	self._destructor:Add(self.Remotes.Undo.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
-			self.Remotes.Undo:FireAllClients(player)
-
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
-
+			
 			if playerHistory:CountPast() < 1 then
-				error("Cannot undo, past empty")
+				-- error("Cannot undo, past empty")
+				-- No error so clients can just attempt undo
+				return
 			end
+
+			self.Remotes.Undo:FireAllClients(player)
 
 			local newHistory = playerHistory:Clone()
 
@@ -138,7 +140,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
 
 			if playerHistory:CountFuture() < 1 then
-				error("Cannot redo, future empty")
+				-- error("Cannot redo, future empty")
+				-- No error so clients can just attempt redo
+				return
 			end
 
 			local newHistory = playerHistory:Clone()
