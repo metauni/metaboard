@@ -7,8 +7,10 @@ local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
-local toolFunctions = require(script.Parent.Parent.DrawingUI.toolFunctions)
+local toolFunctions = require(script.toolFunctions)
 local ToolQueue = require(script.Parent.ToolQueue)
+local Pen = require(script.Pen)
+local Eraser = require(script.Eraser)
 
 local function toScalar(viewX, viewY, canvasCFrame, canvasSize)
 	return Vector2.new(viewX, viewY) / workspace.CurrentCamera.ViewportSize.Y
@@ -16,9 +18,32 @@ end
 
 return function (self)
 
+	print(self.props.Board._instance.Name..": on")
+
 	local connections = {}
 
 	local toolQueue = ToolQueue(self)
+	self.ToolHeld = false
+	self.EquippedTool = Pen
+	self.EraserSize = 0.1
+
+	table.insert(connections, UserInputService.InputBegan:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.Keyboard then
+			if not self.ToolHeld then
+				if input.KeyCode == Enum.KeyCode.E then
+					self.EquippedTool = Eraser
+				elseif input.KeyCode == Enum.KeyCode.P then
+					self.EquippedTool = Pen
+				elseif input.KeyCode == Enum.KeyCode.U then
+					self.props.Board.Remotes.Undo:FireServer()
+				elseif input.KeyCode == Enum.KeyCode.R then
+					self.props.Board.Remotes.Redo:FireServer()
+				end
+			end
+		end
+
+	end))
 
 	table.insert(connections, UserInputService.InputBegan:Connect(function(input)
 
@@ -53,10 +78,13 @@ return function (self)
 	return {
 
 		Destroy = function ()
+			print(self.props.Board._instance.Name..": off")
+
 			for _, connection in ipairs(connections) do
 				connection:Disconnect()
 			end
 			toolQueue.Destroy()
+
 		end
 
 	}

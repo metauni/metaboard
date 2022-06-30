@@ -26,12 +26,13 @@ local character = Players.LocalPlayer.CharacterAdded:Wait()
 
 local function inRange(self)
 	local boardLookVector = self.props.CanvasCFrame.LookVector
+	local boardRightVector = self.props.CanvasCFrame.RightVector
 
 	local characterVector = character:GetPivot().Position - self.props.CanvasCFrame.Position
 	local normalDistance = boardLookVector:Dot(characterVector)
 
-	local strafeDistance = Vector2.new(boardLookVector.X, boardLookVector.Z):Cross(Vector2.new(characterVector.X, characterVector.Z))
-	return (0 <= normalDistance and normalDistance <= 20) and strafeDistance <= self.props.CanvasSize.X/2
+	local strafeDistance = boardRightVector:Dot(characterVector)
+	return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= self.props.CanvasSize.X/2 + 5
 end
 
 local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")
@@ -42,10 +43,6 @@ function SurfaceCanvas:init()
 
 	self:setState({
 		LineLimit = 0,
-		ToolHeld = false,
-		ToolState = {
-			EquippedTool = Pen,
-		},
 		UnverifiedDrawingTasks = {},
 		CurrentUnverifiedDrawingTaskId = Roact.None,
 	})
@@ -86,20 +83,20 @@ function SurfaceCanvas:didMount()
 				if isInRange and not self.VRDummy then
 					self.VRDummy = VRDummy(self)
 
-					if self.state.ToolHeld then
+				elseif not isInRange and self.VRDummy then
+
+					if self.ToolHeld then
 						self.props.Board.Remotes.FinishDrawingTask:FireServer()
 					end
 
+					self.VRDummy.Destroy()
+					self.VRDummy = nil
+
 					self:setState({
-						ToolHeld = false,
 						UnverifiedDrawingTasks = {},
 						CurrentUnverifiedDrawingTaskId = Roact.None,
 					})
 
-				elseif not isInRange and self.VRDummy then
-
-					self.VRDummy.Destroy()
-					self.VRDummy = nil
 
 				end
 			end
@@ -193,6 +190,22 @@ function SurfaceCanvas:render()
 			end
 
 			allFigures[taskId] = figure
+		end
+	end
+
+	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
 		end
 	end
 

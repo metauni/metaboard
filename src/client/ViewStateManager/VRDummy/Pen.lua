@@ -9,9 +9,9 @@ local FreeHand = require(Common.DrawingTask.FreeHand)
 local deriveStroke = require(script.Parent.deriveStroke)
 
 return {
-	newDrawingTask = function(self, state)
+	newDrawingTask = function(self)
 		local taskId = Config.GenerateUUID()
-		local stroke = deriveStroke(state)
+		local stroke = deriveStroke(self)
 		local color = stroke.ShadedColor.Color
 
 		return FreeHand.new(taskId, color, stroke.Width)
