@@ -109,7 +109,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
 			
-			if playerHistory:CountPast() < 1 then
+			if playerHistory == nil or playerHistory:CountPast() < 1 then
 				-- error("Cannot undo, past empty")
 				-- No error so clients can just attempt undo
 				return
@@ -137,7 +137,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)]
 			
-			if playerHistory:CountFuture() < 1 then
+			if playerHistory == nil or playerHistory:CountFuture() < 1 then
 				-- error("Cannot redo, future empty")
 				-- No error so clients can just attempt redo
 				return
