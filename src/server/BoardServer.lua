@@ -47,7 +47,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 
 			local pastForgetter = function(pastDrawingTask)
 				self.Figures = DrawingTask.Commit(pastDrawingTask, self.Figures)
-				self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, nil)
+				self.DrawingTasks = set(self.DrawingTasks, pastDrawingTask.Id, nil)
 			end
 
 			local newHistory = playerHistory:Clone()
