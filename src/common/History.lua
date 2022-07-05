@@ -244,6 +244,18 @@ function History:Expand(capacity)
 	self._capacity = capacity
 end
 
+function History:IterPastAndFuture()
+	local j = self._next - self._behind
+
+	return function()
+		if j <= self._next + self._ahead - 1 then
+			local item = self._table[wrap(j, self._capacity)]
+			j += 1
+			return item
+		end
+	end
+end
+
 function History:Clone()
 	return setmetatable({
 		_capacity = self._capacity,

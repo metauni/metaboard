@@ -9,7 +9,7 @@ local Destructor = require(Common.Packages.Destructor)
 local DrawingTask = require(Common.DrawingTask)
 local EraseGrid = require(Common.EraseGrid)
 local History = require(Common.History)
-local JobQueue = require(Config.Debug and Common.InstantJobQueue or Common.JobQueue)
+local JobQueue = require(Common.InstantJobQueue)
 local DelayedJobQueue = require(Common.DelayedJobQueue)
 local Signal = require(Common.Packages.GoodSignal)
 local Sift = require(Common.Packages.Sift)
@@ -45,15 +45,41 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			local initialisedDrawingTask = DrawingTask.Init(verifiedDrawingTask, self, canvasPos)
 			self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask)
 
-			local pastForgetter = function(pastDrawingTask)
-				self.Figures = DrawingTask.Commit(pastDrawingTask, self.Figures)
-				self.DrawingTasks = set(self.DrawingTasks, initialisedDrawingTask.Id, nil)
+			local newHistory = playerHistory:Clone()
+			newHistory:Push(initialisedDrawingTask)
+			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
+
+			-- Any drawing task which doesn't appear in any player history is a candidate for committing
+			local needsCommitDrawingTasks = table.clone(self.DrawingTasks)
+			for playerId, pHistory in pairs(self.PlayerHistories) do
+
+				for historyDrawingTask in pHistory:IterPastAndFuture() do
+
+					needsCommitDrawingTasks[historyDrawingTask.Id] = nil
+
+				end
 			end
 
-			local newHistory = playerHistory:Clone()
-			newHistory:Push(initialisedDrawingTask, pastForgetter)
+			for taskId, dTask in pairs(needsCommitDrawingTasks) do
+				local canCommit
 
-			self.PlayerHistories = set(self.PlayerHistories, tostring(player.UserId), newHistory)
+				if dTask.Type == "Erase" then
+					-- Every figure being (partially) erased must be gone from DrawingTasks
+					canCommit = Dictionary.every(dTask.FigureIdToMask, function(mask, figureId)
+						return self.DrawingTasks[figureId] == nil
+					end)
+				else
+					canCommit = true
+				end
+
+				if canCommit then
+					self.Figures = DrawingTask.Commit(dTask, self.Figures)
+					self.DrawingTasks = set(self.DrawingTasks, dTask.Id, nil)
+				end
+
+				-- Drawing Tasks not committed now will be committed later when canCommitt == true
+
+			end
 
 			self.DataChangedSignal:Fire()
 

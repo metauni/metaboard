@@ -35,6 +35,7 @@ local WorkspaceBoardViewer = require(Components.WorkspaceBoardViewer)
 local Toolbar = require(Components.Toolbar)
 local Cursor = require(Components.Cursor)
 local ConfirmClearModal = require(Components.ConfirmClearModal)
+local EraseGridDebug = require(Components.EraseGridDebug)
 
 -- Constants
 -- local CANVAS_REGION_POSITION = UDim2.fromScale(0, 0)
@@ -383,6 +384,16 @@ function App:render()
 
 	})
 
+	local eraseGridDebug = Config.Debug and e(EraseGridDebug, {
+
+		Board = self.props.Board,
+
+		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+
+
+	}) or nil
+
 
 	return e("ScreenGui", {
 
@@ -400,6 +411,8 @@ function App:render()
 			ConfirmClearModalGui = ConfirmClearModalGui,
 
 			BoardViewer = boardViewer,
+
+			EraseGridDebug = eraseGridDebug,
 
 		}
 	})

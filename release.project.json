@@ -1,7 +1,6 @@
 {
 	"name": "metaboard",
 	"tree": {
-		"$className": "Folder",
 		"$path": "src/server",
 
 		"Common": {

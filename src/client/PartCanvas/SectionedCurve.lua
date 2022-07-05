@@ -61,8 +61,8 @@ function SubCurve:render()
 
 			if u:Dot(v) <= 0 then
 
-				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
-				local cosTheta = u.Unit:Dot(v.Unit)
+				local sinTheta = math.clamp(math.abs(u.Unit:Cross(v.Unit)), 0, 1)
+				local cosTheta = math.clamp(u.Unit:Dot(v.Unit), -1, 1)
 
 				-- Check that sin(theta) is non zero and that both sin(theta) and
 				-- cos(theta) are not NaN.
@@ -79,8 +79,8 @@ function SubCurve:render()
 			local v = d - c
 
 			if u:Dot(v) <= 0 then
-				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
-				local cosTheta = u.Unit:Dot(v.Unit)
+				local sinTheta = math.clamp(math.abs(u.Unit:Cross(v.Unit)), 0, 1)
+				local cosTheta = math.clamp(u.Unit:Dot(v.Unit), -1, 1)
 
 				-- Check that sin(theta) is non zero and that both sin(theta) and
 				-- cos(theta) are not NaN.
