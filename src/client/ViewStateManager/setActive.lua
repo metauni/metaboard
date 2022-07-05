@@ -11,7 +11,7 @@ local extractHostObject = require(script.Parent.extractHostObject)
 
 return function(board, viewData, canvasTarget, getLineBudget)
 	local oldViewData = viewData or {}
-	local newViewData
+	local newViewData = {}
 
 	local makeElement = function()
 
@@ -23,7 +23,10 @@ return function(board, viewData, canvasTarget, getLineBudget)
 			CanvasCFrame = board:SurfaceCFrame(),
 			GetLineBudget = getLineBudget,
 			LineLoadFinishedCallback = function()
-				newViewData.OnLoadedCallback()
+				if oldViewData and oldViewData.Destroy then
+					oldViewData.Destroy()
+					oldViewData = nil
+				end
 			end,
 			Board = board,
 		})
@@ -31,27 +34,25 @@ return function(board, viewData, canvasTarget, getLineBudget)
 
 	if oldViewData.Status ~= "Active" then
 
-		local tree = Roact.mount(makeElement(), canvasTarget, board._instance.Name)
+		newViewData.Tree = Roact.mount(makeElement(), canvasTarget, board._instance.Name)
 
 		local updateConnection = board.DataChangedSignal:Connect(function()
 			if not newViewData.Paused then
-				Roact.update(tree, makeElement())
+				Roact.update(newViewData.Tree, makeElement())
 			end
 		end)
 
 		newViewData = {
 			Status = "Active",
-			Tree = tree,
-			Canvas = extractHostObject(tree),
-			OnLoadedCallback = function()
-				if oldViewData and oldViewData.Destroy then
-					oldViewData.Destroy()
-					oldViewData.Destroy = nil
-				end
-			end,
+			Tree = newViewData.Tree,
+			Canvas = extractHostObject(newViewData.Tree),
 			Destroy = function()
 				updateConnection:Disconnect()
-				Roact.unmount(tree)
+				Roact.unmount(newViewData.Tree)
+				newViewData.Status = nil
+				newViewData.Tree = nil
+				newViewData.Canvas = nil
+				newViewData.Destroy = nil
 			end,
 		}
 

@@ -66,40 +66,50 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 		end
 	end
 
-	local numActive = Dictionary.count(boardToViewStatus, function(status)
-		return status == "Active"
+	local numNotDead = Dictionary.count(boardToViewStatus, function(status)
+		return status ~= "Dead"
 	end)
 
+	local getLineBudget = function()
+		local boardBudget = LINEFRAMEBUDGET / numNotDead
+		if self.BudgetThisFrame - boardBudget >= 0 then
+			self.BudgetThisFrame -= boardBudget
+			return boardBudget
+		else
+			return 0
+		end
+	end
+
 	local viewStateSetter = {
-		Active = function(board, viewState, canvasesFolder)
-			return setActive(board, viewState, canvasesFolder, function()
-				local boardBudget = LINEFRAMEBUDGET / numActive
-				if self.BudgetThisFrame - boardBudget >= 0 then
-					self.BudgetThisFrame -= boardBudget
-					return boardBudget
-				else
-					return 0
-				end
-			end)
-		end,
+		Active = setActive,
 		Dormant = setDormant,
 		Dead = setDead,
 	}
 
-	-- Set viewstate (or destroy) based on status
+	-- Set viewstate based on status
 	self.ViewStates = Dictionary.map(boardToViewStatus, function(viewStatus, board)
-		return viewStateSetter[viewStatus](board, self.ViewStates[board], self.CanvasesFolder)
+		local viewState = self.ViewStates[board]
+		if not viewState then
+			viewState = setDead(board, nil, self.CanvasesFolder, getLineBudget)
+		end
+		return viewStateSetter[viewStatus](board, viewState, self.CanvasesFolder, getLineBudget)
 	end)
 end
 
-function ViewStateManager:UpdateStatus(instanceToBoard, lineBudget)
+function ViewStateManager:UpdateWithAllActive(instanceToBoard)
+	local boardToViewStatus = Dictionary.map(instanceToBoard, function(board)
+		return "Active", board
+	end)
+
+	self:_reconcileBoards(boardToViewStatus)
+end
+
+function ViewStateManager:UpdateWithBudget(instanceToBoard, lineBudget)
 	local allBoards = Set.fromArray(Dictionary.values(instanceToBoard))
 
 	local characterPos = self.Character:GetPivot().Position
 
-	debug.profilebegin("kNearest")
 	local nearestArray, _ = kNearest(characterPos, allBoards, Set.count(allBoards))
-	debug.profileend()
 
 	local boardToViewStatus = {}
 

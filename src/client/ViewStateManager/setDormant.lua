@@ -10,7 +10,7 @@ local SurfaceCanvas = require(script.Parent.SurfaceCanvas)
 local extractHostObject = require(script.Parent.extractHostObject)
 local dormantBoardUpdater = require(script.Parent.dormantBoardUpdater)
 
-return function(board, viewData, canvasTarget)
+return function(board, viewData, canvasTarget, getLineBudget)
 	viewData = viewData or {}
 
 	if viewData.Status == "Dormant" then
@@ -32,6 +32,7 @@ return function(board, viewData, canvasTarget)
 				DrawingTasks = board.DrawingTasks,
 				CanvasSize = board:SurfaceSize(),
 				CanvasCFrame = board:SurfaceCFrame(),
+				GetLineBudget = getLineBudget,
 			})
 		end
 
@@ -50,7 +51,9 @@ return function(board, viewData, canvasTarget)
 		Figures = figuresNow,
 		DrawingTasks = drawingTasksNow,
 		DoUpdate = function()
-			dormantBoardUpdater(board, dormantViewData)
+			if board.Figures ~= dormantViewData.Figures or board.DrawingTasks ~= dormantViewData.DrawingTasks then
+				dormantBoardUpdater(board, dormantViewData)
+			end
 		end,
 		Destroy = function()
 			canvas:Destroy()

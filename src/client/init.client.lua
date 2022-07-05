@@ -126,12 +126,7 @@ task.spawn(function()
 			return board:Status() == "Loaded"
 		end)
 
-		local lineBudget = 10 * 10000
-		if UserGameSettings.SavedQualityLevel ~= Enum.SavedQualitySetting.Automatic then
-			lineBudget = UserGameSettings.SavedQualityLevel.Value * 10000
-		end
-
-		viewStateManager:UpdateStatus(loadedBoards, lineBudget)
+		viewStateManager:UpdateWithAllActive(loadedBoards)
 		task.wait(2)
 	end
 end)
