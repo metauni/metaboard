@@ -70,6 +70,7 @@ local function bindInstance(instance: Model | Part)
 						board.PlayerHistories,
 						board.NextFigureZIndex
 					)
+					board.Watchers[player] = true
 					connection:Disconnect()
 				end
 			end)
@@ -82,6 +83,8 @@ local function bindInstance(instance: Model | Part)
 				board.PlayerHistories,
 				board.NextFigureZIndex
 			)
+
+			board.Watchers[player] = true
 		end
 	end)
 
@@ -96,7 +99,7 @@ local function bindInstance(instance: Model | Part)
 	elseif randomised then
 		local figures = randomFigures(board:AspectRatio(), math.random(1000, 8000), 10, 100)
 		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
-	
+
 		board:SetStatus("Loaded")
 	else
 		board:SetStatus("Loaded")
