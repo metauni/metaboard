@@ -23,7 +23,9 @@ return function(board, viewData, canvasTarget, getLineBudget)
 			CanvasCFrame = board:SurfaceCFrame(),
 			GetLineBudget = getLineBudget,
 			LineLoadFinishedCallback = function()
-				newViewData.OnLoadedCallback()
+				if newViewData and newViewData.OnLoadedCallback then
+					newViewData.OnLoadedCallback()
+				end
 			end,
 			Board = board,
 		})

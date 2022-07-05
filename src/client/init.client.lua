@@ -5,6 +5,7 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
+local VRService = game:GetService("VRService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -66,14 +67,16 @@ local function bindBoardInstance(instance, remotes, persistId)
 	local whenLoaded = function()
 
 		local boardViewMode = "Gui"
-		board.ClickedSignal:Connect(function()
-			if openedBoard == nil then
-				DrawingUI.Open(board, boardViewMode, function()
-					openedBoard = nil
-				end)
-				openedBoard = board
-			end
-		end)
+		if not VRService.VREnabled then
+			board.ClickedSignal:Connect(function()
+				if openedBoard == nil then
+					DrawingUI.Open(board, boardViewMode, function()
+						openedBoard = nil
+					end)
+					openedBoard = board
+				end
+			end)
+		end
 
 		board:ConnectToRemoteClientEvents()
 
