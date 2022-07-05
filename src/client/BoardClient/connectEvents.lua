@@ -8,9 +8,10 @@ local History = require(Common.History)
 local DrawingTask = require(Common.DrawingTask)
 local EraseGrid = require(Common.EraseGrid)
 local Sift = require(Common.Packages.Sift)
+local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Dictionary Operations
-local set = Sift.Dictionary.set
+local set = Dictionary.set
 
 return function(board, destructor)
 
@@ -36,15 +37,42 @@ return function(board, destructor)
 			local initialisedDrawingTask = DrawingTask.Init(drawingTask, board, canvasPos)
 			board.DrawingTasks = set(board.DrawingTasks, drawingTask.Id, initialisedDrawingTask)
 
-			local pastForgetter = function(pastDrawingTask)
-				board.Figures = DrawingTask.Commit(pastDrawingTask, board.Figures)
-				board.DrawingTasks = set(board.DrawingTasks, pastDrawingTask.Id, nil)
+			local newHistory = playerHistory:Clone()
+			newHistory:Push(initialisedDrawingTask)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
+
+			-- Any drawing task which doesn't appear in any player history is a candidate for committing
+			local needsCommitDrawingTasks = table.clone(board.DrawingTasks)
+			for playerId, pHistory in pairs(board.PlayerHistories) do
+
+				for historyDrawingTask in pHistory:IterPastAndFuture() do
+
+					needsCommitDrawingTasks[historyDrawingTask.Id] = nil
+
+				end
 			end
 
-			local newHistory = playerHistory:Clone()
-			newHistory:Push(initialisedDrawingTask, pastForgetter)
+			for taskId, dTask in pairs(needsCommitDrawingTasks) do
+				local canCommit
 
-			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
+				if dTask.Type == "Erase" then
+					-- Every figure being (partially) erased must be gone from DrawingTasks
+					canCommit = Dictionary.every(dTask.FigureIdToMask, function(mask, figureId)
+						return board.DrawingTasks[figureId] == nil
+					end)
+				else
+					canCommit = true
+				end
+
+				if canCommit then
+					board.Figures = DrawingTask.Commit(dTask, board.Figures)
+					board.DrawingTasks = set(board.DrawingTasks, dTask.Id, nil)
+				end
+
+				-- Drawing Tasks not committed now will be committed later when canCommitt == true
+
+			end
+
 
 			board:DataChanged()
 		end)
