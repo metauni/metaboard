@@ -79,7 +79,7 @@ return function(board, destructor)
 			local newHistory = board.PlayerHistories[tostring(player.UserId)]:Clone()
 			newHistory:SetMostRecent(finishedDrawingTask)
 
-			board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+			board.PlayerHistories = set(board.PlayerHistories, tostring(player.UserId), newHistory)
 
 			board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
 
