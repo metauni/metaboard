@@ -81,6 +81,8 @@ return function(board, destructor)
 
 			board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
 
+			board.DrawingTasks = set(board.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+
 			board:DataChanged()
 		end)
 	end))
