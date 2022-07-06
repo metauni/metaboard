@@ -38,8 +38,8 @@ local InstanceToBoard = {}
 local PersistentBoards = {}
 local ChangedSinceStore = {}
 
--- local persistenceDataStore
-local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+local persistenceDataStore
+--local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 local function bindInstance(instance: Model | Part)
 	if not instance:IsDescendantOf(workspace) then

@@ -73,43 +73,44 @@ function SurfaceCanvas:didMount()
 		end
 	end)
 
-	--  self.InRangeChecker = coroutine.create(function()
-	-- 		while true do
-	-- 			task.wait(1)
+	self.InRangeChecker = coroutine.create(function()
+		while true do
+			task.wait(1)
 
-	-- 			local isInRange = inRange(self)
+			local isInRange = inRange(self)
 
-	-- 			if isInRange and not self.VRDummy then
-	-- 				self.VRDummy = VRDummy(self)
+			if isInRange and not self.VRDummy then
+				self.VRDummy = VRDummy(self)
 
-	-- 			elseif not isInRange and self.VRDummy then
+			elseif not isInRange and self.VRDummy then
 
-	-- 				if self.ToolHeld then
-	-- 					self.props.Board.Remotes.FinishDrawingTask:FireServer()
-	-- 				end
+				if self.ToolHeld then
+					self.props.Board.Remotes.FinishDrawingTask:FireServer()
+				end
 
-	-- 				self.VRDummy.Destroy()
-	-- 				self.VRDummy = nil
+				self.VRDummy.Destroy()
+				self.VRDummy = nil
 
-	-- 				self:setState({
-	-- 					UnverifiedDrawingTasks = {},
-	-- 					CurrentUnverifiedDrawingTaskId = Roact.None,
-	-- 				})
+				self:setState({
+					UnverifiedDrawingTasks = {},
+					CurrentUnverifiedDrawingTaskId = Roact.None,
+				})
 
 
-	-- 			end
-	-- 		end
-	--  end)
+			end
+		end
+	end)
+	task.defer(self.InRangeChecker)
 end
 
--- function SurfaceCanvas:willUnmount()
--- 	if self.VRDummy then
--- 		self.VRDummy.Destroy()
--- 		self.VRDummy = nil
--- 	end
+function SurfaceCanvas:willUnmount()
+	if self.VRDummy then
+		self.VRDummy.Destroy()
+		self.VRDummy = nil
+	end
 
--- 	coroutine.close(self.InRangeChecker)
--- end
+	coroutine.close(self.InRangeChecker)
+end
 
 function SurfaceCanvas.getDerivedStateFromProps(nextProps, lastState)
 	--[[

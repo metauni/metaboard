@@ -9,8 +9,8 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Imports
 local Config = require(Common.Config)
-local BoardClient = require(script.BoardClient)
-local BoardRemotes = require(Common.BoardRemotes)
+--local BoardClient = require(script.BoardClient)
+--local BoardRemotes = require(Common.BoardRemotes)
 local nearestBoard = require(script.Parent.nearestBoards)
 
 local State = {
@@ -27,48 +27,34 @@ if vibrationSupported then
     rightRumbleSupported = HapticService:IsMotorSupported(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand)
 end
 
-local function createBoardHitbox(board)
-	-- Create the hitbox for VR
-	local boardPart = if board:IsA("Part") then board else board.PrimaryPart
-	local surfacePartHitbox = Instance.new("Part")
-    surfacePartHitbox.CFrame = boardPart.CFrame
-	surfacePartHitbox.Name = "BoardHitbox"
-	surfacePartHitbox.CanCollide = false
-	surfacePartHitbox.Transparency = 1
-	surfacePartHitbox.Size = 1.2 * boardPart.Size
-	surfacePartHitbox.Parent = board
-	return surfacePartHitbox
-end
+print("VR.client.lua")
 
 UserInputService.InputBegan:Connect(function(input, gp)
 	if not VRService.VREnabled then return end
+	print("in here")
 	
-    local Character = Players.LocalPlayer.Character
+    --local Character = Players.LocalPlayer.Character
 
-    local boards = CollectionService:GetTagged(Config.BoardTag)
-    local lBoard = nearestBoard(boards, localPlayer.Character.PrimaryPart.Position, 1)[1]
-    if lBoard == nil then
-        print("[metaboard] Could not find board")
-        return
-    end
+--     local boards = CollectionService:GetTagged(Config.BoardTag)
+--    -- local lBoard = nearestBoard(boards, localPlayer.Character.PrimaryPart.Position, 1)[1]
+--     --if lBoard == nil then
+--    --     print("[metaboard] Could not find board")
+--    --     return
+--     --end
 
-    local lBoardPart = if lBoard:IsA("Part") then lBoard else lBoard.PrimaryPart
+--     --local lBoardPart = if lBoard:IsA("Part") then lBoard else lBoard.PrimaryPart
 
-	local boardTool = Character:FindFirstChild("VRpen")	
-	if boardTool == nil then
-        print("[metaboard] Could not find board tool")
-        return
-    end
-	
-	-- If the personal board does not already have a hitbox, create one
-	local boardHitbox = lBoard:FindFirstChild("BoardHitbox")
-	if boardHitbox == nil then
-		boardHitbox = createBoardHitbox(lBoard)
-	end
+-- 	local boardTool = Character:FindFirstChild("VRpen")	
+-- 	if boardTool == nil then
+--         print("[metaboard] Could not find board tool")
+--         return
+--     end
 	
 	if input.UserInputType == Enum.UserInputType.Gamepad1 then
 		-- Hold the right trigger to write
+		print("Got VR input")
 		if input.KeyCode == Enum.KeyCode.ButtonR2 then
+			print("Got button R2")
 			State.MousePos = nil
 
 			if State.DrawingConnection then State.DrawingConnection:Disconnect() end

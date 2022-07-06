@@ -163,7 +163,7 @@ Config.Canvas = {
 	ZThicknessStuds = 0.001,
 	-- How far above the previous curve to draw the next one, in studs
 	StudsPerZIndex = 0.001,
-	InitialZOffsetStuds = 0.1,
+	InitialZOffsetStuds = 0.03,
 	-- When using Type="RoundedParts", lines which are thicker than this in
 	-- studs (not z-thickness) will have circles (cylinder parts) at each end
 	-- of the line
@@ -191,6 +191,10 @@ Config.PersonalBoard = {
 
 Config.History = {
 	Capacity = 15,
+}
+
+Config.VR = {
+	PenToolName = "MetaChalk"
 }
 
 Config.MaxLoadedBoards = 1
