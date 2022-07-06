@@ -122,9 +122,9 @@ return function (self)
 					if rightRumbleSupported then
 						local motorStrength = 0
 						if distance >= 0 then
-							motorStrength = 0.2
+							motorStrength = 0.1
 						else
-							motorStrength = 0.2 + 0.8 * math.tanh(-distance * 30)
+							motorStrength = 0.1 + 0.8 * math.tanh(-distance * 30)
 						end
 						HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand, motorStrength)
 					end
@@ -175,6 +175,7 @@ return function (self)
 			end
 			toolQueue.Destroy()
 
+			if self.TriggerActiveConnection then self.TriggerActiveConnection:Disconnect() end
 		end
 
 	}
