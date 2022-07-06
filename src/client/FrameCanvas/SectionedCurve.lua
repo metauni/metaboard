@@ -54,13 +54,17 @@ function SubCurve:render()
 
 			if u:Dot(v) <= 0 then
 
-				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
-				local cosTheta = u.Unit:Dot(v.Unit)
+				local sinTheta = math.clamp(math.abs(u.Unit:Cross(v.Unit)), 0, 1)
+				local cosTheta = math.clamp(u.Unit:Dot(v.Unit), -1, 1)
 
-				-- Check that sin(theta) is non zero and that both sin(theta) and
-				-- cos(theta) are not NaN.
-				if sinTheta > 0 and cosTheta == cosTheta then
-					p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				-- Check that both sin(theta) and cos(theta) are not NaN.
+				if sinTheta == sinTheta and cosTheta == cosTheta then
+					if sinTheta < 1/20 then
+						-- prevent gaps in (almost) parallel joints
+						p0Extend = 0.001
+					else
+						p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+					end
 				end
 			else
 				roundedP0 = true
@@ -72,20 +76,23 @@ function SubCurve:render()
 			local v = d - c
 
 			if u:Dot(v) <= 0 then
-				local sinTheta = math.abs(u.Unit:Cross(v.Unit))
-				local cosTheta = u.Unit:Dot(v.Unit)
+				local sinTheta = math.clamp(math.abs(u.Unit:Cross(v.Unit)), 0, 1)
+				local cosTheta = math.clamp(u.Unit:Dot(v.Unit), -1, 1)
 
-				-- Check that sin(theta) is non zero and that both sin(theta) and
-				-- cos(theta) are not NaN.
-				if sinTheta > 0 and cosTheta == cosTheta then
-					p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+				-- Check that both sin(theta) and cos(theta) are not NaN.
+				if sinTheta == sinTheta and cosTheta == cosTheta then
+					if sinTheta < 1/20 then
+						-- prevent gaps in (almost) parallel joints
+						p1Extend = 0.001
+					else
+						p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+					end
 				end
 			end
 			-- No "else roundedP1 = true" because this would double up"
 		end
-    
-    -- local rounded = roundedP0 or roundedP1
-    local rounded = true
+
+    local rounded = roundedP0 or roundedP1
 
     if rounded then
       p0Extend = self.props.Width/2
