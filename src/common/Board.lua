@@ -140,9 +140,12 @@ function Board:LinesForBudget()
 	return count
 end
 
---[[
-	Set the transparency of the board part.
---]]
+function Board:GetTransparency()
+	local boardPart = self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
+
+	return boardPart.Transparency
+end
+
 function Board:SetTransparency(transparency)
 	local boardPart = self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
 

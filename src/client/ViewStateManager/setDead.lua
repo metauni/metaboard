@@ -7,12 +7,14 @@ return function(board, viewData, canvasTarget, getLineBudget)
 			viewData.Destroy()
 		end
 
-		board:SetTransparency(0.75)
+		local originalTransparency = board:GetTransparency()
+
+		board:SetTransparency(3/4 + 1/4 * originalTransparency)
 
 		return {
 			Status = "Dead",
 			Destroy = function()
-				board:SetTransparency(0)
+				board:SetTransparency(originalTransparency)
 			end
 		}
 
