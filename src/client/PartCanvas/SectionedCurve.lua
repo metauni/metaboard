@@ -50,7 +50,7 @@ function SubCurve:render()
 		end
 
 		local roundedP0 = i == 1 or mab
-		local roundedP1 = i+1 == #points or mcd
+		local roundedP1 = i+1 == mcd
 		-- roundedP1 = true
 
 		local p0Extend, p1Extend = 0, 0
@@ -113,6 +113,22 @@ function SubCurve:render()
 	local lines = {}
 	for i=firstIndex, lastIndex-1 do
 		lines[i] = ithline(i)
+	end
+
+	-- Keep the end circle in a consistent place so it doesn't get destroyed
+	-- and created over and over
+	if firstIndex == 1 then
+		lines["CurveEndCircle"] =  Circle({
+	
+			Point = points[#points],
+			Width = self.props.Width,
+			Color = self.props.Color,
+			ZIndex = self.props.ZIndex,
+	
+			CanvasSize = canvasSize,
+			CanvasCFrame = canvasCFrame,
+	
+		})
 	end
 
 	return e("Folder", {}, lines)
