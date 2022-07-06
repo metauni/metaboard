@@ -61,7 +61,7 @@ return function (self)
 	local toolQueue = ToolQueue(self)
 	self.ToolHeld = false
 	self.EquippedTool = Pen
-	self.EraserSize = 0.02
+	self.EraserSize = 0.05
 	self.TriggerActiveConnection = nil
 	self.ActiveStroke = false
 	self.PenActiveDistance = 0.06
