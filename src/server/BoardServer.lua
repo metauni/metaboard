@@ -1,5 +1,6 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 -- Import
@@ -27,6 +28,11 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 	-- A server board has no canvas, so we pass nil
 	local self = setmetatable(Board.new(instance, boardRemotes, persistId, status), BoardServer)
 
+	self.Watchers = {}
+
+	self._destructor:Add(Players.PlayerRemoving:Connect(function(player)
+		self.Watchers[player] = nil
+	end))
 
 	self._jobQueue = JobQueue.new()
 
@@ -37,7 +43,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		self._jobQueue:Enqueue(function(yielder)
 
 			local verifiedDrawingTask = merge(drawingTask, { Verified = true })
-			self.Remotes.InitDrawingTask:FireAllClients(player, verifiedDrawingTask, canvasPos)
+			for watcher in pairs(self.Watchers) do
+				self.Remotes.InitDrawingTask:FireClient(watcher, player, verifiedDrawingTask, canvasPos)
+			end
 
 			-- Get or create the player history for this player
 			local playerHistory = self.PlayerHistories[tostring(player.UserId)] or History.new(Config.History.Capacity)
@@ -89,7 +97,9 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 	self._destructor:Add(self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
 		self._jobQueue:Enqueue(function(yielder)
 
-			self.Remotes.UpdateDrawingTask:FireAllClients(player, canvasPos)
+			for watcher in pairs(self.Watchers) do
+				self.Remotes.UpdateDrawingTask:FireClient(watcher, player, canvasPos)
+			end
 
 			local drawingTask = self.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
@@ -108,10 +118,12 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		end)
 	end))
 
-	self._destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
+	self._destructor:Add(self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player)
 		self._jobQueue:Enqueue(function(yielder)
 
-			self.Remotes.FinishDrawingTask:FireAllClients(player, canvasPos)
+			for watcher in pairs(self.Watchers) do
+				self.Remotes.FinishDrawingTask:FireClient(watcher, player)
+			end
 
 			local drawingTask = self.PlayerHistories[tostring(player.UserId)]:MostRecent()
 			assert(drawingTask)
