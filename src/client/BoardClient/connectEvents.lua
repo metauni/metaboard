@@ -168,6 +168,7 @@ return function(board, destructor)
 			board.PlayerHistories = {}
 			board.DrawingTasks = {}
 			board.Figures = {}
+			board.NextFigureZIndex = 0
 			board.EraseGrid = EraseGrid.new(board:SurfaceSize().X / board:SurfaceSize().Y)
 
 			board:DataChanged()

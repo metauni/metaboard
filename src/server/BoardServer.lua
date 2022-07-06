@@ -206,6 +206,7 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 			self.PlayerHistories = {}
 			self.DrawingTasks = {}
 			self.Figures = {}
+			self.NextFigureZIndex = 0
 			self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
 			self.DataChangedSignal:Fire()
