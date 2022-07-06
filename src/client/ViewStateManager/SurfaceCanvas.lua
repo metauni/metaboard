@@ -14,6 +14,7 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 -- Components
 local PartCanvas = require(script.Parent.Parent.PartCanvas)
 local CanvasViewport = require(script.Parent.CanvasViewport)
+local BoardStatView = require(script.Parent.BoardStatView)
 
 -- Helper Functions
 local VRDummy = require(script.Parent.VR)
@@ -181,7 +182,7 @@ function SurfaceCanvas:render()
 
 			if self.EnforceLimit then
 				if figure.Type == "Curve" then
-					lineCount += #figure.Points
+					lineCount += #figure.Points-1
 				else
 					lineCount += 1
 				end
@@ -241,13 +242,17 @@ function SurfaceCanvas:render()
 	-- 	[Roact.Children] = canvasViewport,
 	-- })
 
-
-
 	return e("Model", {
 		-- Adornee = board._surfacePart,
 
 		[Roact.Children] = {
 			Figures = partFigures,
+			BoardStatView = Config.Debug and e(BoardStatView, merge(self.props, {
+
+				LineCount = lineCount,
+				UnverifiedDrawingTasks = self.state.UnverifiedDrawingTasks,
+
+			}))
 		},
 	})
 end
