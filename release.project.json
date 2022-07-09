@@ -3,7 +3,7 @@
 	"tree": {
 		"$path": "src/server",
 
-		"Common": {
+		"metaboardCommon": {
 			"$path": "src/common"
 		},
 

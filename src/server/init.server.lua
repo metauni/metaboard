@@ -1,12 +1,12 @@
 do
 	-- Move folder/guis around if this is the package version of metaboard
 
-	local metaBoardCommon = script.Parent:FindFirstChild("metaboardCommon")
+	local metaBoardCommon = script:FindFirstChild("metaboardCommon")
 	if metaBoardCommon then
 		metaBoardCommon.Parent = game:GetService("ReplicatedStorage")
 	end
 
-	local metaBoardPlayer = script.Parent:FindFirstChild("metaboardPlayer")
+	local metaBoardPlayer = script:FindFirstChild("metaboardPlayer")
 	if metaBoardPlayer then
 		metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
 	end
@@ -30,7 +30,7 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local merge = Dictionary.merge
 
 -- Helper Functions
-local miniPersistence = require(script.miniPersistence)
+local Persistence = require(script.Persistence)
 local randomFigures = require(script.randomFigures)
 
 local InstanceToBoard = {}
@@ -163,7 +163,7 @@ local function saveChangedBoards()
 		committedFigures = merge(committedFigures, removals)
 
 		task.spawn(
-			miniPersistence.Store,
+			Persistence.Store,
 			persistenceDataStore,
 			committedFigures,
 			board.NextFigureZIndex,
@@ -178,7 +178,7 @@ end
 
 -- 5 seconds after startup, start restoring all of the boards.
 task.delay(5, function()
-	miniPersistence.RestoreAll(persistenceDataStore, PersistentBoards)
+	Persistence.RestoreAll(persistenceDataStore, PersistentBoards)
 
 	-- Once all boards are restored, trigger auto-saving
 
