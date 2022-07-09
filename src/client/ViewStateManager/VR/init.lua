@@ -12,7 +12,7 @@ local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
 local toolFunctions = require(script.toolFunctions)
-local ToolQueue = require(script.Parent.ToolQueue)
+local ToolQueue = require(script.Parent.Parent.UserInput.ToolQueue)
 local Pen = require(script.Pen)
 local Eraser = require(script.Eraser)
 

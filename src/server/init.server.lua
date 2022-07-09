@@ -14,7 +14,6 @@ end
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local BoardService = require(Common.BoardService)
@@ -97,7 +96,8 @@ local function bindInstance(instance: Model | Part)
 			Set.add(ChangedSinceStore, board)
 		end)
 	elseif randomised then
-		local figures = randomFigures(board:AspectRatio(), math.random(1000, 8000), 10, 100)
+		local figures = randomFigures(board:AspectRatio(), 50, 10, 20)
+
 		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
 
 		board:SetStatus("Loaded")
@@ -126,6 +126,11 @@ BoardService.GetBoards.OnServerInvoke = function(player)
 
 	local numericBoardTable = {}
 	for _, board in pairs(InstanceToBoard) do
+
+		-- Client will be a watcher now
+		-- TODO: is there a better way to do this?
+		board.Watchers[player] = true
+
 		table.insert(numericBoardTable, {
 			Instance = board._instance,
 			Remotes = board.Remotes,

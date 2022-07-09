@@ -13,11 +13,14 @@ local App = require(script.App)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
-local function open(board, boardViewMode, onClose)
+--[[
+	Set up and show the drawing UI for the given board
+--]]
+return function(board, boardViewMode, onClose)
 
 	local handle, dataUpdateConnection
 
-	local function close()
+	local function destroy()
 		Roact.unmount(handle)
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
 		dataUpdateConnection:Disconnect()
@@ -35,8 +38,8 @@ local function open(board, boardViewMode, onClose)
 			Board = board,
 			AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,
 
-			OnClose = function(toolState)
-				close()
+			OnClose = function()
+				destroy()
 			end,
 
 			Figures = board.Figures,
@@ -58,10 +61,5 @@ local function open(board, boardViewMode, onClose)
 		Roact.update(handle, makeApp())
 	end)
 
-	return close
-
+	return destroy
 end
-
-return {
-	Open = open
-}

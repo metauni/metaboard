@@ -8,18 +8,23 @@ local e = Roact.createElement
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
+--[[
+	Shows a visualisation of the erase grid with numbers in each cell that
+	indicate the number of subfigures (e.g. lines) in that cell.
+
+	WARNING: This is very slow. Performance will be worsened when this is shown.
+--]]
 return function(props)
 
 	local eraseGrid = props.Board.EraseGrid
-	local aspectRatio = props.Board:AspectRatio()
 	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.DefaultEraseGridPixelSize)
 	local gridHeight =  math.ceil(1 / Config.DefaultEraseGridPixelSize)
 
-	local squares = {}
+	local cells = {}
 	for x=0, gridWidth-1 do
 		for y=0, gridHeight-1 do
 			local count = Dictionary.count(eraseGrid.ShapeGrid.PixelsToShapeIds.Get(x,y) or {})
-			squares[("%d,%d"):format(x,y)] = e("TextLabel", {
+			cells[("%d,%d"):format(x,y)] = e("TextLabel", {
 
 				Text = tostring(count),
 
@@ -30,12 +35,22 @@ return function(props)
 
 				BackgroundTransparency = 1,
 
-			}, { UIStroke = e("UIStroke", { ApplyStrokeMode =  Enum.ApplyStrokeMode.Border, Thickness = 1, Color = Color3.new(1,1,1)})})
+				[Roact.Children] = {
+
+					UIStroke = e("UIStroke", {
+						ApplyStrokeMode =  Enum.ApplyStrokeMode.Border,
+						Thickness = 1,
+						Color = Color3.new(1,1,1)
+					})
+
+				}
+
+			})
 		end
 	end
 
 	return e("Frame", {
-			
+
 		Size = props.AbsoluteSizeBinding:map(function(absoluteSize)
 			return UDim2.fromOffset(absoluteSize.Y, absoluteSize.Y)
 		end),
@@ -46,9 +61,7 @@ return function(props)
 
 		BackgroundTransparency = 1,
 
-
-		[Roact.Children] = squares
-
+		[Roact.Children] = cells
 
 	})
 end

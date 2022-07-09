@@ -70,7 +70,9 @@ function Board:CommitAllDrawingTasks()
 	local drawingTaskFigures = {}
 
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
-		if drawingTask.Type ~= "Erase" then
+		-- TODO: Should we only commit finished drawing tasks? If not then
+		-- things get inserted into the erase grid that shouldn't be in LoadData
+		if drawingTask.Type ~= "Erase" and drawingTask.Finished then
 			drawingTaskFigures[taskId] = DrawingTask.Render(drawingTask)
 		end
 	end

@@ -17,11 +17,11 @@ local CanvasViewport = require(script.Parent.CanvasViewport)
 local BoardStatView = require(script.Parent.BoardStatView)
 
 -- Helper Functions
-local VRDummy = require(script.Parent.VR)
+local VRDummy = require(script.Parent.VRDummy)
 local merge = Dictionary.merge
 
 -- Drawing Tools
-local Pen = require(script.Parent.VR.Pen)
+local Pen = require(script.Parent.VRDummy.Pen)
 
 local character = Players.LocalPlayer.CharacterAdded:Wait()
 

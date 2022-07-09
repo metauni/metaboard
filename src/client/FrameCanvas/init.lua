@@ -93,17 +93,16 @@ end
 
 local FrameCanvas = Roact.PureComponent:extend("FrameCanvas")
 
-function FrameCanvas:render()
-
-	local positionBinding = self.props.AbsolutePositionBinding:map(function(absolutePosition)
+local function setBindings(self)
+	self.positionBinding = self.props.AbsolutePositionBinding:map(function(absolutePosition)
 		return UDim2.fromOffset(absolutePosition.X, absolutePosition.Y + 36)
 	end)
 
-	local sizeBinding = self.props.AbsoluteSizeBinding:map(function(absoluteSize)
+	self.sizeBinding = self.props.AbsoluteSizeBinding:map(function(absoluteSize)
 		return UDim2.fromOffset(absoluteSize.X, absoluteSize.Y)
 	end)
 
-	local container = function(props)
+	self.container = function(props)
 		local canvasSquare = e("Frame", {
 			BackgroundTransparency = 1,
 
@@ -117,14 +116,21 @@ function FrameCanvas:render()
 		return e("Frame", {
 			BackgroundTransparency = 1,
 
-			Position = positionBinding,
-			Size = sizeBinding,
+			Position = self.positionBinding,
+			Size = self.sizeBinding,
 
 			[Roact.Children] = {
 				CanvasSquare = canvasSquare
 			}
 		})
 	end
+end
+
+function FrameCanvas:init()
+	setBindings(self)
+end
+
+function FrameCanvas:render()
 
 	local pureFigures = {}
 
@@ -136,7 +142,7 @@ function FrameCanvas:render()
 
 			FigureMasks = self.props.FigureMaskBundles[figureId] or {},
 
-			Container = container,
+			Container = self.container,
 
 			ZIndexOffset = self.props.ZIndex,
 

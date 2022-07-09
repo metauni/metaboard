@@ -104,6 +104,14 @@ function ViewStateManager:UpdateWithAllActive(instanceToBoard)
 	self:_reconcileBoards(boardToViewStatus)
 end
 
+function ViewStateManager:UpdateWithAllDead(instanceToBoard)
+	local boardToViewStatus = Dictionary.map(instanceToBoard, function(board)
+		return "Dead", board
+	end)
+
+	self:_reconcileBoards(boardToViewStatus)
+end
+
 function ViewStateManager:UpdateWithBudget(instanceToBoard, lineBudget)
 	local allBoards = Set.fromArray(Dictionary.values(instanceToBoard))
 

@@ -10,15 +10,10 @@ local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 local DrawingTask = require(Common.DrawingTask)
 local Sift = require(Common.Packages.Sift)
+local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
--- Dictionary Operations
-local Dictionary = Sift.Dictionary
-local set = Dictionary.set
+-- Common Operations
 local merge = Dictionary.merge
-
--- Array Operations
-local Array = Sift.Array
-local slice = Array.slice
 
 -- Drawing Tools
 local DrawingTools = script.Parent.DrawingTools
@@ -45,6 +40,7 @@ local CANVAS_REGION_SIZE = UDim2.new(1,-100,1,-125)
 
 -- Helper functions
 local toolFunctions = require(script.Parent.toolFunctions)
+local ToolQueue = require(script.Parent.Parent.UserInput.ToolQueue)
 
 local App = Roact.PureComponent:extend("App")
 
@@ -53,7 +49,7 @@ function App:init()
 	self.CanvasAbsolutePositionBinding, self.SetCanvasAbsolutePosition = Roact.createBinding(Vector2.new(0,0))
 	self.CanvasAbsoluteSizeBinding, self.SetCanvasAbsoluteSize = Roact.createBinding(Vector2.new(100,100))
 
-	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(Vector2.new(0,0))
+	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(UDim2.fromOffset(0,0))
 
 	local toolState do
 
@@ -107,22 +103,6 @@ function App:init()
 
 	end
 
-	self.ToolQueue = {}
-
-	RunService:BindToRenderStep("ToolQueue", Enum.RenderPriority.First.Value, function()
-		if #self.ToolQueue > 0 then
-			self:setState(function(state)
-				local stateUpdate = {}
-				for i, action in ipairs(self.ToolQueue) do
-					stateUpdate = merge(stateUpdate, action(merge(state, stateUpdate)))
-				end
-
-				return stateUpdate
-			end)
-			self.ToolQueue = {}
-		end
-	end)
-
 	self:setState({
 
 		ToolHeld = false,
@@ -134,22 +114,28 @@ function App:init()
 	})
 end
 
+function App:didMount()
+
+	self.ToolQueue = ToolQueue(self)
+
+	self.SetToolState = function(toolState)
+		self:setState(function(state)
+
+			return {
+				ToolState = merge(state.ToolState, toolState)
+			}
+		end)
+	end
+end
+
 function App:willUnmount()
-	RunService:UnbindFromRenderStep("ToolQueue")
+	self.ToolQueue.Destroy()
 	self.props.Board.ToolState = self.state.ToolState
 end
 
 function App:render()
 
 	local toolState = self.state.ToolState
-
-	local setToolState = function(stateSlice)
-
-		self:setState({
-			ToolState = merge(toolState, stateSlice)
-		})
-
-	end
 
 	local toolbar = e(Toolbar, {
 
@@ -160,16 +146,16 @@ function App:render()
 
 		EquippedTool = toolState.EquippedTool,
 		EquipTool = function(tool)
-			setToolState({ EquippedTool = tool })
+			self.SetToolState({ EquippedTool = tool })
 		end,
 
 		StrokeWidths = toolState.StrokeWidths,
 		SelectedStrokeWidthName = toolState.SelectedStrokeWidthName,
 		SelectStrokeWidth = function(name)
-			setToolState({ SelectedStrokeWidthName = name })
+			self.SetToolState({ SelectedStrokeWidthName = name })
 		end,
 		UpdateStrokeWidth = function(strokeWidth)
-			setToolState({
+			self.SetToolState({
 
 				StrokeWidths = merge(toolState.StrokeWidths,{
 					[toolState.SelectedStrokeWidthName] = strokeWidth
@@ -180,16 +166,16 @@ function App:render()
 
 		SelectedEraserSizeName = toolState.SelectedEraserSizeName,
 		SelectEraserSize = function(name)
-			setToolState({ SelectedEraserSizeName = name })
+			self.SetToolState({ SelectedEraserSizeName = name })
 		end,
 
 		ColorWells = toolState.ColorWells,
 		SelectedColorWellIndex = toolState.SelectedColorWellIndex,
 		SelectColorWell = function(index)
-			setToolState({ SelectedColorWellIndex = index })
+			self.SetToolState({ SelectedColorWellIndex = index })
 		end,
 		UpdateColorWell = function(index, shadedColor)
-			setToolState({
+			self.SetToolState({
 				ColorWells = merge(toolState.ColorWells, {
 					[index] = shadedColor
 				})
@@ -198,6 +184,7 @@ function App:render()
 
 		CanUndo = self.props.CanUndo,
 		CanRedo = self.props.CanRedo,
+		-- TODO: this ignores player histories.
 		CanClear = next(self.props.Figures) or next(self.props.DrawingTasks),
 
 		OnUndo = function()
@@ -271,9 +258,7 @@ function App:render()
 
 	local cursor = e(Cursor, {
 		Width = cursorWidth,
-		Position = self.ToolPosBinding:map(function(toolPos)
-			return UDim2.fromOffset(toolPos.X, toolPos.Y)
-		end),
+		Position = self.ToolPosBinding,
 		Color = cursorColor,
 	})
 
@@ -297,29 +282,30 @@ function App:render()
 
 	local canvasIO = e(CanvasIO, {
 
-		IgnoreGuiInset = true,
-
 		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
 		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		AspectRatio = self.props.Board:AspectRatio(),
 		Margin = toolState.EquippedTool ~= Eraser and cursorWidth or 0,
 
 		CursorPositionBinding = self.ToolPosBinding,
-		SetCursorPosition = self.SetToolPos,
+		SetCursorPixelPosition = function(x,y)
+			self.SetToolPos(UDim2.fromOffset(x,y))
+		end,
 
 		ToolHeld = self.state.ToolHeld,
 
 		QueueToolDown = function(canvasPos)
-			table.insert(self.ToolQueue, function(state)
+			self.ToolQueue.Enqueue(function(state)
 				return toolFunctions.ToolDown(self, state, canvasPos)
 			end)
 		end,
 		QueueToolMoved = function(canvasPos)
-			table.insert(self.ToolQueue, function(state)
+			self.ToolQueue.Enqueue(function(state)
 				return toolFunctions.ToolMoved(self, state, canvasPos)
 			end)
 		end,
 		QueueToolUp = function(canvasPos)
-			table.insert(self.ToolQueue, function(state)
+			self.ToolQueue.Enqueue(function(state)
 				return toolFunctions.ToolUp(self, state)
 			end)
 		end,
@@ -327,9 +313,9 @@ function App:render()
 
 	local figureMaskBundles = {}
 	local allFigures = table.clone(self.props.Figures)
-	
+
 	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
-		
+
 		if drawingTask.Type == "Erase" then
 			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
 			for figureId, figureMask in pairs(figureIdToFigureMask) do
@@ -337,13 +323,13 @@ function App:render()
 				bundle[taskId] = figureMask
 				figureMaskBundles[figureId] = bundle
 			end
-			
+
 		else
-			
+
 			allFigures[taskId] = DrawingTask.Render(drawingTask)
 		end
 	end
-	
+
 	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
 
 		if drawingTask.Type == "Erase" then
@@ -438,7 +424,7 @@ function App.getDerivedStateFromProps(nextProps, lastState)
 		end
 
 	end
-	
+
 	if next(removals) then
 		return {
 			UnverifiedDrawingTasks = merge(lastState.UnverifiedDrawingTasks, removals)

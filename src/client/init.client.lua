@@ -70,7 +70,7 @@ local function bindBoardInstance(instance, remotes, persistId)
 		if not VRService.VREnabled then
 			board.ClickedSignal:Connect(function()
 				if openedBoard == nil then
-					DrawingUI.Open(board, boardViewMode, function()
+					DrawingUI(board, boardViewMode, function()
 						openedBoard = nil
 					end)
 					openedBoard = board

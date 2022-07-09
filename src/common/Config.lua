@@ -1,13 +1,13 @@
 local HttpService = game:GetService("HttpService")
 
 local Config = {
-	Version = "v0.7.6",
+	Version = "v1.0.0",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
 	DataStoreTag = "metaboardv2.",
 
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
-	
+
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
@@ -28,12 +28,6 @@ local Config = {
 }
 
 Config.Drawing = {
-	DouglasPeuckerEpsilon = 1/1000,
-	CatRomLength = 3/1000,
-	-- "DouglasPeucker", "CatRom", or nil (no smoothing)
-	SmoothingAlgorithm = nil,
-
-	MinLineLengthPixels = 0,
 	MaxLineLengthTouchPixels = 100,
 
 	MinStrokeWidth = 1,
@@ -197,8 +191,6 @@ Config.VR = {
 	PenToolName = "MetaChalk"
 }
 
-Config.MaxLoadedBoards = 1
-Config.NearbyBoardsRefreshInterval = 1
 Config.Debug = false
 Config.DefaultEraseGridPixelSize = 1/10
 

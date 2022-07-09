@@ -6,6 +6,13 @@ local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
+--[[
+	Creates the largest box (frame) of a fixed aspect ratio that fits within
+	the given props.Position and props.Size.
+
+	Also fires callbacks to record the resulting box absolutePosition and
+	absoluteSize whenever it changes (e.g. window resize).
+--]]
 return function(props)
 
 	local box = e("Frame", {

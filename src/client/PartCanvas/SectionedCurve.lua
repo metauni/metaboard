@@ -31,7 +31,7 @@ function SubCurve:render()
 		local mcd = lineMask[tostring(i+1)]
 
 		if mbc then
-			return false
+			return nil
 		end
 
 		if b == c then
@@ -112,12 +112,12 @@ function SubCurve:render()
 
 	local lines = {}
 	for i=firstIndex, lastIndex-1 do
-		lines[i] = ithline(i)
+		lines[tostring(i)] = ithline(i)
 	end
 
 	-- Keep the end circle in a consistent place so it doesn't get destroyed
 	-- and created over and over
-	if firstIndex == 1 then
+	if firstIndex == 1 and not lineMask[tostring(#points-1)] then
 		lines["CurveEndCircle"] =  Circle({
 	
 			Point = points[#points],
@@ -129,6 +129,10 @@ function SubCurve:render()
 			CanvasCFrame = canvasCFrame,
 	
 		})
+	end
+
+	if next(lines) == nil then
+		return nil
 	end
 
 	return e("Folder", {}, lines)
@@ -143,6 +147,12 @@ function SubCurve:shouldUpdate(newProps, newState)
 	for i=self.props.FirstIndex, self.props.LastIndex do
 		if newProps.Points[i] ~= self.props.Points[i] then return true end
 		if i < self.props.LastIndex and newProps.Mask[tostring(i)] ~= self.props.Mask[tostring(i)] then return true end
+	end
+
+	-- Circle at end of curve is stored in the first subcurve
+	if self.props.FirstIndex == 1 then
+		if newProps.Points[#newProps.Points] ~= self.props.Points[#self.props.Points] then return true end
+    if newProps.Mask[tostring(#newProps.Points-1)] ~= self.props.Mask[tostring(#self.props.Points-1)] then return true end
 	end
 
 	return false

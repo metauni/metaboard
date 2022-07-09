@@ -21,10 +21,8 @@ function toolDown(self, state, canvasPos)
 	end
 
 	local drawingTask = state.ToolState.EquippedTool.newDrawingTask(self, state)
-
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
-	end
+	
+	self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
 
 	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.props.Board, canvasPos)
 
@@ -46,9 +44,7 @@ function toolMoved(self, state, canvasPos)
 
 	local drawingTask = state.UnverifiedDrawingTasks[state.CurrentUnverifiedDrawingTaskId]
 
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
-	end
+	self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
 
 	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.props.Board, canvasPos)
 
@@ -66,9 +62,7 @@ function toolUp(self, state)
 
 	local finishedDrawingTask = set(DrawingTask.Finish(drawingTask, self.props.Board), "Finished", true)
 
-	if not self.props.SilenceRemoteEventFire then
-		self.props.Board.Remotes.FinishDrawingTask:FireServer()
-	end
+	self.props.Board.Remotes.FinishDrawingTask:FireServer()
 
 	return {
 

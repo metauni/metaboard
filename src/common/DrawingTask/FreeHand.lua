@@ -67,7 +67,7 @@ function FreeHand.Update(drawingTask, board, canvasPos: Vector2)
 end
 
 function FreeHand.Finish(drawingTask, board)
-
+	
 	if drawingTask.Verified then
 		board.EraseGrid:AddCurve(drawingTask.Id, drawingTask.Curve)
 	end
@@ -94,13 +94,13 @@ function FreeHand.Redo(drawingTask, board)
 	local DrawingTask = require(script.Parent)
 
 	if drawingTask.Verified then
-
+		
 		--[[
 			The figure produced by this drawing task might be partially erased
 			by other drawing tasks, so we need to "Commit" them to the figure before
 			adding the result back to the erase grid.
-		--]]
-
+			--]]
+			
 		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Curve }
 
 		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
