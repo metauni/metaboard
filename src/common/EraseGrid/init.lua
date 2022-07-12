@@ -15,7 +15,7 @@ EraseGrid.__index = EraseGrid
 
 function EraseGrid.new(aspectRatio: number)
 	return setmetatable({
-		ShapeGrid = ShapeGrid.new(aspectRatio, 1, Config.DefaultEraseGridPixelSize),
+		ShapeGrid = ShapeGrid.new(aspectRatio, 1, Config.Canvas.DefaultEraseGridPixelSize),
 		Figures = {},
 		FigureIdToShapeIds = {},
 	}, EraseGrid)

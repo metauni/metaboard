@@ -5,17 +5,16 @@ local Players = game:GetService("Players")
 -- Import
 local Config = require(Common.Config)
 local Board = require(Common.Board)
+local Signal = require(Common.Packages.GoodSignal)
 
--- Helper functions
-local connectDrawingTaskEvents = require(Common.connectDrawingTaskEvents)
-
--- BoardServer
+--[[
+	The server-side version of a board
+--]]
 local BoardServer = setmetatable({}, Board)
 BoardServer.__index = BoardServer
 
-function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string?, status: string)
-	-- A server board has no canvas, so we pass nil
-	local self = setmetatable(Board.new(instance, boardRemotes, persistId, status), BoardServer)
+function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string?, loaded: boolean)
+	local self = setmetatable(Board.new(instance, boardRemotes, persistId, loaded), BoardServer)
 
 	self.Watchers = {}
 
@@ -23,7 +22,14 @@ function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string
 		self.Watchers[player] = nil
 	end))
 
-	connectDrawingTaskEvents(self, self._destructor)
+	--[[
+		Signal that fires when the board has been populated.
+		Check self.Loaded before connecting to this signal.
+	--]]
+	self.LoadedSignal = Signal.new()
+	self._destructor:Add(function()
+		self.LoadedSignal:DisconnectAll()
+	end)
 
 	return self
 end

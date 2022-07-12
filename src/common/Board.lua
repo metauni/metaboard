@@ -1,10 +1,10 @@
+local RunService = game:GetService("RunService")
 -- Services
 local Common = script.Parent
 
 -- Imports
 local Config = require(Common.Config)
 local EraseGrid = require(Common.EraseGrid)
-local Figure = require(Common.Figure)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
 local Signal = require(Common.Packages.GoodSignal)
@@ -19,27 +19,49 @@ local merge = Dictionary.merge
 local Board = {}
 Board.__index = Board
 
-function Board.new(instance: Model | Part, boardRemotes, persistId: string?, status: string)
+function Board.new(instance: Model | Part, boardRemotes, persistId: string?, loaded: boolean)
 	local self = setmetatable({
 		_instance = instance,
-		_surfacePart = instance:IsA("Model") and instance.PrimaryPart or instance,
 		Remotes = boardRemotes,
+		PersistId = persistId,
+		Loaded = loaded,
 		PlayerHistories = {},
 		DrawingTasks = {},
 		Figures = {},
 		NextFigureZIndex = 0,
-		PersistId = persistId,
-		DataChangedSignal = Signal.new()
 	}, Board)
 
+	--[[
+		:Add() RBXSignalConnections, Instances and destroyer functions to this
+		to be cleaned up when Board:Destroy() is called. Currently we don't have
+		a use case where we actually need to destroy a board (not just the canvas),
+		but it's right to keep track of such connected things.
+	--]]
 	self._destructor = Destructor.new()
 
-	self._status = status
-	self.StatusChangedSignal = Signal.new()
+	--[[
+		Fired (at most) once per frame when either self.Figures or self.DrawingTasks
+		changes. Note that these tables are treated immutably, so e.g. if
+		oldFigures == self.NewFigures, then oldFigures has the exact same contents
+		as self.Figures.
+	--]]
+	self.DataChangedSignal = Signal.new()
 	self._destructor:Add(function()
-		self.StatusChangedSignal:DisconnectAll()
+		self.DataChangedSignal:DisconnectAll()
 	end)
 
+	--[[
+		Other scripts should use `Board:DataChanged()` instead of firing the signal,
+		so that connected callbacks are fired (at most) once per frame.
+	--]]
+	local schedulerSignal = RunService:IsClient() and RunService.RenderStepped or RunService.Heartbeat
+	self._destructor:Add(schedulerSignal:Connect(function()
+
+		if self._dataChangedThisFrame then
+			self.DataChangedSignal:Fire()
+			self._dataChangedThisFrame = false
+		end
+	end))
 
 	do
 		local faceValue = instance:FindFirstChild("Face")
@@ -55,14 +77,16 @@ function Board.new(instance: Model | Part, boardRemotes, persistId: string?, sta
 	return self
 end
 
-
-function Board:Status()
-	return self._status
+function Board:Name()
+	return self._instance.Name
 end
 
-function Board:SetStatus(status: string)
-	self.StatusChangedSignal:Fire(status)
-	self._status = status
+function Board:FullName()
+	return self._instance:GetFullName()
+end
+
+function Board:DataChanged()
+	self._dataChangedThisFrame = true
 end
 
 function Board:CommitAllDrawingTasks()
@@ -142,16 +166,8 @@ function Board:LinesForBudget()
 	return count
 end
 
-function Board:GetTransparency()
-	local boardPart = self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
-
-	return boardPart.Transparency
-end
-
-function Board:SetTransparency(transparency)
-	local boardPart = self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
-
-	boardPart.Transparency = transparency
+function Board:SurfacePart()
+	return self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
 end
 
 local _faceAngleCFrame = {
@@ -173,17 +189,12 @@ local _faceSurfaceOffsetGetter = {
 }
 
 function Board:SurfaceCFrame()
-	if self._surfacePart then
 
-		return self._surfacePart.CFrame
+	local surfacePart = self:SurfacePart()
 
-	else
-
-		return self._instance:GetPivot()
-			* _faceAngleCFrame[self.Face]
-			* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](self._surfacePart.Size))
-
-	end
+	return surfacePart:GetPivot()
+		* _faceAngleCFrame[self.Face]
+		* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](surfacePart.Size))
 end
 
 local _faceDimensionsGetter = {
@@ -196,7 +207,7 @@ local _faceDimensionsGetter = {
 }
 
 function Board:SurfaceSize()
-	return _faceDimensionsGetter[self.Face](self._surfacePart.Size)
+	return _faceDimensionsGetter[self.Face](self:SurfacePart().Size)
 end
 
 function Board:AspectRatio()

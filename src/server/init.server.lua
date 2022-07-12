@@ -14,9 +14,13 @@ end
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
-local DataStoreService = game:GetService("DataStoreService")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local BoardService = require(Common.BoardService)
+--[[
+	If a game is published this becomes the actual DataStoreService, otherwise
+	it's a mock one that won't error in offline place files.
+--]]
+local DataStoreService = require(Common.Packages.MockDataStoreService)
 
 -- Imports
 local Config = require(Common.Config)
@@ -33,47 +37,64 @@ local merge = Dictionary.merge
 local Persistence = require(script.Persistence)
 local randomFigures = require(script.randomFigures)
 
+-- Script Globals
 local InstanceToBoard = {}
 local PersistentBoards = {}
 local ChangedSinceStore = {}
-
-local persistenceDataStore
---local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
+local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 local function bindInstance(instance: Model | Part)
 	if not instance:IsDescendantOf(workspace) then
 		return
 	end
 
+	-- For testing
 	local randomised = CollectionService:HasTag(instance, "Randomised")
 
 	local persistId: string? = instance:GetAttribute("PersistId")
-	local status = (persistId or randomised) and "NotLoaded" or "Loaded"
+	local loaded = not (persistId or randomised)
 
 	local boardRemotes = BoardRemotes.new(instance)
 
-	local board = BoardServer.new(instance, boardRemotes, persistId, status)
+	local board = BoardServer.new(instance, boardRemotes, persistId, loaded)
 	InstanceToBoard[instance] = board
 
-	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
-		if board:Status() == "NotLoaded" then
+	--Connect the remote events to recieve updates when the board is loaded.
+	if loaded then
+		board._destructor:Add(board.Remotes:Connect(board))
+	else
+		local connection
+		connection = board.LoadedSignal:Connect(function()
+			board.Remotes:Connect(board)
+			connection:Disconnect()
+		end)
+	end
 
-			local connection
-			connection = board.StatusChangedSignal:Connect(function(newStatus)
-				if newStatus == "Loaded" then
-					board.Remotes.RequestBoardData:FireClient(
-						player,
-						true, -- indicate successful request
-						board.Figures,
-						board.DrawingTasks,
-						board.PlayerHistories,
-						board.NextFigureZIndex
-					)
-					board.Watchers[player] = true
-					connection:Disconnect()
-				end
-			end)
-		else
+	if persistId then
+		-- This table will be passed to persistence to load from the datastore
+		table.insert(PersistentBoards, board)
+
+		board._destructor:Add(board.DataChangedSignal:Connect(function()
+			Set.add(ChangedSinceStore, board)
+		end))
+	elseif randomised then
+		local figures = randomFigures(board:AspectRatio(), 5000, 10, 20)
+
+		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
+
+		board.Loaded = true
+		board.LoadedSignal:Fire()
+	end
+
+	--[[
+		Clients request the data for boards via this event. The data is sent
+		back via the same event immediately if the board is already loaded,
+		otherwise it will be sent back when the loaded signal fires.
+	--]]
+	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
+
+		if board.Loaded then
+
 			board.Remotes.RequestBoardData:FireClient(
 				player,
 				true, -- indicate successful request
@@ -84,28 +105,38 @@ local function bindInstance(instance: Model | Part)
 			)
 
 			board.Watchers[player] = true
+		else
+
+			local connection
+			connection = board.LoadedSignal:Connect(function()
+
+				board.Remotes.RequestBoardData:FireClient(
+					player,
+					true, -- indicate successful request
+					board.Figures,
+					board.DrawingTasks,
+					board.PlayerHistories,
+					board.NextFigureZIndex
+				)
+
+				board.Watchers[player] = true
+
+				connection:Disconnect()
+			end)
+
 		end
 	end)
 
-	BoardService.BoardAdded:FireAllClients(instance, board)
+	BoardService.BoardAdded:FireAllClients(instance, board.Remotes, board.PersistId)
 
-	if persistId then
-		table.insert(PersistentBoards, board)
 
-		board.DataChangedSignal:Connect(function()
-			Set.add(ChangedSinceStore, board)
-		end)
-	elseif randomised then
-		local figures = randomFigures(board:AspectRatio(), 50, 10, 20)
-
-		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
-
-		board:SetStatus("Loaded")
-	else
-		board:SetStatus("Loaded")
-	end
 end
 
+--[[
+	The server is in charge of deciding what becomes a metaboard. Clients
+	retrieve boards directly from the server via BoardService, not via
+	CollectionService.
+--]]
 CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstance)
 
 for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
@@ -141,9 +172,13 @@ BoardService.GetBoards.OnServerInvoke = function(player)
 	return numericBoardTable
 end
 
+--[[
+	Save all of the persistent boards which have changed since the last save.
+--]]
 local function saveChangedBoards()
+
 	if next(ChangedSinceStore) then
-		print(string.format("[MiniPersistence] Storing %d boards", Set.count(ChangedSinceStore)))
+		print(string.format("[Persistence] Storing %d boards", Set.count(ChangedSinceStore)))
 	end
 
 	for board in pairs(ChangedSinceStore) do
@@ -178,16 +213,15 @@ end
 
 -- 5 seconds after startup, start restoring all of the boards.
 task.delay(5, function()
+
 	Persistence.RestoreAll(persistenceDataStore, PersistentBoards)
 
 	-- Once all boards are restored, trigger auto-saving
 
-	task.spawn(function()
-		while true do
-			task.wait(Config.AutoSaveInterval)
-			saveChangedBoards()
-		end
-	end)
+	while true do
+		task.wait(Config.AutoSaveInterval)
+		saveChangedBoards()
+	end
 end)
 
 game:BindToClose(function()

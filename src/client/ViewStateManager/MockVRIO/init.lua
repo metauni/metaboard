@@ -18,8 +18,6 @@ end
 
 return function (self)
 
-	print(self.props.Board._instance.Name..": on")
-
 	local connections = {}
 
 	local toolQueue = ToolQueue(self)
@@ -78,7 +76,6 @@ return function (self)
 	return {
 
 		Destroy = function ()
-			print(self.props.Board._instance.Name..": off")
 
 			for _, connection in ipairs(connections) do
 				connection:Disconnect()

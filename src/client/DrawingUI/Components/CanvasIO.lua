@@ -104,7 +104,7 @@ function CanvasIO:render()
 					local cursorUDim2 = cursorPositionBinding:getValue()
 					local cursorPos = Vector2.new(cursorUDim2.X.Offset, cursorUDim2.Y.Offset)
 					local diff = (Vector2.new(x,y) - cursorPos).Magnitude
-					if diff > Config.Drawing.MaxLineLengthTouchPixels then
+					if diff > Config.GuiCanvas.MaxLineLengthTouchPixels then
 						return
 					end
 				end

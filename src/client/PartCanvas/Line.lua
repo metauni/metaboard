@@ -39,16 +39,16 @@ return function(props)
 	local x = lerp(canvasSize.X / 2, -canvasSize.X / 2, centre.X / aspectRatio)
 	local y = lerp(canvasSize.Y / 2, -canvasSize.Y / 2, centre.Y)
 	local z =
-		- Config.Canvas.ZThicknessStuds / 2
-		- Config.Canvas.InitialZOffsetStuds
-		- props.ZIndex * Config.Canvas.StudsPerZIndex
+		- Config.SurfaceCanvas.ZThicknessStuds / 2
+		- Config.SurfaceCanvas.InitialZOffsetStuds
+		- props.ZIndex * Config.SurfaceCanvas.StudsPerZIndex
 
 	return e("Part", {
 
 		Size = Vector3.new(
 			length * canvasSize.Y,
 			props.Width * canvasSize.Y,
-			Config.Canvas.ZThicknessStuds
+			Config.SurfaceCanvas.ZThicknessStuds
 		),
 
 		Color = props.Color,

@@ -50,7 +50,7 @@ local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
 		AbsoluteSize = absoluteSizeBinding,
 		AbsolutePosition = absolutePositionBinding,
 	}):map(function(values)
-		local zDistance = values.CamProps.NearPlaneZ + Config.Gui.MuteButtonNearPlaneZOffset
+		local zDistance = values.CamProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
 
 		local factor = pixelsToStuds(values.CamProps.ViewportSize, values.CamProps.FieldOfView, zDistance)
 
@@ -59,7 +59,7 @@ local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
 		return Vector3.new(
 			values.AbsoluteSize.X * factor * 0.99,
 			values.AbsoluteSize.Y * factor * 0.99,
-			Config.Gui.MuteButtonBlockerThickness
+			Config.GuiCanvas.MuteButtonBlockerThickness
 		)
 	end)
 
@@ -68,7 +68,7 @@ local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
 		AbsoluteSize = absoluteSizeBinding,
 		AbsolutePosition = absolutePositionBinding,
 	}):map(function(values)
-		local zDistance = values.CamProps.NearPlaneZ + Config.Gui.MuteButtonNearPlaneZOffset
+		local zDistance = values.CamProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
 
 		local factor = pixelsToStuds(values.CamProps.ViewportSize, values.CamProps.FieldOfView, zDistance)
 
@@ -81,7 +81,7 @@ local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
 
 		-- Position blocker to coincide with canvas
 		return values.CamProps.CFrame * CFrame.new(x, y, 0)
-			+ values.CamProps.CFrame.LookVector * (zDistance + Config.Gui.MuteButtonBlockerThickness / 2)
+			+ values.CamProps.CFrame.LookVector * (zDistance + Config.GuiCanvas.MuteButtonBlockerThickness / 2)
 	end)
 end
 

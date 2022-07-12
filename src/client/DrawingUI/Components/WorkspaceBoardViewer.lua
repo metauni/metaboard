@@ -96,7 +96,7 @@ function WorkspaceBoardViewer:render()
 
 			[Roact.Children] = {
 
-				[self.props.Board._instance.Name.."DrawingUIViewer"] = canvas
+				[self.props.Board:FullName().."-Canvas"] = canvas
 
 			}
 		})

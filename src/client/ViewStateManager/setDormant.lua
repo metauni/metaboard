@@ -10,7 +10,7 @@ local SurfaceCanvas = require(script.Parent.SurfaceCanvas)
 local extractHostObject = require(script.Parent.extractHostObject)
 local dormantBoardUpdater = require(script.Parent.dormantBoardUpdater)
 
-return function(board, viewData, canvasTarget, getLineBudget)
+return function(self, board, viewData)
 	viewData = viewData or {}
 
 	if viewData.Status == "Dormant" then
@@ -32,11 +32,13 @@ return function(board, viewData, canvasTarget, getLineBudget)
 				DrawingTasks = board.DrawingTasks,
 				CanvasSize = board:SurfaceSize(),
 				CanvasCFrame = board:SurfaceCFrame(),
-				GetLineBudget = getLineBudget,
+				GetLineBudget = function()
+					return self.GetLineBudget()
+				end,
 			})
 		end
 
-		local tree = Roact.mount(makeElement(), canvasTarget, board._instance.Name)
+		local tree = Roact.mount(makeElement(), self.CanvasesFolder, board:FullName())
 
 		canvas = extractHostObject(tree)
 	end

@@ -1,7 +1,7 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local VRService = game:GetService("VRService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -17,11 +17,11 @@ local CanvasViewport = require(script.Parent.CanvasViewport)
 local BoardStatView = require(script.Parent.BoardStatView)
 
 -- Helper Functions
-local VRDummy = require(script.Parent.VRDummy)
+local VRIO = require(script.Parent.VRIO)
 local merge = Dictionary.merge
 
 -- Drawing Tools
-local Pen = require(script.Parent.VRDummy.Pen)
+local Pen = require(script.Parent.VRIO.Pen)
 
 local character = Players.LocalPlayer.CharacterAdded:Wait()
 
@@ -39,8 +39,9 @@ end
 local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")
 
 function SurfaceCanvas:init()
+	self.ButtonPartRef = Roact.createRef()
+
 	self.EnforceLimit = true
-	self.LoadedAllUnderLimit = false
 
 	self:setState({
 		LineLimit = 0,
@@ -80,17 +81,17 @@ function SurfaceCanvas:didMount()
 
 			local isInRange = inRange(self)
 
-			if isInRange and not self.VRDummy then
-				self.VRDummy = VRDummy(self)
+			if isInRange and not self.VRIO then
+				self.VRIO = VRIO(self)
 
-			elseif not isInRange and self.VRDummy then
+			elseif not isInRange and self.VRIO then
 
 				if self.ToolHeld then
 					self.props.Board.Remotes.FinishDrawingTask:FireServer()
 				end
 
-				self.VRDummy.Destroy()
-				self.VRDummy = nil
+				self.VRIO.Destroy()
+				self.VRIO = nil
 
 				self:setState({
 					UnverifiedDrawingTasks = {},
@@ -105,9 +106,9 @@ function SurfaceCanvas:didMount()
 end
 
 function SurfaceCanvas:willUnmount()
-	if self.VRDummy then
-		self.VRDummy.Destroy()
-		self.VRDummy = nil
+	if self.VRIO then
+		self.VRIO.Destroy()
+		self.VRIO = nil
 	end
 
 	coroutine.close(self.InRangeChecker)
@@ -227,6 +228,64 @@ function SurfaceCanvas:render()
 		AsFragment = true,
 	})
 
+	local buttonPart do
+		--[[
+			The board should only be clickable if the client isn't using VR,
+			the board isn't currently loading lines and there's no other board open
+			(in which case self.props.OnSurfaceClick is nil).
+		--]]
+		if not VRService.VREnabled and not self.EnforceLimit and self.props.OnSurfaceClick then
+			buttonPart = e("Part", {
+
+				CFrame = self.props.CanvasCFrame,
+				Size = Vector3.new(self.props.CanvasSize.X, self.props.CanvasSize.Y, Config.SurfaceCanvas.CanvasThickness),
+
+				Transparency = 1,
+				["CanQuery"] = true,
+				Anchored = true,
+				CanCollide = false,
+				CastShadow = false,
+
+				[Roact.Ref] = self.ButtonPartRef,
+
+				[Roact.Children] = {
+
+					ClickDetector = e("ClickDetector", {
+
+						MaxActivationDistance = math.huge,
+
+					}),
+
+					ButtonGui = e("SurfaceGui", {
+
+						Adornee = self.ButtonPartRef,
+
+						[Roact.Children] = e("TextButton", {
+
+							Text = "",
+							BackgroundTransparency = 1,
+
+							Position = UDim2.fromScale(0,0),
+							Size = UDim2.fromScale(1,1),
+
+							[Roact.Event.Activated] = self.props.OnSurfaceClick,
+
+						})
+
+					})
+
+				}
+
+			})
+		end
+	end
+
+	--[[
+		This commented out stuff is for putting all of the lines within a viewportframe.
+		This saves massively on fps but it's unfortunately low resolution.
+	--]]
+	
+
 	-- local canvasViewport = e(CanvasViewport, {
 
 	-- 	Board = board,
@@ -247,6 +306,9 @@ function SurfaceCanvas:render()
 
 		[Roact.Children] = {
 			Figures = partFigures,
+
+			SurfaceClickPart = buttonPart,
+
 			BoardStatView = Config.Debug and e(BoardStatView, merge(self.props, {
 
 				LineCount = lineCount,

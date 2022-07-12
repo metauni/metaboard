@@ -5,11 +5,12 @@ local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
+local DrawingUI = require(script.Parent.Parent.DrawingUI)
 
 local SurfaceCanvas = require(script.Parent.SurfaceCanvas)
 local extractHostObject = require(script.Parent.extractHostObject)
 
-return function(board, viewData, canvasTarget, getLineBudget)
+return function(self, board, viewData)
 	local oldViewData = viewData or {}
 	local newViewData = {}
 
@@ -21,7 +22,9 @@ return function(board, viewData, canvasTarget, getLineBudget)
 			DrawingTasks = board.DrawingTasks,
 			CanvasSize = board:SurfaceSize(),
 			CanvasCFrame = board:SurfaceCFrame(),
-			GetLineBudget = getLineBudget,
+			GetLineBudget = function()
+				return self.GetLineBudget()
+			end,
 			LineLoadFinishedCallback = function()
 				if oldViewData and oldViewData.Destroy then
 					oldViewData.Destroy()
@@ -29,12 +32,27 @@ return function(board, viewData, canvasTarget, getLineBudget)
 				end
 			end,
 			Board = board,
+
+			--[[
+				Make the surface clickable only if no other board is open.
+			--]]
+			OnSurfaceClick = self.OpenedBoard == nil and function()
+				DrawingUI(board, "Gui", function()
+					-- This function is called when the Drawing UI is closed
+					self.OpenedBoard = nil
+					self:RefreshViewStates()
+				end)
+				self.OpenedBoard = board
+				self:RefreshViewStates()
+			end or nil,
 		})
 	end
 
-	if oldViewData.Status ~= "Active" then
+	if oldViewData.Status == "Active" then
+		Roact.update(oldViewData.Tree, makeElement())
+	else
 
-		newViewData.Tree = Roact.mount(makeElement(), canvasTarget, board._instance.Name)
+		newViewData.Tree = Roact.mount(makeElement(), self.CanvasesFolder, board:FullName())
 
 		local updateConnection = board.DataChangedSignal:Connect(function()
 			if not newViewData.Paused then

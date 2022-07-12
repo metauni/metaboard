@@ -107,6 +107,7 @@ function SubCurve:render()
 
 			CanvasSize = canvasSize,
 			CanvasCFrame = canvasCFrame,
+
 		})
 	end
 
@@ -119,15 +120,15 @@ function SubCurve:render()
 	-- and created over and over
 	if firstIndex == 1 and not lineMask[tostring(#points-1)] then
 		lines["CurveEndCircle"] =  Circle({
-	
+
 			Point = points[#points],
 			Width = self.props.Width,
 			Color = self.props.Color,
 			ZIndex = self.props.ZIndex,
-	
+
 			CanvasSize = canvasSize,
 			CanvasCFrame = canvasCFrame,
-	
+
 		})
 	end
 
@@ -152,7 +153,7 @@ function SubCurve:shouldUpdate(newProps, newState)
 	-- Circle at end of curve is stored in the first subcurve
 	if self.props.FirstIndex == 1 then
 		if newProps.Points[#newProps.Points] ~= self.props.Points[#self.props.Points] then return true end
-    if newProps.Mask[tostring(#newProps.Points-1)] ~= self.props.Mask[tostring(#self.props.Points-1)] then return true end
+		if newProps.Mask[tostring(#newProps.Points-1)] ~= self.props.Mask[tostring(#self.props.Points-1)] then return true end
 	end
 
 	return false

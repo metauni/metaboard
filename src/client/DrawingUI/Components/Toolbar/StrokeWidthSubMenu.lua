@@ -72,13 +72,13 @@ function StrokeWidthSubMenu:render()
 
 	local slider do
 		local function thicknessToAlpha(thickness)
-			local scale = (thickness - Config.Drawing.MinStrokeWidth) / (Config.Drawing.MaxStrokeWidth - Config.Drawing.MinStrokeWidth)
+			local scale = (thickness - Config.DrawingTools.MinStrokeWidth) / (Config.DrawingTools.MaxStrokeWidth - Config.DrawingTools.MinStrokeWidth)
 			return math.pow(scale, 1/2)
 		end
 
 		local function alphaToThickness(alpha)
 			local scale = math.pow(alpha,2)
-			return Config.Drawing.MinStrokeWidth * (1-scale) + Config.Drawing.MaxStrokeWidth * scale
+			return Config.DrawingTools.MinStrokeWidth * (1-scale) + Config.DrawingTools.MaxStrokeWidth * scale
 		end
 
 		local knobAlpha = thicknessToAlpha(selectedStrokeWidth)

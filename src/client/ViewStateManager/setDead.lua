@@ -1,4 +1,4 @@
-return function(board, viewData, canvasTarget, getLineBudget)
+return function(self, board, viewData)
 	viewData = viewData or {}
 
 	if viewData.Status ~= "Dead" then
@@ -7,14 +7,15 @@ return function(board, viewData, canvasTarget, getLineBudget)
 			viewData.Destroy()
 		end
 
-		local originalTransparency = board:GetTransparency()
+		local surfacePart = board:SurfacePart()
+		local originalTransparency = surfacePart.Transparency
 
-		board:SetTransparency(3/4 + 1/4 * originalTransparency)
+		surfacePart.Transparency = 3/4 + 1/4 * originalTransparency
 
 		return {
 			Status = "Dead",
 			Destroy = function()
-				board:SetTransparency(originalTransparency)
+				surfacePart.Transparency = originalTransparency
 			end
 		}
 

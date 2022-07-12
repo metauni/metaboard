@@ -90,9 +90,9 @@ function App:init()
 				EquippedTool = Pen,
 				SelectedEraserSizeName = "Small",
 				StrokeWidths = {
-					Small = Config.Drawing.Defaults.SmallStrokeWidth,
-					Medium = Config.Drawing.Defaults.MediumStrokeWidth,
-					Large = Config.Drawing.Defaults.LargeStrokeWidth,
+					Small = Config.DrawingTools.Defaults.SmallStrokeWidth,
+					Medium = Config.DrawingTools.Defaults.MediumStrokeWidth,
+					Large = Config.DrawingTools.Defaults.LargeStrokeWidth,
 				},
 				SelectedStrokeWidthName = "Small",
 				SelectedColorWellIndex = 1,
@@ -248,7 +248,7 @@ function App:render()
 
 	local cursorWidth, cursorColor do
 		if toolState.EquippedTool == Eraser then
-			cursorWidth = Config.Drawing.EraserStrokeWidths[toolState.SelectedEraserSizeName]
+			cursorWidth = Config.DrawingTools.EraserStrokeWidths[toolState.SelectedEraserSizeName]
 			cursorColor = Config.UITheme.Highlight
 		else
 			cursorWidth = toolState.StrokeWidths[toolState.SelectedStrokeWidthName]

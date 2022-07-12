@@ -245,9 +245,9 @@ local function restoreAll(dataStore, boards)
 			if persistIdToBoard[board.PersistId] then
 				print(
 					("[Persistence] '%s' has the same PersistId (%s) as %s. Ignoring."):format(
-						board._instance.Name,
+						board:FullName(),
 						board.PersistId,
-						persistIdToBoard[board.PersistId]._instance.Name
+						persistIdToBoard[board.PersistId]:FullName()
 					)
 				)
 
@@ -280,7 +280,7 @@ local function restoreAll(dataStore, boards)
 			if result == NothingStored or nil then
 				-- Load the default board
 				board:LoadData({}, {}, {}, 0, EraseGrid.new(board:AspectRatio()))
-				board:SetStatus("Loaded")
+				board.Loaded = true
 			else
 				table.insert(
 					deserialisers,
@@ -288,7 +288,8 @@ local function restoreAll(dataStore, boards)
 						local figures, nextFigureZIndex, eraseGrid = deserialise(board, result)
 
 						board:LoadData(figures, {}, {}, nextFigureZIndex, eraseGrid)
-						board:SetStatus("Loaded")
+						board.Loaded = true
+						board.LoadedSignal:Fire()
 						print("Loaded: " .. boardKey)
 					end)
 				)

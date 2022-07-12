@@ -52,7 +52,7 @@ return function(board, boardViewMode, onClose)
 		})
 	end
 
-	handle = Roact.mount(makeApp(), Players.LocalPlayer.PlayerGui, "DrawingUI-"..board._instance.Name)
+	handle = Roact.mount(makeApp(), Players.LocalPlayer.PlayerGui, "DrawingUI-"..board:FullName())
 
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)

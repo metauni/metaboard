@@ -17,8 +17,8 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 return function(props)
 
 	local eraseGrid = props.Board.EraseGrid
-	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.DefaultEraseGridPixelSize)
-	local gridHeight =  math.ceil(1 / Config.DefaultEraseGridPixelSize)
+	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.Canvas.DefaultEraseGridPixelSize)
+	local gridHeight =  math.ceil(1 / Config.Canvas.DefaultEraseGridPixelSize)
 
 	local cells = {}
 	for x=0, gridWidth-1 do
@@ -30,7 +30,7 @@ return function(props)
 
 				TextColor3 = Color3.new(1,1,1),
 
-				Size = UDim2.fromScale(Config.DefaultEraseGridPixelSize, Config.DefaultEraseGridPixelSize),
+				Size = UDim2.fromScale(Config.Canvas.DefaultEraseGridPixelSize, Config.Canvas.DefaultEraseGridPixelSize),
 				Position = UDim2.fromScale(x/gridHeight, y/gridHeight),
 
 				BackgroundTransparency = 1,

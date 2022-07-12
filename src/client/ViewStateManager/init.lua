@@ -70,7 +70,7 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 		return status ~= "Dead"
 	end)
 
-	local getLineBudget = function()
+	self.GetLineBudget = function()
 		local boardBudget = LINEFRAMEBUDGET / numNotDead
 		if self.BudgetThisFrame - boardBudget >= 0 then
 			self.BudgetThisFrame -= boardBudget
@@ -90,10 +90,16 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 	self.ViewStates = Dictionary.map(boardToViewStatus, function(viewStatus, board)
 		local viewState = self.ViewStates[board]
 		if not viewState then
-			viewState = setDead(board, nil, self.CanvasesFolder, getLineBudget)
+			viewState = setDead(self, board, nil)
 		end
-		return viewStateSetter[viewStatus](board, viewState, self.CanvasesFolder, getLineBudget)
+		return viewStateSetter[viewStatus](self, board, viewState)
 	end)
+end
+
+function ViewStateManager:RefreshViewStates()
+	self:_reconcileBoards(Dictionary.map(self.ViewStates, function(viewState)
+		return viewState.Status
+	end))
 end
 
 function ViewStateManager:UpdateWithAllActive(instanceToBoard)

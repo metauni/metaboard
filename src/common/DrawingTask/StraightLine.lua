@@ -79,14 +79,14 @@ function StraightLine.Finish(drawingTask, board)
 	local length = (p0 - p1).Magnitude
 
 	-- No subdivisions if the line is small enough
-	if length <= Config.Drawing.LineSubdivisionLengthYScale then
+	if length <= Config.Canvas.LineSubdivisionLengthYScale then
 		if drawingTask.Verified then
 			board.EraseGrid:AddCurve(drawingTask.Id, drawingTask.Curve)
 		end
 		return drawingTask
 	end
 
-	local numSegments = math.ceil(length/Config.Drawing.LineSubdivisionLengthYScale)
+	local numSegments = math.ceil(length/Config.Canvas.LineSubdivisionLengthYScale)
 	local newPoints = {}
 
 	for i=0, numSegments do

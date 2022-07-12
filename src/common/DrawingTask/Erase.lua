@@ -11,7 +11,6 @@ local Dictionary = Sift.Dictionary
 local merge = Dictionary.merge
 local set = Dictionary.set
 
--- Erase Module
 local Erase = {}
 
 function Erase.new(taskId: string, thicknessYScale: number)

@@ -8,6 +8,11 @@ local Config = {
 
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
 
+	Debug = false,
+}
+
+Config.Persistence = {
+
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
@@ -27,27 +32,41 @@ local Config = {
 	DeserialiseTime = 5 * 0.001,
 }
 
-Config.Drawing = {
-	MaxLineLengthTouchPixels = 100,
+Config.Canvas = {
 
+	--[[
+		When straight line drawing tasks "Finish", they subdivide the line into
+		line segments of this length.
+	--]]
+	LineSubdivisionLengthYScale = 20/1000,
+
+	--[[
+		The side length of each cell in the eraser grid
+	--]]
+	DefaultEraseGridPixelSize = 1/10,
+}
+
+Config.DrawingTools = {
+
+	-- Bounds on the stroke width of the Pen/StraightEdge tools
 	MinStrokeWidth = 1,
 	MaxStrokeWidth = 40,
 
-	LineSubdivisionLengthYScale = 20/1000,
+	-- Default stroke widths for Pen/StraightEdge tools
+	Defaults = {
+		SmallStrokeWidth = 2,
+		MediumStrokeWidth = 10,
+		LargeStrokeWidth = 20,
+	},
 
 	EraserStrokeWidths = {
 		Small = 10,
 		Medium = 80,
 		Large = 250,
 	},
-
-	Defaults = {
-		SmallStrokeWidth = 2,
-		MediumStrokeWidth = 10,
-		LargeStrokeWidth = 20,
-	}
 }
 
+-- Colors used in the toolbar drawing UI
 Config.UITheme = {
 	Background = Color3.new(0.2, 0.2, 0.2),
 	Highlight = Color3.new(.8,.8,.8),
@@ -56,103 +75,36 @@ Config.UITheme = {
 	Selected = Color3.fromHex("007AFF"),
 }
 
-local function hslToRgb(h, s, l)
-	local r, g, b
+--[[
+	Table of shades for each color with base color names like "Blue" as keys.
+	Has the following format (Shades should be an array of 5 colors)
+	{
+		[string]: {
+			BaseColor: Color3,
+			Shades: {Color3},
+			Index: number,
+		}
+	}
+--]]
+Config.ColorPalette = require(script.Parent.ConfigColorPalette)
 
-	if s == 0 then
-		r = l
-		g = l
-		b = l
-	else
-		local hue2rgb = function(p, q, t)
-			if t < 0 then t += 1 end
-			if t > 1 then t -= 1 end
-			if t < 1/6 then
-				return p + (q - p) * 6 * t
-			elseif t < 1/2 then
-				return q
-			elseif t < 2/3 then
-				return p + (q - p) * (2/3 - t) * 6
-			else
-				return p
-			end
-		end
-
-		local q = if l < 0.5 then l * (1 + s) else l + s - l * s
-		local p = 2 * l - q
-		r = hue2rgb(p, q, h + 1/3);
-		g = hue2rgb(p, q, h);
-		b = hue2rgb(p, q, h - 1/3);
-	end
-
-	return r, g, b
-end
-
-local function rgbToHsl(r, g, b)
-	local max = math.max(r, g, b)
-	local min = math.min(r, g, b)
-	local h, s, l
-	l = (max + min) / 2
-
-	if max == min then
-		h = 0
-		s = 0
-	else
-		local d = max - min
-		s = if l > 0.5 then d / (2 - max - min) else d / (max + min)
-		if max == r then
-			h = (g - b) / d + (if g < b then 6 else 0)
-		elseif max == g then
-			h = (b - r) / d + 2
-		elseif max == b then
-			h = (r - g) / d + 4
-		else
-			error("one of these should have been equal to max")
-		end
-		h /= 6
-	end
-
-	return h, s, l
-end
-
-Config.ColorPalette = {
-	White  = { Index = 1, BaseColor = Color3.fromHex("FCFCFC"), ShadeAlphas = {-4/10, -3/10, -2/10, 1/10, 0} },
-	Black  = { Index = 2, BaseColor = Color3.fromHex("000000"), ShadeAlphas = {0, 1/10, 2/10, 3/10, 4/10}    },
-	Blue   = { Index = 3, BaseColor = Color3.fromHex("007AFF"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-	Green  = { Index = 4, BaseColor = Color3.fromHex("7EC636"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-	Red    = { Index = 5, BaseColor = Color3.fromHex("D20000"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-	Orange = { Index = 6, BaseColor = Color3.fromHex("F59A23"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-	Purple = { Index = 7, BaseColor = Color3.fromHex("82218B"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-	Pink   = { Index = 8, BaseColor = Color3.fromHex("FF58C4"), ShadeAlphas = {-2/3, -1/3, 0, 1/3, 2/3}      },
-}
-
-for baseName, colorTable in pairs(Config.ColorPalette) do
-	colorTable.Shades = table.create(#colorTable.ShadeAlphas)
-	local h, s, l = rgbToHsl(colorTable.BaseColor.R, colorTable.BaseColor.G, colorTable.BaseColor.B)
-	for i, shadeAlpha in ipairs(colorTable.ShadeAlphas) do
-		if shadeAlpha >= 0 then
-			local shadeLum = shadeAlpha * (1-l) + l
-			colorTable.Shades[i] = Color3.new(hslToRgb(h,s,shadeLum))
-		else
-			local shadeLum = l - -shadeAlpha * l
-			colorTable.Shades[i] = Color3.new(hslToRgb(h,s,shadeLum))
-		end
-	end
-end
-
-
-
-
-Config.Gui = {
+Config.GuiCanvas = {
 	-- Pixel width of line before adding UICorner
+	-- TODO: Unused?
 	UICornerThreshold = 4,
-	-- Transparency of shadow behind selected button
-	HighlightTransparency = 0.75,
+
+	-- Limits distance between mouse movements for palm rejection
+	MaxLineLengthTouchPixels = 100,
+
+	--[[
+		The mute button blocker is a part which occludes the spatial audio mute toggle,
+		which can otherwise be clicked through the canvas.
+	--]]
 	MuteButtonBlockerThickness = 0.01,
 	MuteButtonNearPlaneZOffset = 0.5,
 }
 
-Config.Canvas = {
+Config.SurfaceCanvas = {
 	-- The line z-thickness (in studs) on the axis normal to the board
 	ZThicknessStuds = 0.001,
 	-- How far above the previous curve to draw the next one, in studs
@@ -160,7 +112,7 @@ Config.Canvas = {
 	InitialZOffsetStuds = 0.0492,
 	-- When using Type="RoundedParts", lines which are thicker than this in
 	-- studs (not z-thickness) will have circles (cylinder parts) at each end
-	-- of the line
+	-- of the line. TODO: unused?
 	RoundThresholdStuds = 0.05,
 	-- The thickness of the invisible canvas that is spawned on top of the
 	-- drawing surface
@@ -190,8 +142,5 @@ Config.History = {
 Config.VR = {
 	PenToolName = "MetaChalk"
 }
-
-Config.Debug = false
-Config.DefaultEraseGridPixelSize = 1/10
 
 return Config
