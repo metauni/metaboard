@@ -74,7 +74,7 @@ function PureFigure:shouldUpdate(nextProps, nextState)
 			end
 		end
 
-		-- Check if any old figure masks and now different or gone
+		-- Check if any old figure masks are now different or gone
 		for eraseTaskId, figureMask in pairs(self.props.FigureMasks) do
 			if figureMask ~= nextProps.FigureMasks[eraseTaskId] then
 				return true

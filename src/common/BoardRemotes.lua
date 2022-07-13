@@ -63,18 +63,6 @@ function BoardRemotes:Destroy()
 	end
 end
 
-function BoardRemotes.WaitForRemotes(instance)
-	local remotesFolder = instance:WaitForChild("Remotes")
-
-	local self = setmetatable({}, BoardRemotes)
-
-	for _, eventName in ipairs(events) do
-		self[eventName] = remotesFolder:WaitForChild(eventName)
-	end
-
-	return self
-end
-
 function BoardRemotes:Connect(board)
 
 	local connections = {}
