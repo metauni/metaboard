@@ -43,6 +43,50 @@ This packages the `src/common`, `src/client` and `src/gui` code inside the serve
 
 ## Source Code Overview
 
+> What is init.lua?
+This is a Rojo concept. When a folder contains such a named file, that folder will become a ModuleScript with its contents,
+and the children of the folder will be the children of the ModuleScript.
+Similarly for `init.client.lua` (parent folder becomes a `LocalScript`) and `init.server.lua` and (parent folder becomes a `Script`).
+
+- [Board](src/common/Board.lua), [BoardServer](src/server/BoardServer.lua), [BoardClient](src/client/BoardClient/init.lua)
+	- The board class and the two derived classes for the client and server.
+	- Maintains the state of the board (Figures, DrawingTasks, PlayerHistories) and any other relevant properties (instance, persistId, remotes).
+- [BoardRemotes](src/common/BoardRemotes.lua)
+	- The channel of communication between client and server for altering the board contents via drawing tasks.
+- [Figure](src/common/Figure.lua)
+	- The types and associated functions for the different kinds of figures that can be drawn to the board (e.g. `Curve`, `Line`, `Circle`)
+- [DrawingTask](src/common/DrawingTask/)
+	- Interface for calling the associated functions for the [FreeHand](src/common/DrawingTask/FreeHand.lua), [StraightLine](src/common/DrawingTask/StraightLine.lua) and [Erase](src/common/DrawingTask/Erase.lua) drawing tasks.
+	- These methods control how the drawing task evolves during a touch-and-drag user input (Init/Update/Finish), what to add to the table of figures when rendering (Render), what side effects to perform when undoing and redoing (Undo/Redo), and how to permanently commit their changes to the table of Figures (Commit).
+- [History](src/common/History.lua)
+	- A queue with a concept of past and future, which is used to store each player's most recent drawing tasks, and for retrieving the most recent or most imminent drawing task for undo and redo. It is has a capacity which prevents it from storing drawing tasks which are *too old*.
+	- Every operation is O(1) because it uses cyclic indexing :)
+- [EraseGrid](src/common/EraseGrid/)
+	- Divides the canvas of the board into a square-grid of cells, each of which is a set that indicates which (parts of) figures intersects that cell.
+	- The [Erase](src/common/DrawingTask/Erase.lua) drawing task queries the EraseGrid to find which (parts of) figures are *nearby* to the eraser, for performance gains (avoids looping over every single line in every figure).
+- [Persistence](src/server/Persistence.lua)
+	- Stores and restores the contents of a board to/from a datastore.
+- [PartCanvas](src/client/PartCanvas/)
+	- A reusable Roact component for rendering the contents of a board with `Part` instances relative to a particular `CanvasCFrame` and `CanvasSize`
+	- Used in [SurfaceCanvas](src/client/ViewStateManager/SurfaceCanvas.lua)
+- [FrameCanvas](src/client/FrameCanvas/)
+	- A reusable Roact component for rendering the contents of a board with `Frame` instances inside `ScreenGui`s
+	- Used in [GuiBoardViewer](src/client/DrawingUI/Components/GuiBoardViewer/) for the [DrawingUI](src/client/DrawingUI/)
+- [DrawingUI](src/client/DrawingUI/)
+	- Sets up and tears down the drawing UI [App](src/client/DrawingUI/App.lua) component, which is the primary interface for drawing in metaboard.
+- [App](src/client/DrawingUI/App.lua)
+	- Roact component for viewing and editing the contents of a chosen board. Some important components are listed.
+		- [Toolbar](src/client/DrawingUI/Components/Toolbar/), for equipping and configuring different tools for drawing and erasing figures on the board. Also other menu buttons like undo/redo, and a close button.
+		- [GuiBoardViewer](src/client/DrawingUI/Components/GuiBoardViewer/), renders the board state as a [FrameCanvas](src/client/FrameCanvas/), and shows a clone of the board instance underneath with a viewport frame.
+		- [CanvasIO](src/client/DrawingUI/Components/CanvasIO.lua), handles user input by positioning a correctly sized button over the canvas.
+	- The App component manages *state* for tools (which one is selected and what are the stroke-widths/color etc), as well as *state* for "UnverifiedDrawingTasks", which allows the client to see their own changes immediately without affecting the state of the board (which is kept consistent with the server's version of the board state)
+	- There is also a [ToolQueue](src/client/UserInput/ToolQueue.lua) involved, which gathers all of the user inputs that occurred that frame and combines them into a single re-render for performance gains (otherwise can happen 2-3 times a frame).
+- [ViewStateManager](src/client/ViewStateManager/)
+	- Handles Board streaming - i.e. figures on far-away boards disappear to save on memory-usage.
+	- [SurfaceCanvas](src/client/ViewStateManager/SurfaceCanvas.lua), uses [PartCanvas](src/client/PartCanvas/) to render the board state onto the surface of the board instance. Supports gradual loading of lines (instead of all in the same frame), so that board streaming works smoothly. Also handles VR drawing onto its surface, with UnverifiedDrawingTasks in the component state to see changes instantly (just like the DrawingUI App).
+
+## Board, BoardClient, BoardServer
+
 The primary object of metaboard is a `Board`, which is a class-object with the following primary data.
 ```lua
 {
@@ -333,7 +377,7 @@ So perhaps a drawing task should explicitly store a function *per-FigureId*. So 
 
 What's the point of fussing over this? Well currently the behaviour of the Erase drawing task is fragmented between `src/common/DrawingTasks/Erase.lua`, and all of the various renderers that have to gather and apply the right mask to each figure when they encounter `drawingTask.Type == "Erase"`. So if you want to implement another type of drawing task that affects other figures (not just drawing a new figure), then you have to implement the render stage behaviour and shortcut detection in every `PureFigure` component in the repo under an `elseif drawingTask.Type == "OtherType"` clause.
 
-In summary, I think a drawing task should tell you
-1. Which figureIds it affects
-2. How to update the figure at that figureId in the render step
-3. An identifier for this "updater" which is always changed whenever the new updater "might" produce a different result.
+In summary, I think a drawing task should tell you which figureIds it affects, and for each figureId.
+1. How to update the figure at that figureId in the render step
+2. Some kind of reference for this updater (or its generating data) which is changed whenever the drawing task modifies it, and is unchanged when the drawing task only modifies the updaters for other figureIds.
+
