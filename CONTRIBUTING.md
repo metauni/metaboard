@@ -92,7 +92,7 @@ A `Figure` is a table with a `Type: string` entry specifying what kind of figure
 }
 ```
 
-This data represents a [polyline](https://en.wikipedia.org/wiki/Polygonal_chain) of line segments (each of the given width, color, z-Index) joining the consecutive points in the Points array. The optional Mask table has entries of the form `[tostring(i)] = true`, where `1 <= i <= #Points-1`, which indicate that the line segment between `Points[i]` and `Points[i+1]`.
+This data represents a [polyline](https://en.wikipedia.org/wiki/Polygonal_chain) of line segments (each of the given width, color, z-Index) joining the consecutive points in the Points array. The optional Mask table has entries of the form `[tostring(i)] = true`, where `1 <= i <= #Points-1`, which indicate that the line segment between `Points[i]` and `Points[i+1]` is hidden.
 
 In ideal form, this data actually represents some smooth curve that passes through the points, i.e. the smooth path traced out by the pen that generated the points. The polyline is just a simple choice of representation. Other "renderers" can take this same data and render a smoother polyline with more intermediate points, or a coarser one that skips points, or even render to a pixel-based canvas.
 
@@ -176,7 +176,19 @@ It stores an identifier, a type string, and a figure. As with any other drawing 
 
 ### Erasing
 
-Erasing throws a spanner in the works because it is quite different to the "draw a figure" drawing tasks. It is hard to treat it as a standalone/removable contribution to the board state, since its high-level purpose is to modify the appearance of other figures. The solution we employ is to just record what is being erased from each figure within the drawing task itself. It is then the responsibility of the renderer to hide any parts of figures that have been erased by some drawing task in `board.DrawingTasks` (see rendering section TODO)
+Erasing throws a spanner in the works because it is quite different to the "draw a figure" drawing tasks. It is hard to treat it as a standalone/removable contribution to the board state, since its high-level purpose is to modify the appearance of other figures. The solution we employ is to just record what is being erased from each figure within the drawing task itself. It is then the responsibility of the renderer to hide any parts of figures that have been erased by some drawing task in `board.DrawingTasks` (see rendering section TODO).
+
+An erase drawing tasks has the following format
+```lua
+{
+	Type: "Erase",
+	Id: string,
+	ThicknessYScale: number, -- the size of the eraser,
+	FigureIdToMask: { [string]: FigureMask }
+}
+```
+
+Here `FigureMask` depends on what kind of figure it is. For a `Curve` a mask is a table indicating which line segments should be hidden.
 
 ### The EraseGrid
 In the [Drawing Tasks](#drawing-tasks) section it says
@@ -264,3 +276,64 @@ function PureFigure:shouldUpdate(nextProps, nextState)
 	end
 end
 ```
+
+### Combining board state into PureFigures
+
+Here is the relevant code for producing these `PureFigure` components from the board state.
+
+```lua
+local figureMaskBundles = {}
+local allFigures = table.clone(self.props.Figures)
+
+for taskId, drawingTask in pairs(self.props.DrawingTasks) do
+
+	if drawingTask.Type == "Erase" then
+		local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+		for figureId, figureMask in pairs(figureIdToFigureMask) do
+			local bundle = figureMaskBundles[figureId] or {}
+			bundle[taskId] = figureMask
+			figureMaskBundles[figureId] = bundle
+		end
+
+	else
+
+		allFigures[taskId] = DrawingTask.Render(drawingTask)
+	end
+end
+```
+
+We create a new table, `allFigures` which will contain figures from `board.Figures` as well as figures from any drawing tasks that create figures.
+At the same time we bundle together all of the masks for the same figure from every `Erase` drawing task.
+
+We then create all of the PureFigures as follows.
+
+```lua
+local pureFigures = {}
+
+for figureId, figure in pairs(allFigures) do
+
+	pureFigures[figureId] = e(PureFigure, {
+
+		Figure = figure,
+		FigureMasks = self.props.FigureMaskBundles[figureId] or {},
+		CanvasSize = self.props.CanvasSize,
+		CanvasCFrame = self.props.CanvasCFrame,
+
+	})
+end
+```
+
+### Comment
+
+This is a fairly ad-hoc treatment of the different types of drawing tasks. Notice that `FreeHand` and `StraightLine` drawing tasks return a figure from their `Render` method (not a figureId -> figure entry), whereas `Erase` drawing tasks return a table with figureIds as keys and masks as values. Erasing is a very different beast from figure-drawing, so there's no *obvious* way of making the output of `DrawingTask.Render` uniform across different types of drawing tasks, while preserving the ability to quickly recognise when we don't need to update a `PureFigure`. This doesn't mean there's no natural way to do it.
+
+If we don't have to preserve the ability to shortcut updates, then the behaviour of all types of drawing tasks could be made uniform by making them store a function that takes the figure table as an argument and returns a new one with whatever changes it wants to make (adding a new figure, or replacing a figure with one that has a different mask). Checking for equality between the new function and the old one will only tell us that either no figures need to be changed (if functions are equal) or some of them do but we can't know which.
+
+So perhaps a drawing task should explicitly store a function *per-FigureId*. So every time a render occurs, for each figureId, we gather all of the functions for that figureId from all of the drawing tasks, and if they are equal to all of the previous functions, then we know we can shortcut the update.
+
+What's the point of fussing over this? Well currently the behaviour of the Erase drawing task is fragmented between `src/common/DrawingTasks/Erase.lua`, and all of the various renderers that have to gather and apply the right mask to each figure when they encounter `drawingTask.Type == "Erase"`. So if you want to implement another type of drawing task that affects other figures (not just drawing a new figure), then you have to implement the render stage behaviour and shortcut detection in every `PureFigure` component in the repo under an `elseif drawingTask.Type == "OtherType"` clause.
+
+In summary, I think a drawing task should tell you
+1. Which figureIds it affects
+2. How to update the figure at that figureId in the render step
+3. An identifier for this "updater" which is always changed whenever the new updater "might" produce a different result.
