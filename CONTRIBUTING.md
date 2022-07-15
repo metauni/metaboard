@@ -39,7 +39,7 @@ rojo build --output metaboard.rbxmx release.project.json
 
 This packages the `src/common`, `src/client` and `src/gui` code inside the server folder (`src/server`) called `metaboard`. 
 
-`src/server/Startup.server.lua` will redistribute this code into the appropriate client folders when the game starts.
+`src/server/init.server.lua` will redistribute this code into the appropriate client folders when the game starts.
 
 ## Source Code Overview
 
@@ -104,7 +104,7 @@ The primary object of metaboard is a `Board`, which is a class-object with the f
 `BoardClient` and `BoardServer` are derivatives of the `Board` class and add behaviour specific to the client/server.
 
 It is the job of the server (in `init.server.lua`) to decide which instances should become a `Board` object (through CollectionService).
-The instance is stored in the `_instance` key (see `TODO: link to heading`).
+The instance is stored in the `_instance` key (see [Board Instance](#board-instance)).
 There is some back and forth exchange between the client and server while the server is retrieving persistent board data from the
 datastore, but eventually the client has a `BoardClient` object corresponding to each `BoardServer` object that the server has.
 
@@ -114,6 +114,43 @@ All communication between client and server takes place via the `BoardRemotes` o
 a folder of remote events, which are parented to the board instance. The client retrieves this object from the server, because it must connect to the exact same remote event instances.
 
 `BoardRemotes.lua` also contains a function (`BoardRemotes:Connect`) for connecting to both `OnServerEvent` and `OnClientEvent` for each of the remote events. There are some slightly different behaviour depending on whether its the server-side or client-side logic, but the majority of the code (which manipulates Figures, Drawing Tasks and Histories) is the same for the client and server. The client and server code were previously separate, but this introduced too many bugs when forgetting to make a change in both files.
+
+## Board Instance
+
+`Board.new` accepts either a `Model` or a `Part` for its `instance` argument, and stores it at `self._instance`.
+If it's a `Part`, we treat that as the rectangular surface where figures should be placed. If it's a `Model`, then
+we use the `PrimaryPart` of the model as the rectangular surface where figures should be placed. In both cases, we
+refer to that surface as the surface part.
+
+The underscore in `board._instance` is a convention which indicates *you should not interface directly with this piece of the Board object*.
+The reason is the difference in behaviour if it's a `Model` vs if it's a `Part`, which should be an internal concern
+of the board object. Instead we provide methods for uniform access to the surface part.
+
+```lua
+function Board:SurfacePart()
+	return self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
+end
+```
+
+The only other reason we might want to touch the `_instance` key is to grab a name for debugging/logging purposes.
+We provide methods for doing this.
+
+```lua
+function Board:Name()
+	return self._instance.Name
+end
+
+function Board:FullName()
+	return self._instance:GetFullName()
+end
+```
+
+Note that having too many of these kinds of methods should be considered an [anti-pattern](https://en.wikipedia.org/wiki/Anti-pattern), especially getter and setter methods. Instead of `Board:GetX()` and `Board:SetX(newX)`, it's better to just have `X` as a key in the board table. If there is a behaviour that is supposed to be triggered when the `X` key changes, then make a simple interface for external code to manually trigger that behaviour after modifying `X`. An example of this is the `Loaded` key and the `LoadedSignal` in `BoardServer`, which should be fired whenever `board.Loaded` becomes true. We could make a `:GetLoaded()` and `:SetLoaded(isLoaded)` method, where the `SetLoaded` method also fires the signal, with the intention of keeping that behaviour a responsibility of the board object, but this just obscures what's going on to the caller of `SetLoaded` and introduces two extra methods. Better to just write these two lines of code each time.
+
+```lua
+board.Loaded = true
+board.LoadedSignal:Fire()
+```
 
 ## Figures, DrawingTasks, PlayerHistories
 
@@ -214,13 +251,13 @@ end
 
 It stores an identifier, a type string, and a figure. As with any other drawing task, the `Init` function is called when the client begins touching the screen (e.g. `MouseButton1Down`), then `Update` is called for every subsequent movement (e.g. `MouseMoved`) and then `Finish` when the client stops touching the screen (e.g. `MouseButton1Up`).
 
-- What's this set/merge business? These functions are from the immutability data library [Sift](https://csqrl.github.io/sift/). They clone the first argument, then return that clone with the given key/keys changed. Why immutability? See immutability section (TODO).
+- What's this set/merge business? These functions are from the immutability data library [Sift](https://csqrl.github.io/sift/). They clone the first argument, then return that clone with the given key/keys changed. Why immutability? See the [Immutability section](#immutability).
 - What's `drawingTask.Verified`? This is a flag set by the server so that side-effects are only performed when safe to do so (i.e. in the same order w.r.t. other drawing tasks). This allows clients to perform and manage their own "unverified" drawing tasks without affecting the board state. In `FreeHand`, the `NextFigureZIndex` of the board is incremented in the `Init` stage, and the resulting figure is added to the EraseGrid in the `Finish` stage.
 - Why does every curve begin with two of the same point? This simplifies the logic in other areas of the code (EraseGrid, rendering) because they can assume every curve has length 2. This could change.
 
 ### Erasing
 
-Erasing throws a spanner in the works because it is quite different to the "draw a figure" drawing tasks. It is hard to treat it as a standalone/removable contribution to the board state, since its high-level purpose is to modify the appearance of other figures. The solution we employ is to just record what is being erased from each figure within the drawing task itself. It is then the responsibility of the renderer to hide any parts of figures that have been erased by some drawing task in `board.DrawingTasks` (see rendering section TODO).
+Erasing throws a spanner in the works because it is quite different to the "draw a figure" drawing tasks. It is hard to treat it as a standalone/removable contribution to the board state, since its high-level purpose is to modify the appearance of other figures. The solution we employ is to just record what is being erased from each figure within the drawing task itself. It is then the responsibility of the renderer to hide any parts of figures that have been erased by some drawing task in `board.DrawingTasks` (see [Rendering](#rendering)).
 
 An erase drawing tasks has the following format
 ```lua
@@ -232,7 +269,7 @@ An erase drawing tasks has the following format
 }
 ```
 
-Here `FigureMask` depends on what kind of figure it is. For a `Curve` a mask is a table indicating which line segments should be hidden.
+Here `FigureMask` depends on what kind of figure it is. For a `Curve`, a mask is a table indicating which line segments should be hidden. In general, the structure of the figure mask determines how parts of the figure can be erased. If it was just a boolean value, we could only erase all or none of the figure.
 
 ### The EraseGrid
 In the [Drawing Tasks](#drawing-tasks) section it says
@@ -261,7 +298,7 @@ Doing this computation and comparison on the pure-lua side is orders of magnitud
 
 We make use of `shouldUpdate` in every figure component, which is a very fast equality check between the new and old figure data. This is why our use of immutability is critical, because we are relying on `==` to check if the contents of the tables are equal. This does still mean that we have to call `shouldUpdate` on every single figure every time we render, but the scale of numbers matters here. Typically we're dealing with *hundreds* of figures, and the *low-tens-of-thousands* of lines. As a rule of thumb, O(#figures) should be considered "fast enough", and O(#lines) is likely to incur a performance issue (O as in [Big-O notation](https://en.wikipedia.org/wiki/Big_O_notation)).
 
-This poses a challenge when involving masks from `Erase` drawing tasks. Each figure needs to take into account all of the drawing tasks that erased part of it when rendering, but if we gather all of those masks and merge them into the figure data, we will either need to mutate the figure data (bad!) or we will have to create a new table for the modified figure, which will always be non-equal to the one created in the last render, even if it was the same resulting mask. Then the only way to shortcut the render process will be to check that all of the contents of the mask are the same as the mask from the previous render. This becomes an O(#lines) in the worst case (when most figures are at least partially erased).
+This poses a challenge when involving masks from `Erase` drawing tasks. Each figure needs to take into account all of the drawing tasks that erased part of it when rendering, but if we gather all of those masks and merge them into the figure data, we will either need to mutate the figure data (bad!) or we will have to create a new table for the modified figure, which will always be non-equal to the one created in the last render, even if it was the same resulting mask. Then the only way to shortcut the render process will be to check that all of the contents of the mask are the same as the mask from the previous render. This becomes an O(#lines) operation in the worst case (when most figures are at least partially erased).
 
 Instead we rely on the immutability of the mask generated by each erase drawing task, and keep them all separately in a table of masks for that figure. Then our `shouldUpdate` method just needs to check whether we have the same collection of masks as the previous render, which is only O(#drawingTasks).
 
@@ -367,7 +404,7 @@ for figureId, figure in pairs(allFigures) do
 end
 ```
 
-### Comment
+### Comment (Billy)
 
 This is a fairly ad-hoc treatment of the different types of drawing tasks. Notice that `FreeHand` and `StraightLine` drawing tasks return a figure from their `Render` method (not a figureId -> figure entry), whereas `Erase` drawing tasks return a table with figureIds as keys and masks as values. Erasing is a very different beast from figure-drawing, so there's no *obvious* way of making the output of `DrawingTask.Render` uniform across different types of drawing tasks, while preserving the ability to quickly recognise when we don't need to update a `PureFigure`. This doesn't mean there's no natural way to do it.
 
@@ -377,7 +414,78 @@ So perhaps a drawing task should explicitly store a function *per-FigureId*. So 
 
 What's the point of fussing over this? Well currently the behaviour of the Erase drawing task is fragmented between `src/common/DrawingTasks/Erase.lua`, and all of the various renderers that have to gather and apply the right mask to each figure when they encounter `drawingTask.Type == "Erase"`. So if you want to implement another type of drawing task that affects other figures (not just drawing a new figure), then you have to implement the render stage behaviour and shortcut detection in every `PureFigure` component in the repo under an `elseif drawingTask.Type == "OtherType"` clause.
 
-In summary, I think a drawing task should tell you which figureIds it affects, and for each figureId.
+In summary, I think a drawing task should tell you which figureIds it affects, and for each figureId:
 1. How to update the figure at that figureId in the render step
 2. Some kind of reference for this updater (or its generating data) which is changed whenever the drawing task modifies it, and is unchanged when the drawing task only modifies the updaters for other figureIds.
 
+## Immutability
+
+We make frequent use of the immutable data library, [Sift](https://csqrl.github.io/sift/), in order to know when and where a large data structure has changed.
+
+For example, say we have a table `figures` stored at `board.Figures`, and `figures["abc"] = f1`, but we want to update `board.Figures` so that `"abc` points to a different figure `f2`. If we just modify `figures` by doing
+```lua
+figures["abc"] = f2
+```
+then the information of what was previously stored at this key is lost. So if another code context needs to check for differences to see what necessarily needs a re-render it has no way of detecting that something changed here. Of course, we could record as we go, all of the keys that changed in a separate table, but now we must pass this additional data around with the table (like `board.Figures` + `board.ChangedFigures`). But how do we know when to clear this changed figures table? What if we have multiple dependent systems that don't all update at the same time (and therefore should have different ideas of whats been changed).
+
+The solution is to never modify the original table of figures, and instead create a new one with all the same entries, except for whatever changes to keys you want to make.
+```lua
+-- table.clone is extremely fast
+local newFigures = table.clone(figures)
+newFigures["abc"] = f2
+```
+Now we can tell that `newFigures` has different contents to `oldFigures` simply because `newFigures ~= oldFigures` returns `true`, and furthermore if we compared all of their keys we'd find that `newFigures["abc"] ~= oldFigures["abc"]`. This is exactly what we need for the render-shortcutting technique explained above (see [Rendering](#rendering)). Note that this also requires us to treat each figure as immutable.
+
+### Sift
+
+Essentially every operation in the sift library that returns a table starts with a `table.clone`, followed by some edit to the cloned table. The available functions are split between Arrays, Dictionaries, and Sets. These all operate on native lua tables, and the distinction is just about what kind of key-value pairs you have in the table. Arrays are just tables with contiguous integer keys starting at 1, dictionaries are just tables thought of as a key -> value mapping, and sets are just dictionaries where the value of any key is either `true` or `nil`.
+
+For example. If we wanted to make a new figure table where the figure stored at key `"abc"` is the same as before, except its color changed to black and z-index changed to 3, we can make use of `Dictionary.set` and `Dictionary.merge` as follows.
+
+```lua
+f1 = newFigures["abc"]
+local newFigures = Dictionary.set(figures, "abc", Dictionary.merge(f1, {
+
+	Color = Color3.new(0,0,0),
+	ZIndex = 3,
+
+}))
+```
+
+After this code executes, the following is true
+- `newFigures["abc"].Color == Color3.new(0,0,0)`
+- `newFigures["abc"].ZIndex == 3`
+- `figures["abc"] == f1`
+- `newFigures["abc"] ~= f1`
+- `newFigures ~= figures`
+
+## Drawing UI
+
+### ScreenGui caching
+
+The `FrameCanvas` renders the board state using `Frame` instances, which are each assigned a `ZIndex` so that the figures are layered in the appropriate order. Putting all of the frames into the one `ScreenGui` would be the natural way to do things (grouped into folders per figure of course). However this introduces a performance issue, since every time a new frame is added, the Roblox Engine recalculates the z-order that it must render all of the frames in.
+
+To solve this problem, we take advantage of the caching behaviour for [ScreenGuis](https://developer.roblox.com/en-us/api-reference/class/ScreenGui) (read the caching note at the top of the page). We can use one `ScreenGui` per figure, and so we're only every recomputing the appearance of one `ScreenGui` at a time while drawing.
+
+In the current code (see [FrameCanvas/SectionedCurve.lua](src/client/FrameCanvas/SectionedCurve.lua)), we actually use a new `ScreenGui` for every 50 frames. This may not be necessary, and was written early on when Roact and its performance behaviour was a bit of a mystery (to me, Billy).
+Performance while drawing is being worked on, so [FrameCanvas](src/client/FrameCanvas) may change a lot.
+
+### Canvas positioning/sizing
+
+An annoying consequence of using ScreenGuis per figure is that this resets the hierarchical positioning/sizing of GuiObjects. When you put Frames inside other Frames, you can set the position and size of the child Frame relative to the parent frame by using scalar values in the `UDim2` objects. However if this hierarchy is interrupted by a ScreenGui (i.e. Frame > ScreenGui > Frame), the inner Frames will be positioned relative to the entire viewport, not the frame containing the ScreenGui.
+
+This is a problem because the lines need to appear within the board, which we are displaying in a particular sub-region of the board. A natural solution would be to simply apply some numeric transformation of the viewport's coordinates to the canvas region's coordinates. This is complicated a little by the fact that the position and size of the canvas uses aspectRatio and margin contraints, but it seems possible in principle.
+
+Historically, we have instead solved this by placing a copy of the invisible canvas region Frame (along with its sizing/positioning constraints). This has the benefit of not being ruined when you resize the Roblox window, but there is suspicion of this solution incurring a performance cost, so we might dump this benefit in favor of better performance.
+
+### Unverified DrawingTasks (clientside prediction)
+
+TODO
+
+## ViewStateManager
+
+TODO
+
+## Persistence
+
+TODO
