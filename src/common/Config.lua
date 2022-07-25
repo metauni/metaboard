@@ -4,15 +4,16 @@ local Config = {
 	Version = "v1.0.0",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
-	DataStoreTag = "metaboardv2.",
-
+	
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
-
+	
 	Debug = false,
 }
 
 Config.Persistence = {
 
+	DataStoreName = "metaboardv2.",
+	BoardKeyPrefix = "metaboard",
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
@@ -28,8 +29,9 @@ Config.Persistence = {
 	-- How many bytes of data to store per key (limit is 4MB)
 	ChunkSizeLimit = 3500000,
 
-	JSONDecodeTime = 5 * 0.001,
-	DeserialiseTime = 5 * 0.001,
+	RestoreTimePerFrame = 5 * 0.001,
+
+	UseMockDataStoreService = false,
 }
 
 Config.Canvas = {
@@ -106,10 +108,11 @@ Config.GuiCanvas = {
 
 Config.SurfaceCanvas = {
 	-- The line z-thickness (in studs) on the axis normal to the board
-	ZThicknessStuds = 0.001,
+	ZThicknessStuds = 0.0001,
 	-- How far above the previous curve to draw the next one, in studs
-	StudsPerZIndex = 0.001,
-	InitialZOffsetStuds = 0.0492,
+	StudsPerZIndex = 0.0002,
+	InitialZOffsetStuds = 0,
+	-- InitialZOffsetStuds = 0.0492,
 	-- When using Type="RoundedParts", lines which are thicker than this in
 	-- studs (not z-thickness) will have circles (cylinder parts) at each end
 	-- of the line. TODO: unused?

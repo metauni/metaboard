@@ -162,6 +162,8 @@ function Toolbar:render()
 
 	local mainToolbar = e("TextButton", {
 
+		Text = "",
+
 		Modal = true,
 		AutoButtonColor = false,
 

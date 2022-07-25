@@ -16,11 +16,7 @@ end
 local CollectionService = game:GetService("CollectionService")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local BoardService = require(Common.BoardService)
---[[
-	If a game is published this becomes the actual DataStoreService, otherwise
-	it's a mock one that won't error in offline place files.
---]]
-local DataStoreService = require(Common.Packages.MockDataStoreService)
+local RunService = game:GetService("RunService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -35,32 +31,27 @@ local merge = Dictionary.merge
 
 -- Helper Functions
 local Persistence = require(script.Persistence)
-local randomFigures = require(script.randomFigures)
 
 -- Script Globals
 local InstanceToBoard = {}
 local PersistentBoards = {}
 local ChangedSinceStore = {}
-local persistenceDataStore = DataStoreService:GetDataStore(Config.DataStoreTag)
 
 local function bindInstance(instance: Model | Part)
 	if not instance:IsDescendantOf(workspace) then
 		return
 	end
 
-	-- For testing
-	local randomised = CollectionService:HasTag(instance, "Randomised")
-
-	local persistId: string? = instance:GetAttribute("PersistId")
-	local loaded = not (persistId or randomised)
+	local persistIdValue = instance:FindFirstChild("PersistId")
+	local persistId = persistIdValue and persistIdValue.Value
 
 	local boardRemotes = BoardRemotes.new(instance)
 
-	local board = BoardServer.new(instance, boardRemotes, persistId, loaded)
+	local board = BoardServer.new(instance, boardRemotes, persistId, persistId == nil)
 	InstanceToBoard[instance] = board
 
-	--Connect the remote events to recieve updates when the board is loaded.
-	if loaded then
+	-- Connect the remote events to receive updates when the board is loaded.
+	if persistId then
 		board._destructor:Add(board.Remotes:Connect(board))
 	else
 		local connection
@@ -74,16 +65,9 @@ local function bindInstance(instance: Model | Part)
 		-- This table will be passed to persistence to load from the datastore
 		table.insert(PersistentBoards, board)
 
-		board._destructor:Add(board.DataChangedSignal:Connect(function()
-			Set.add(ChangedSinceStore, board)
-		end))
-	elseif randomised then
-		local figures = randomFigures(board:AspectRatio(), 5000, 10, 20)
-
-		board:LoadData(figures, {}, {}, Dictionary.count(figures), nil)
-
-		board.Loaded = true
-		board.LoadedSignal:Fire()
+		board.DataChangedSignal:Connect(function()
+			ChangedSinceStore[board] = true
+		end)
 	end
 
 	--[[
@@ -128,8 +112,6 @@ local function bindInstance(instance: Model | Part)
 	end)
 
 	BoardService.BoardAdded:FireAllClients(instance, board.Remotes, board.PersistId)
-
-
 end
 
 --[[
@@ -175,7 +157,7 @@ end
 --[[
 	Save all of the persistent boards which have changed since the last save.
 --]]
-local function saveChangedBoards()
+local function saveChangedBoards(dataStoreName)
 
 	if next(ChangedSinceStore) then
 		print(string.format("[Persistence] Storing %d boards", Set.count(ChangedSinceStore)))
@@ -199,7 +181,7 @@ local function saveChangedBoards()
 
 		task.spawn(
 			Persistence.Store,
-			persistenceDataStore,
+			dataStoreName,
 			committedFigures,
 			board.NextFigureZIndex,
 			board.PersistId
@@ -211,19 +193,37 @@ local function saveChangedBoards()
 	ChangedSinceStore = {}
 end
 
--- 5 seconds after startup, start restoring all of the boards.
-task.delay(5, function()
+-- Some time after startup, start restoring all of the boards.
+task.delay(2, function()
 
-	Persistence.RestoreAll(persistenceDataStore, PersistentBoards)
+	local dataStoreName do
+		-- TODO: this fails to distinguish between places in Studio.
+		-- See (PrivateServerKey appearance delay #14 issue)
+		if script.Parent:FindFirstChild("metaportal") and game.PrivateServerId ~= "" then
+
+			local psKey = workspace:WaitForChild("PrivateServerKey")
+			assert(psKey and psKey.Value and psKey.Value ~= "", "Failed to retrieve PrivateServerKey")
+			dataStoreName = "ps"..psKey.Value
+
+		else
+
+			dataStoreName = Config.Persistence.DataStoreName
+
+		end
+	end
+
+	print("[Persistence] Using DataStore: ", dataStoreName)
+
+	Persistence.RestoreAll(dataStoreName, PersistentBoards)
+
+	game:BindToClose(function()
+		saveChangedBoards(dataStoreName)
+	end)
 
 	-- Once all boards are restored, trigger auto-saving
 
 	while true do
-		task.wait(Config.AutoSaveInterval)
-		saveChangedBoards()
+		task.wait(Config.Persistence.AutoSaveInterval)
+		saveChangedBoards(dataStoreName)
 	end
-end)
-
-game:BindToClose(function()
-	saveChangedBoards()
 end)

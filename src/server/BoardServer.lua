@@ -13,7 +13,7 @@ local Signal = require(Common.Packages.GoodSignal)
 local BoardServer = setmetatable({}, Board)
 BoardServer.__index = BoardServer
 
-function BoardServer.new(instance: Model | Part, boardRemotes, persistId: string?, loaded: boolean)
+function BoardServer.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
 	local self = setmetatable(Board.new(instance, boardRemotes, persistId, loaded), BoardServer)
 
 	self.Watchers = {}

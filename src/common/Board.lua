@@ -19,7 +19,7 @@ local merge = Dictionary.merge
 local Board = {}
 Board.__index = Board
 
-function Board.new(instance: Model | Part, boardRemotes, persistId: string?, loaded: boolean)
+function Board.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
 	local self = setmetatable({
 		_instance = instance,
 		Remotes = boardRemotes,
@@ -113,7 +113,11 @@ function Board:CommitAllDrawingTasks()
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
+function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
+	figures = figures or {}
+	drawingTasks = drawingTasks or {}
+	playerHistories = playerHistories or {}
+	nextFigureZIndex = nextFigureZIndex or 0
 
 	for userId, playerHistory in pairs(playerHistories) do
 		setmetatable(playerHistory, History)
@@ -124,13 +128,16 @@ function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex
 	self.PlayerHistories = playerHistories
 	self.NextFigureZIndex = nextFigureZIndex
 
-	local eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+	if not eraseGrid then
+		eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
 
-	local committedFigures = self:CommitAllDrawingTasks()
+		local committedFigures = self:CommitAllDrawingTasks()
 
-	for figureId, figure in pairs(committedFigures) do
-		eraseGrid:AddFigure(figureId, figure)
+		for figureId, figure in pairs(committedFigures) do
+			eraseGrid:AddFigure(figureId, figure)
+		end
 	end
+
 
 	self.EraseGrid = eraseGrid
 

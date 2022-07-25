@@ -98,7 +98,7 @@ do
 	end)
 end
 
-BoardService.BoardAdded.OnClientEvent:Connect(function(instance: Part | Model, remotes, persistId: string?)
+BoardService.BoardAdded.OnClientEvent:Connect(function(instance: Part | Model, remotes, persistId: number?)
 	bindBoardInstance(instance, setmetatable(remotes, BoardRemotes), persistId)
 end)
 

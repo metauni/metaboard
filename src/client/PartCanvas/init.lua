@@ -33,7 +33,7 @@ local FigureComponent = {
 	Circle = require(script.Circle),
 }
 
-local PureFigure = Roact.PureComponent:extend("PureFigure")
+local PureFigure = Roact.Component:extend("PureFigure")
 
 function PureFigure:render()
 	local figure = self.props.Figure
@@ -86,6 +86,21 @@ function PureFigure:shouldUpdate(nextProps, nextState)
 end
 
 local PartCanvas = Roact.PureComponent:extend("PartCanvas")
+
+-- function PartCanvas:didMount()
+-- 	local ZThicknessStudsValue: NumberValue = workspace.ZThicknessStuds
+-- 	local StudsPerZIndexValue: NumberValue = workspace.StudsPerZIndex
+
+-- 	ZThicknessStudsValue.Changed:Connect(function(value)
+-- 		Config.SurfaceCanvas.ZThicknessStuds = value * 0.001
+-- 		self:setState({})
+-- 	end)
+
+-- 	StudsPerZIndexValue.Changed:Connect(function(value)
+-- 		Config.SurfaceCanvas.StudsPerZIndex = value * 0.001
+-- 		self:setState({})
+-- 	end)
+-- end
 
 function PartCanvas:render()
 

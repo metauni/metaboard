@@ -12,9 +12,8 @@ local extractHostObject = require(script.Parent.extractHostObject)
 
 return function(self, board, viewData)
 	local oldViewData = viewData or {}
-	local newViewData = {}
 
-	local makeElement = function()
+	local makeElement = function(whenLoaded)
 
 		return e(SurfaceCanvas, {
 
@@ -25,12 +24,7 @@ return function(self, board, viewData)
 			GetLineBudget = function()
 				return self.GetLineBudget()
 			end,
-			LineLoadFinishedCallback = function()
-				if oldViewData and oldViewData.Destroy then
-					oldViewData.Destroy()
-					oldViewData = nil
-				end
-			end,
+			LineLoadFinishedCallback = whenLoaded,
 			Board = board,
 
 			--[[
@@ -49,10 +43,19 @@ return function(self, board, viewData)
 	end
 
 	if oldViewData.Status == "Active" then
-		Roact.update(oldViewData.Tree, makeElement())
+		Roact.update(oldViewData.Tree, makeElement(oldViewData.WhenLoaded))
 	else
 
-		newViewData.Tree = Roact.mount(makeElement(), self.CanvasesFolder, board:FullName())
+		local newViewData = {}
+
+		newViewData.WhenLoaded = function()
+			if oldViewData.Destroy then
+				oldViewData.Destroy()
+			end
+			newViewData.WhenLoaded = nil
+		end
+
+		newViewData.Tree = Roact.mount(makeElement(newViewData.WhenLoaded), self.CanvasesFolder, board:FullName())
 
 		local updateConnection = board.DataChangedSignal:Connect(function()
 			if not newViewData.Paused then
@@ -60,19 +63,16 @@ return function(self, board, viewData)
 			end
 		end)
 
-		newViewData = {
-			Status = "Active",
-			Tree = newViewData.Tree,
-			Canvas = extractHostObject(newViewData.Tree),
-			Destroy = function()
-				updateConnection:Disconnect()
-				Roact.unmount(newViewData.Tree)
-				newViewData.Status = nil
-				newViewData.Tree = nil
-				newViewData.Canvas = nil
-				newViewData.Destroy = nil
-			end,
-		}
+		newViewData.Status = "Active"
+		newViewData.Canvas = extractHostObject(newViewData.Tree)
+		newViewData.Destroy = function()
+			updateConnection:Disconnect()
+			Roact.unmount(newViewData.Tree)
+			newViewData.Status = nil
+			newViewData.Tree = nil
+			newViewData.Canvas = nil
+			newViewData.Destroy = nil
+		end
 
 		return newViewData
 	end

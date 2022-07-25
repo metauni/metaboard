@@ -11,7 +11,7 @@ local Board = require(Common.Board)
 local BoardClient = setmetatable({}, Board)
 BoardClient.__index = BoardClient
 
-function BoardClient.new(instance: Model | Part, boardRemotes, persistId: string?, loaded: boolean)
+function BoardClient.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
 	return setmetatable(Board.new(instance, boardRemotes, persistId, loaded), BoardClient)
 end
 
