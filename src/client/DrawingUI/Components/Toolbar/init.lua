@@ -207,7 +207,7 @@ function Toolbar:render()
 		BackgroundTransparency = 1,
 
 		[Roact.Children] = {
-			MainToolbar = mainToolbar,
+			MainToolbar = self.props.CanWrite and mainToolbar,
 			CloseButton = e(CloseButton, {
 				OnClick = self.props.OnCloseButtonClick,
 				Size = UDim2.fromOffset(55,55),

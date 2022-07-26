@@ -103,13 +103,16 @@ function App:init()
 
 	end
 
+	local canWrite = Players.LocalPlayer:GetAttribute("metaadmin_canwrite") ~= false
+
 	self:setState({
 
 		ToolHeld = false,
 		ToolState = toolState,
 		SubMenu = Roact.None,
 		UnverifiedDrawingTasks = {},
-		CurrentUnverifiedDrawingTaskId = nil,
+		CurrentUnverifiedDrawingTaskId = Roact.None,
+		CanWrite = canWrite,
 
 	})
 end
@@ -126,11 +129,45 @@ function App:didMount()
 			}
 		end)
 	end
+
+	self.permissionConnection = Players.LocalPlayer:GetAttributeChangedSignal("metaadmin_canwrite"):Connect(function()
+
+		self:setState(function(state)
+
+			local canWrite = Players.LocalPlayer:GetAttribute("metaadmin_canwrite") ~= false
+
+			if state.CanWrite ~= canWrite then
+
+				if not canWrite then
+
+					--[[
+						Need to finish current drawing task.
+						TODO: this be better achieved by "cancelling" the drawing task.
+					--]]
+					if self.state.CurrentUnverifiedDrawingTaskId then
+
+						self.ToolQueue.Enqueue(function(state2)
+
+							return merge(toolFunctions.ToolUp(self, state2), {
+
+								UnverifiedDrawingTasks = {}
+							})
+						end)
+					end
+				end
+
+				return {
+					CanWrite = canWrite,
+				}
+			end
+		end)
+	end)
 end
 
 function App:willUnmount()
 	self.ToolQueue.Destroy()
 	self.props.Board.ToolState = self.state.ToolState
+	self.permissionConnection:Disconnect()
 end
 
 function App:render()
@@ -138,6 +175,8 @@ function App:render()
 	local toolState = self.state.ToolState
 
 	local toolbar = e(Toolbar, {
+
+		CanWrite = self.state.CanWrite,
 
 		SubMenu = self.state.SubMenu,
 		SetSubMenu = function(subMenu)
@@ -256,7 +295,7 @@ function App:render()
 		end
 	end
 
-	local cursor = e(Cursor, {
+	local cursor = self.state.CanWrite and e(Cursor, {
 		Width = cursorWidth,
 		Position = self.ToolPosBinding,
 		Color = cursorColor,
@@ -280,7 +319,7 @@ function App:render()
 
 	})
 
-	local canvasIO = e(CanvasIO, {
+	local canvasIO = self.state.CanWrite and e(CanvasIO, {
 
 		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
 		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
@@ -304,7 +343,7 @@ function App:render()
 				return toolFunctions.ToolMoved(self, state, canvasPos)
 			end)
 		end,
-		QueueToolUp = function(canvasPos)
+		QueueToolUp = function()
 			self.ToolQueue.Enqueue(function(state)
 				return toolFunctions.ToolUp(self, state)
 			end)
