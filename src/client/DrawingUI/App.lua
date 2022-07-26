@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 -- Imports
@@ -119,6 +120,14 @@ end
 
 function App:didMount()
 
+	--[[
+		Hide all the core gui except the chat button (so badge notifications are
+		visible), and minimise the chat window.
+	--]]
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+	StarterGui:SetCore("ChatActive", false)
+
 	self.ToolQueue = ToolQueue(self)
 
 	self.SetToolState = function(toolState)
@@ -165,6 +174,7 @@ function App:didMount()
 end
 
 function App:willUnmount()
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
 	self.ToolQueue.Destroy()
 	self.props.Board.ToolState = self.state.ToolState
 	self.permissionConnection:Disconnect()
