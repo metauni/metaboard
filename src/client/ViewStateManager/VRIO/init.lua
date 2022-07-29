@@ -98,7 +98,6 @@ return function (self)
 				self.ActiveStroke = true
 			end
 
-			if self.TriggerActiveConnection then self.TriggerActiveConnection:Disconnect() end
 			self.TriggerActiveConnection = RunService.RenderStepped:Connect(function()
 				local penPos = boardTool.Handle.Attachment.WorldPosition
 
@@ -127,12 +126,16 @@ return function (self)
 						HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand, motorStrength)
 					end
 				else
-					toolQueue.Enqueue(function(state)
-						return toolFunctions.ToolUp(self, state)
-					end)
-					self.ActiveStroke = false
-					if rightRumbleSupported then
-						HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand, 0)
+					if self.ActiveStroke then
+						toolQueue.Enqueue(function(state)
+							return toolFunctions.ToolUp(self, state)
+						end)
+
+						self.ActiveStroke = false
+						
+						if rightRumbleSupported then
+							HapticService:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand, 0)
+						end
 					end
 				end
 			end)
