@@ -234,7 +234,7 @@ function Persistence.KeyForBoard(board)
             -- We are in a private server created using TeleportService:ReserveServer
             -- we assume in this case that someone has created a StringValue in the workspace
             -- called PrivateServerKey
-            local idValue = workspace:FindFirstChild("PrivateServerKey")
+            local idValue = workspace:FindFirstChild("PocketId")
             if idValue and idValue:IsA("StringValue") then
                 boardKey = "ps" .. idValue.Value .. ":" .. boardKey
             else
