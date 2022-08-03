@@ -67,7 +67,7 @@ function SubCurve:render()
 				-- Check that sin(theta) is non zero and that both sin(theta) and
 				-- cos(theta) are not NaN.
 				if sinTheta > 0 and cosTheta == cosTheta then
-					p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+					p0Extend = math.clamp(self.props.Width/2 * (1 + cosTheta) / sinTheta, 0, self.props.Width/2)
 				end
 			else
 				roundedP0 = true
@@ -85,7 +85,7 @@ function SubCurve:render()
 				-- Check that sin(theta) is non zero and that both sin(theta) and
 				-- cos(theta) are not NaN.
 				if sinTheta > 0 and cosTheta == cosTheta then
-					p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+					p1Extend = math.clamp(self.props.Width/2 * (1 + cosTheta) / sinTheta, 0, self.props.Width/2)
 				end
 			end
 			-- No "else roundedP1 = true" because this would double up"
