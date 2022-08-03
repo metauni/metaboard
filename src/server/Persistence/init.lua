@@ -226,7 +226,6 @@ local function restoreAll(dataStoreName, boards)
 				board:LoadData({}, {}, {}, 0, nil)
 				board.Loaded = true
 				board.LoadedSignal:Fire()
-				print("Loaded: "..board:FullName())
 
 			else
 
@@ -260,11 +259,9 @@ local function restoreAll(dataStoreName, boards)
 				end
 
 				if result then
-					print("Loading", board:Name())
 					board:LoadData(result.Figures, {}, {}, result.NextFigureZIndex, result.EraseGrid)
 					board.Loaded = true
 					board.LoadedSignal:Fire()
-					print("Loaded: "..board:FullName())
 				end
 			end
 		end

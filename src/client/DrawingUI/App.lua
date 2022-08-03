@@ -434,6 +434,7 @@ function App:render()
 
 		IgnoreGuiInset = true,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+		ResetOnSpawn = false,
 
 		[Roact.Children] = {
 

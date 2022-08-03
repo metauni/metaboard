@@ -23,17 +23,18 @@ local merge = Dictionary.merge
 -- Drawing Tools
 local Pen = require(script.Parent.VRIO.Pen)
 
-local character = Players.LocalPlayer.CharacterAdded:Wait()
-
 local function inRange(self)
 	local boardLookVector = self.props.CanvasCFrame.LookVector
 	local boardRightVector = self.props.CanvasCFrame.RightVector
 
-	local characterVector = character:GetPivot().Position - self.props.CanvasCFrame.Position
-	local normalDistance = boardLookVector:Dot(characterVector)
+	local character = Players.LocalPlayer.Character
+	if character then
+		local characterVector = character:GetPivot().Position - self.props.CanvasCFrame.Position
+		local normalDistance = boardLookVector:Dot(characterVector)
 
-	local strafeDistance = boardRightVector:Dot(characterVector)
-	return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= self.props.CanvasSize.X/2 + 5
+		local strafeDistance = boardRightVector:Dot(characterVector)
+		return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= self.props.CanvasSize.X/2 + 5
+	end
 end
 
 local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")

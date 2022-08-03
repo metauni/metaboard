@@ -4,16 +4,18 @@ local Config = {
 	Version = "v1.0.0",
 	BoardTag = "metaboard",
 	BoardTagPersonal = "metaboard_personal",
-	
+
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
-	
+
 	Debug = false,
 }
 
 Config.Persistence = {
 
-	DataStoreName = "metaboardv2.",
+	DataStoreName = "MetaboardPersistence",
+	ReadOnly = false,
 	BoardKeyPrefix = "metaboard",
+
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
@@ -145,5 +147,18 @@ Config.History = {
 Config.VR = {
 	PenToolName = "MetaChalk"
 }
+
+if game:GetService("RunService"):IsServer() then
+	local PlaceConfigScript = game:GetService("ServerScriptService"):FindFirstChild("metaboardPlaceConfig")
+
+	if PlaceConfigScript then
+
+		print("[Metaboard] Applying PlaceConfig")
+		local PlaceConfig = require(PlaceConfigScript)
+
+		assert(typeof(PlaceConfig) == "function", "Bad metaboardPlaceConfig, should be function that modifies Config")
+		PlaceConfig(Config)
+	end
+end
 
 return Config

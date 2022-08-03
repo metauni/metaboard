@@ -89,8 +89,7 @@ local fetchers = {
 
 				local curvesSegmentKey = boardKey .. ":c"..curvesSegmentId
 
-				local x, y, z = get(dataStore, curvesSegmentKey)
-				table.insert(segments, x)
+				table.insert(segments, get(dataStore, curvesSegmentKey))
 
 			end
 
@@ -107,7 +106,6 @@ local fetchers = {
 			if serialisedCurvesJSON then
 				serialisedCurves = jsonDecode(serialisedCurvesJSON, "Legacy: SerialisedCurves")
 			end
-
 
 			local figures = {}
 			local eraseGrid = EraseGrid.new(board:AspectRatio())

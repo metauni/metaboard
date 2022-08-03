@@ -3,31 +3,20 @@
 	"tree": {
 		"$className": "DataModel",
 
-		"ReplicatedStorage": {
-			"$ignoreUnknownInstances": true,
-			"$className": "ReplicatedStorage",
-			"metaboardCommon": {
-				"$path": "src/common"
-			}
-		},
-
 		"ServerScriptService": {
 			"$ignoreUnknownInstances": true,
 			"$className": "ServerScriptService",
-			"metaboardServer": {
-				"$path": "src/server"
-			}
-		},
-
-		"StarterPlayer": {
-			"$ignoreUnknownInstances": true,
-			"$className": "StarterPlayer",
-			"StarterPlayerScripts": {
-				"$ignoreUnknownInstances": true,
-				"$className": "StarterPlayerScripts",
+			"metaboard": {
+				"$path": "src/server",
+		
+				"metaboardCommon": {
+					"$path": "src/common"
+				},
+		
 				"metaboardPlayer" : {
 					"$path": "src/client"
 				}
+		
 			}
 		}
 

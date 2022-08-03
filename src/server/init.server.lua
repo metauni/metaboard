@@ -1,22 +1,10 @@
-do
-	-- Move folder/guis around if this is the package version of metaboard
-
-	local metaBoardCommon = script:FindFirstChild("metaboardCommon")
-	if metaBoardCommon then
-		metaBoardCommon.Parent = game:GetService("ReplicatedStorage")
-	end
-
-	local metaBoardPlayer = script:FindFirstChild("metaboardPlayer")
-	if metaBoardPlayer then
-		metaBoardPlayer.Parent = game:GetService("StarterPlayer").StarterPlayerScripts
-	end
-end
-
 -- Services
 local CollectionService = game:GetService("CollectionService")
-local Common = game:GetService("ReplicatedStorage").metaboardCommon
+local ServerScriptService = game:GetService("ServerScriptService")
+local Players = game:GetService("Players")
+local Common= script:FindFirstChild("metaboardCommon")
+Common.Parent = game:GetService("ReplicatedStorage")
 local BoardService = require(Common.BoardService)
-local RunService = game:GetService("RunService")
 
 -- Imports
 local Config = require(Common.Config)
@@ -49,6 +37,8 @@ local function bindInstance(instance: Model | Part)
 
 	local board = BoardServer.new(instance, boardRemotes, persistId, persistId == nil)
 	InstanceToBoard[instance] = board
+
+	BoardService.BoardAdded:FireAllClients(instance, boardRemotes, persistId)
 
 	-- Connect the remote events to receive updates when the board is loaded.
 	if persistId then
@@ -110,8 +100,6 @@ local function bindInstance(instance: Model | Part)
 
 		end
 	end)
-
-	BoardService.BoardAdded:FireAllClients(instance, board.Remotes, board.PersistId)
 end
 
 --[[
@@ -193,37 +181,93 @@ local function saveChangedBoards(dataStoreName)
 	ChangedSinceStore = {}
 end
 
--- Some time after startup, start restoring all of the boards.
-task.delay(2, function()
 
-	local dataStoreName do
-		-- TODO: this fails to distinguish between places in Studio.
-		-- See (PrivateServerKey appearance delay #14 issue)
-		if script.Parent:FindFirstChild("metaportal") and game.PrivateServerId ~= "" then
+--[[
+	Manually deliver the client scripts once the AdminCommands module has written
+	the "canwrite" permissions" (if installed)
+--]]
+task.spawn(function()
 
-			local psKey = workspace:WaitForChild("PrivateServerKey")
-			assert(psKey and psKey.Value and psKey.Value ~= "", "Failed to retrieve PrivateServerKey")
-			dataStoreName = "ps"..psKey.Value
+	local Chat = game:GetService("Chat")
+	local ChatModules = Chat:FindFirstChild("ChatModules")
+	local AdminCommands = ChatModules and ChatModules:FindFirstChild("AdminCommands")
 
-		else
+	if AdminCommands and not AdminCommands:GetAttribute("CanWritePermissionsSet") then
 
-			dataStoreName = Config.Persistence.DataStoreName
-
+		if AdminCommands:GetAttribute("CanWritePermissionsSet") == nil then
+			AdminCommands:GetAttributeChangedSignal("CanWritePermissionsSet"):Wait()
 		end
+
+		if not AdminCommands:GetAttribute("CanWritePermissionsSet") then
+			error("Cannot start metaboard for clients without CanWritePermissionsSet")
+		end
+
 	end
 
-	print("[Persistence] Using DataStore: ", dataStoreName)
+	local metaBoardPlayer = script:FindFirstChild("metaboardPlayer")
 
-	Persistence.RestoreAll(dataStoreName, PersistentBoards)
+	--[[
+		When the player dies/respawns, children of the PlayerGui are deleted and
+		replaced by the contents of StarterGui, unless they have `ResetOnSpawn`
+		set to false.
+	--]]
+	local respawnProtector = Instance.new("ScreenGui")
+	respawnProtector.Name = "metaboardPlayer-RespawnProtector"
+	respawnProtector.ResetOnSpawn = false
+	metaBoardPlayer.Parent = respawnProtector
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		respawnProtector:Clone().Parent = player.PlayerGui
+	end
+
+	Players.PlayerAdded:Connect(function(player)
+		respawnProtector:Clone().Parent = player.PlayerGui
+	end)
+end)
+
+
+--[[
+	Retrieve the datastore name (possibly waiting for MetaPortal)
+--]]
+local dataStoreName do
+	-- TODO: this fails to distinguish between places in Studio.
+	-- See (PrivateServerKey appearance delay #14 issue)
+	local metaPortal = ServerScriptService:FindFirstChild("metaportal")
+
+	if metaPortal and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0 then
+
+		if metaPortal:GetAttribute("PocketId") == nil then
+			metaPortal:GetAttributeChangedSignal("PocketId"):Wait()
+		end
+
+		local pocketId = metaPortal:GetAttribute("PocketId")
+
+		dataStoreName = "Pocket-"..pocketId
+
+	else
+
+		dataStoreName = Config.Persistence.DataStoreName
+	end
+end
+
+print("[Metaboard] Using "..dataStoreName.." for Persistence DataStore")
+
+if Config.Persistence.ReadOnly then
+	warn("[Metaboard] Persistence is in ReadOnly mode, no changes will be saved.")
+end
+
+Persistence.RestoreAll(dataStoreName, PersistentBoards)
+
+-- Once all boards are restored, trigger auto-saving
+
+if not Config.Persistence.ReadOnly then
 
 	game:BindToClose(function()
 		saveChangedBoards(dataStoreName)
 	end)
 
-	-- Once all boards are restored, trigger auto-saving
-
 	while true do
 		task.wait(Config.Persistence.AutoSaveInterval)
 		saveChangedBoards(dataStoreName)
 	end
-end)
+end
