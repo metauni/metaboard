@@ -63,7 +63,7 @@ function SubCurve:render()
 						-- prevent gaps in (almost) parallel joints
 						p0Extend = 0.001
 					else
-						p0Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+						p0Extend = math.clamp(self.props.Width/2 * (1 + cosTheta) / sinTheta, 0, self.props.Width/2)
 					end
 				end
 			else
@@ -85,7 +85,7 @@ function SubCurve:render()
 						-- prevent gaps in (almost) parallel joints
 						p1Extend = 0.001
 					else
-						p1Extend = self.props.Width/2 * (1 + cosTheta) / sinTheta
+						p1Extend = math.clamp(self.props.Width/2 * (1 + cosTheta) / sinTheta, 0, self.props.Width/2)
 					end
 				end
 			end
