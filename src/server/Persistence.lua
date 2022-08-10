@@ -234,9 +234,17 @@ function Persistence.KeyForBoard(board)
             -- We are in a private server created using TeleportService:ReserveServer
             -- we assume in this case that someone has created a StringValue in the workspace
             -- called PrivateServerKey
-            local idValue = workspace:FindFirstChild("PocketId")
-            if idValue and idValue:IsA("StringValue") then
-                boardKey = "ps" .. idValue.Value .. ":" .. boardKey
+            local metaportal = game:GetService("ServerScriptService"):FindFirstChild("metaportal")
+
+            if metaportal then
+                
+                if not metaportal:GetAttribute("PocketId") then
+                    metaportal:GetAttributeChangedSignal("PocketId"):Wait()
+                end
+
+                local pocketId = metaportal:GetAttribute("PocketId")
+                
+                boardKey = "ps" .. pocketId .. ":" .. boardKey
             else
                 boardKey = "ps:" .. boardKey
             end
