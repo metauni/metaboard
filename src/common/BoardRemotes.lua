@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local Config = require(Common.Config)
 local History = require(Common.History)
 local DrawingTask = require(Common.DrawingTask)
+local Figure = require(Common.Figure)
 local EraseGrid = require(Common.EraseGrid)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
@@ -63,7 +64,7 @@ function BoardRemotes:Destroy()
 	end
 end
 
-function BoardRemotes:Connect(board)
+function BoardRemotes:Connect(board, serverOnClear)
 
 	local connections = {}
 
@@ -250,8 +251,14 @@ function BoardRemotes:Connect(board)
 	table.insert(connections, board.Remotes.Clear[OnXEvent]:Connect(function(player: Player)
 
 		if isServer then
+
 			for watcher in pairs(board.Watchers) do
 				board.Remotes.Clear:FireClient(watcher, player)
+			end
+			
+			-- This function is written externally so that the datastore is accessible
+			if serverOnClear then
+				serverOnClear()
 			end
 		end
 

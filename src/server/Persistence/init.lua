@@ -5,49 +5,46 @@ local HttpService = game:GetService("HttpService")
 -- Imports
 local Config = require(Common.Config)
 local Figure = require(Common.Figure)
+local EraseGrid = require(Common.EraseGrid)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
-local DataStoreService do
-	if Config.Persistence.UseMockDataStoreService then
-		DataStoreService = require(Common.Packages.MockDataStoreService)
-		warn("Using MockDataStoreService")
-	else
-		DataStoreService = game:GetService("DataStoreService")
-	end
-end
-
 -- Constants
-local PERSISTENCE_VERSION = "v3"
+local FORMAT_VERSION = require(script.currentFormatVersion)
 
 -- Helper functions
 local getRestorer = require(script.getRestorer)
+
+-- Globals
+local RestoreContext = {}
+local ProcessorCoroutine = nil
 
 local function jsonEncode(input, name: string?)
 	local json = HttpService:JSONEncode(input)
 	if not json then
 		name = name or ""
-		error("[Persistence] " .. name .. " JSON encoding failed")
+		error("[metaboard] " .. name .. " JSON encoding failed")
 	end
 
 	return json
 end
 
 local function set(dataStore: DataStore, key: string, data)
-	return dataStore:SetAsync(key, data)
-	-- local success, errormessage = pcall(function()
-	-- end)
-	-- if not success then
-	-- 	error("[Persistence] SetAsync fail for " .. key .. " with " .. string.len(data) .. " bytes " .. errormessage)
-	-- end
+	local success, errormessage = pcall(function()
+		return dataStore:SetAsync(key, data)
+	end)
+	if not success then
+		error("[metaboard] SetAsync fail for " .. key .. " with " .. string.len(data) .. " bytes " .. errormessage)
+	end
 end
 
-local function store(dataStoreName, figures, nextFigureZIndex, persistId)
+local function store(dataStore, boardKey, board)
 	--[[
 		At "metaboard<persistId>", we store this table (not json-encoded)
 			{
 				_FormatVersion: string,
 				NextFigureZIndex: number,
+				ClearCount: number,
 				ChunkCount: number,
 				FirstChunk: string
 			}
@@ -73,10 +70,29 @@ local function store(dataStoreName, figures, nextFigureZIndex, persistId)
 
 	--]]
 
-	local boardKey = Config.Persistence.BoardKeyPrefix..persistId
-	local dataStore = DataStoreService:GetDataStore(dataStoreName)
-
 	local startTime = tick()
+
+	--[[
+		MUST extract all of this information first before yielding, otherwise
+		board data could change before store is done.
+	--]]
+	
+	local clearCount = board.ClearCount
+	local nextFigureZIndex = board.NextFigureZIndex
+	local aspectRatio = board:AspectRatio()
+	-- Commit all of the drawing task changes (like masks) to the figures
+	local figures = board:CommitAllDrawingTasks()
+
+	local removals = {}
+
+	-- Remove the figures that have been completely erased
+	for figureId, figure in pairs(figures) do
+		if Figure.FullyMasked(figure) then
+			removals[figureId] = Sift.None
+		end
+	end
+
+	figures = Dictionary.merge(figures, removals)
 
 	-- Serialise and encode every figureId-figure pair as a length 2 json array
 
@@ -91,7 +107,7 @@ local function store(dataStoreName, figures, nextFigureZIndex, persistId)
 
 		-- Max storage at single key is 4MB
 		if entryJson:len() > Config.Persistence.ChunkSizeLimit then
-			print(("[Persistence] figure %s too large for a single chunk"):format(figureId))
+			print(("[metaboard] figure %s too large for a single chunk"):format(figureId))
 			continue
 		end
 
@@ -127,15 +143,17 @@ local function store(dataStoreName, figures, nextFigureZIndex, persistId)
 	end
 
 	--[[
-		At metaboard<persistId> store the board info and the first chunk in a table
+		At <boardKey> store the board info and the first chunk in a table
 
-		Then store chunk[i] at metaboard<persistId>/i for i >= 2.
+		Then store chunk[i] at <boardKey>/i for i >= 2.
 	--]]
 
 	set(dataStore, boardKey, {
-		_FormatVersion = PERSISTENCE_VERSION,
+		_FormatVersion = FORMAT_VERSION,
 
 		NextFigureZIndex = nextFigureZIndex,
+		AspectRatio = aspectRatio,
+		ClearCount = clearCount,
 		ChunkCount = #chunks,
 		FirstChunk = chunks[1],
 	})
@@ -150,7 +168,7 @@ local function store(dataStoreName, figures, nextFigureZIndex, persistId)
 
 	print(
 		string.format(
-			"[Persistence] Stored %d bytes across %d chunks at key %s in %.2fs",
+			"[metaboard] Stored %d bytes across %d chunks at key %s in %.2fs",
 			totalBytes,
 			#chunks,
 			boardKey,
@@ -159,127 +177,132 @@ local function store(dataStoreName, figures, nextFigureZIndex, persistId)
 	)
 end
 
-local function restoreAll(dataStoreName, boards)
+local function processRestorers()
 
-	local dataStore = DataStoreService:GetDataStore(dataStoreName)
+	local count = 0
+	local startTime = os.clock()
 
-	do -- Removes duplicate boards and duplicate persistId
-		local seenBoard = {}
-		local persistIdToBoard = {}
-		boards = Array.filter(boards, function(board)
-			if seenBoard[board] then
-				return false
-			end
+	while next(RestoreContext) do
 
-			if not board.PersistId then
-				print(("[Persistence] %s has no PersistId. Ignoring."):format(board:FullName()))
-				return false
-			end
+		local boardKey, context do
 
-			if persistIdToBoard[board.PersistId] then
-				print(
-					("[Persistence] %s has the same PersistId (%s) as %s. Ignoring."):format(
-						board:FullName(),
-						board.PersistId,
-						persistIdToBoard[board.PersistId]:FullName()
-					)
-				)
+			for _boardKey, _context in pairs(RestoreContext) do
 
-				return false
-			else
-				persistIdToBoard[board.PersistId] = board
-			end
-
-			seenBoard[board] = true
-			return true
-		end)
-	end
-
-	local boardToRestorer = {}
-	local notFetched = Set.fromArray(boards)
-
-	for _, board in ipairs(boards) do
-
-		task.spawn(function()
-
-			local boardKey = Config.Persistence.BoardKeyPrefix..board.PersistId
-
-			--[[
-				getRestorer retrieves all the data it needs from the relevant keys,
-				then returns a coroutine that deserialises and loads the data
-			--]]
-			local success, result = pcall(getRestorer, dataStore, board, boardKey)
-
-			notFetched[board] = nil
-
-			if not success then
-				print(("[Persistence] Fetch failed for key %s, \n	%s"):format(boardKey, result))
-				--TODO Lock board somehow so edits aren't possible
-				return
-			end
-
-			local restorer = result
-
-			if restorer == nil then
-
-				-- Nothing was stored, load the empty board
-				board:LoadData({}, {}, {}, 0, nil)
-				board.Loaded = true
-				board.LoadedSignal:Fire()
-
-			else
-
-				boardToRestorer[board] = restorer
-			end
-		end)
-	end
-
-	local numSimultaneous = Config.Persistence.RestoreAllNumSimultaneousBoards
-
-	while next(notFetched) or next(boardToRestorer) do
-
-		--[[
-			Resume up to `numSimultaneous` restorers, with a time budget for deserialising.
-		--]]
-
-		local resumableBoards = Array.filter(boards, function(board)
-			return boardToRestorer[board]
-		end)
-
-		for i=1, math.min(#resumableBoards, numSimultaneous) do
-
-			local board = resumableBoards[i]
-			local restorer = boardToRestorer[board]
-
-			if coroutine.status(restorer) == "suspended" then
-				local success, result = coroutine.resume(restorer, Config.Persistence.RestoreTimePerFrame / numSimultaneous)
-
-				if not success then
-					print(("[Persistence] Restore failed for %s, \n	%s"):format(board:FullName(), restorer))
+				if _context.Status == "Restoring" then
+					boardKey = _boardKey
+					context = _context
+					break
 				end
+			end
 
-				if result then
-					board:LoadData(result.Figures, {}, {}, result.NextFigureZIndex, result.EraseGrid)
-					board.Loaded = true
-					board.LoadedSignal:Fire()
-				end
+
+			if not context then
+				task.wait()
+				continue
 			end
 		end
 
-		--[[
-			Filter out dead restorers
-		--]]
-		boardToRestorer = Dictionary.filter(boardToRestorer, function(restorer)
-			return coroutine.status(restorer) ~= "dead"
-		end)
+		local restorer = context.Restorer
+		local board = context.Board
+		local receiver = context.Receiver
 
-		task.wait()
+		while true do
+
+			assert(coroutine.status(restorer) == "suspended")
+
+			local success, result = coroutine.resume(restorer, Config.Persistence.RestoreTimePerFrame)
+
+			if not success then
+				local message = ("[metaboard] Restore failed for key %s for board %s, \n	%s"):format(boardKey, board:FullName(), result)
+				print(message)
+
+				coroutine.resume(receiver, false, message)
+
+				task.wait()
+				break
+			end
+
+			if result then
+
+				coroutine.resume(receiver, true, result)
+
+				count += 1
+				task.wait()
+				break
+			end
+
+			task.wait()
+		end
 	end
 
-	print("[MetaBoard] Restore All complete")
+	print(("[metaboard] Restored %d boards in %.2fs"):format(count, os.clock()-startTime))
+
+	ProcessorCoroutine = nil
+end
+
+local function restore(dataStore, boardKey, board)
+
+	if RestoreContext[boardKey] then
+		local context = RestoreContext[boardKey]
+		local message = ("[metaboard] %s has the same PersistId (%s) as %s. Ignoring."):format(board:FullName(), boardKey, context.Board)
+		print(message)
+		return false, message
+	end
+
+	RestoreContext[boardKey] = {
+		Status = "Fetching",
+		BoardKey = boardKey,
+		Board = board,
+	}
+
+	--[[
+		getRestorer retrieves all the data it needs from the relevant keys,
+		then returns a coroutine that deserialises and loads the data
+	--]]
+	local success, result = pcall(getRestorer, dataStore, board, boardKey)
+
+	if not success then
+		local message = ("[metaboard] Fetch failed for key %s, \n	%s"):format(boardKey, result)
+		print(message)
+
+		RestoreContext[boardKey] = nil
+
+		return false, message
+	end
+
+	if result == nil then
+
+		RestoreContext[boardKey] = nil
+
+		-- Nothing was stored, give back empty data
+		return true, {
+
+			Figures = {},
+			NextFigureZIndex = 0,
+			EraseGrid = EraseGrid.new(board:AspectRatio())
+
+		}
+	else
+		local restorer = result
+
+		RestoreContext[boardKey].Status = "Restoring"
+		RestoreContext[boardKey].Restorer = restorer
+		RestoreContext[boardKey].Receiver = coroutine.running()
+
+		if ProcessorCoroutine == nil then
+			ProcessorCoroutine = coroutine.create(processRestorers)
+			task.defer(ProcessorCoroutine)
+		end
+
+		local _success, _result = coroutine.yield()
+
+		RestoreContext[boardKey] = nil
+
+		return _success, _result
+	end
 end
 
 return {
 	Store = store,
-	RestoreAll = restoreAll,
+	Restore = restore,
 }

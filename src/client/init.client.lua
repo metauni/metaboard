@@ -119,6 +119,6 @@ task.spawn(function()
 		end)
 
 		viewStateManager:UpdateWithAllActive(loadedBoards)
-		task.wait(2)
+		task.wait(0.5)
 	end
 end)

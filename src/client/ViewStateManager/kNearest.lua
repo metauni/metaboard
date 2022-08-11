@@ -1,5 +1,5 @@
 return function(position: Vector3, boardSet, k)
-	local nearestArray = table.create(k, nil)
+	local nearestArray = {}
 	local nearestSet = {}
 
 	for i = 1, k do

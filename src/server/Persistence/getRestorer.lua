@@ -26,12 +26,6 @@ local function get(dataStore: DataStore, key: string)
 		task.wait()
 	end
 
-	--[[
-		No pcall because we catch the error in `restoreAll`
-
-		Note we are not storing the 2nd, 3rd, 4th return values of getAsync
-	--]]
-	-- print("getting key", key)
 	local result = dataStore:GetAsync(key)
 
 	return result
@@ -40,30 +34,32 @@ end
 local typeCheckSerialised = {
 
 	Point = function(point)
-		assert(typeof(point) == "table")
-		assert(typeof(point.X) == "number")
-		assert(typeof(point.Y) == "number")
+		assert(typeof(point) == "table", "Expected point to be a table")
+		assert(typeof(point.X) == "number", "Point table should have key X: number")
+		assert(typeof(point.Y) == "number", "Point table should have key Y: number")
 		return true
 	end,
-
+	
 	Color = function(color)
-		assert(typeof(color) == "table")
-		assert(typeof(color.R) == "number")
-		assert(typeof(color.G) == "number")
-		assert(typeof(color.B) == "number")
+		assert(typeof(color) == "table", "Expected color to be a table")
+		assert(typeof(color.R) == "number", "Color table should have key R: number")
+		assert(typeof(color.G) == "number", "Color table should have key G: number")
+		assert(typeof(color.B) == "number", "Color table should have key B: number")
 		return true
 	end,
 
 }
 
+local hasKeys = function(tabl, tableName, keyTypes)
+	for key, keyType in pairs(keyTypes) do
+		assert(typeof(tabl[key]) == keyType, "Expected "..key..": "..keyType.." in "..tableName.."\nGot "..tostring(tabl[key]).." of type "..typeof(tabl[key]))
+	end 
+end
+
 
 local fetchers = {
 
 	["Legacy"] = function(dataStore, board, boardKey, boardKeyValue)
-
-		--[[
-			Clear count is not preserved, nor is the AuthorUserId of any curve
-		--]]
 
 		local boardData = jsonDecode(boardKeyValue, "Legacy BoardDataJSON")
 
@@ -76,6 +72,10 @@ local fetchers = {
 
 		if not boardData.numCurveSegments then
 
+			hasKeys(boardData, "boardData", {
+				Curves = "table"
+			})
+
 			-- For old versions the curve data is stored under the main key
 			serialisedCurves = boardData.Curves
 
@@ -83,13 +83,21 @@ local fetchers = {
 
 		else
 
+			hasKeys(boardData, "boardData", {
+				numCurveSegments = "number"
+			})
+
 			local segments = {}
 
 			for curvesSegmentId = 1, boardData.numCurveSegments do
 
 				local curvesSegmentKey = boardKey .. ":c"..curvesSegmentId
 
-				table.insert(segments, get(dataStore, curvesSegmentKey))
+				local curveSegment = get(dataStore, curvesSegmentKey)
+
+				assert(typeof(curveSegment) == "string", "Expected CurveSegement to have type string")
+
+				table.insert(segments, curveSegment)
 
 			end
 
@@ -97,6 +105,14 @@ local fetchers = {
 		end
 
 		return coroutine.create(function(timeBudget)
+
+			hasKeys(boardData, "boardData", {
+				CurrentZIndex = "number",
+				ClearCount = "number"
+			})
+
+			local currentZIndex = boardData.CurrentZIndex
+			local clearCount = boardData.ClearCount
 
 			while timeBudget == nil do
 				timeBudget = coroutine.yield()
@@ -117,33 +133,65 @@ local fetchers = {
 					are just curves in terms of what data is actually stored.
 				--]]
 
-				assert(#curveData.Lines > 0)
-				local points = table.create(#curveData.Lines+1)
-				typeCheckSerialised.Point(curveData.Lines[1].Start)
-				typeCheckSerialised.Point(curveData.Lines[1].Stop)
-				table.insert(points, curveData.Lines[1].Start)
-				table.insert(points, curveData.Lines[1].Stop)
+				hasKeys(curveData, "curveData", {
+					Name = "string",
+					Lines = "table",
+					ZIndex = "number"
+				})
+
+				local curveName = curveData.Name
+				local lines = curveData.Lines
+				local zIndex = curveData.ZIndex
+
+				assert(#lines > 0)
+				local points = table.create(#lines+1)
+				typeCheckSerialised.Point(lines[1].Start)
+				typeCheckSerialised.Point(lines[1].Stop)
+				table.insert(points, lines[1].Start)
+				table.insert(points, lines[1].Stop)
 
 				local color, width
 				local mask = {}
 
-				for i, lineData in ipairs(curveData.Lines) do
+				--[[
+					Legacy curves are a list of line segments, whereas v3+ curves are
+					lists of points + a mask array.
+
+					These lines likely appear in their creation order but this is purely
+					dependent on the behaviour of GetChildren(), so no order can be assumed.
+					This ends up not mattering because we allow and account for "gaps"
+					between consecutive lines, which are interpreted as erased sections of
+					the curve. As a result, assuming that the lines are given in creation
+					has no visual affect on the resulting curve.
+				--]]
+				for i, lineData in ipairs(lines) do
 					--[[
 						Every line should have the same color and width
 					--]]
 
-					typeCheckSerialised.Color(lineData.Color)
+					hasKeys(lineData, "lineData", {
+						Color = "table",
+						ThicknessYScale = "number",
+						Start = "table",
+						Stop = "table"
+					})
+
+					local lineColor = lineData.Color
+					local lineThicknessYScale = lineData.ThicknessYScale
+					local start = lineData.Start
+					local stop = lineData.Stop
+
+					typeCheckSerialised.Color(lineColor)
 					if color then
-						assert(Dictionary.equals(color, lineData.Color))
+						assert(Dictionary.equals(color, lineColor), "Curve "..curveName.." has conflicting line colors")
 					else
-						color = lineData.Color
+						color = lineColor
 					end
 
-					assert(typeof(lineData.ThicknessYScale) == "number")
 					if width then
-						assert(width == lineData.ThicknessYScale)
+						assert(width == lineThicknessYScale, "Curve "..curveName.." has conflicting line widths")
 					else
-						width = lineData.ThicknessYScale
+						width = lineThicknessYScale
 					end
 
 					if i == 1 then
@@ -151,55 +199,55 @@ local fetchers = {
 						continue
 					end
 
-					typeCheckSerialised.Point(lineData.Start)
-					typeCheckSerialised.Point(lineData.Stop)
+					typeCheckSerialised.Point(start)
+					typeCheckSerialised.Point(stop)
 
 					--[[
 						Legacy only stores lines, so the gaps between them are implicit.
 						When there's a gap we indicate it in the mask.
 					--]]
 
-					if not Dictionary.equals(points[#points], lineData.Start) then
+					if not Dictionary.equals(points[#points], start) then
 						mask[tostring(#points)] = true
-						table.insert(points, lineData.Start)
+						table.insert(points, start)
 					end
 					
-					table.insert(points, lineData.Stop)
+					table.insert(points, stop)
+
+					if (os.clock() - startTime) > timeBudget then
+
+						repeat
+							timeBudget = coroutine.yield()
+						until timeBudget ~= nil
+
+						startTime = os.clock()
+					end
 				end
 
-				assert(color)
-				assert(width)
+				assert(color, "Couldn't determine color of curve: "..curveName)
+				assert(color, "Couldn't determine width (ThicknessYScale) of curve: "..curveName)
 
 				local serialisedFigure = {
 					Type = "Curve",
-					ZIndex = curveData.ZIndex,
+					ZIndex = zIndex,
 					Color = color,
 					Width = width,
 					Points = points,
 					Mask = mask,
 				}
 
-				assert(typeof(curveData.Name) == "string")
-
-				local figureId = curveData.Name
+				local figureId = curveName
 				local figure = Figure.Deserialise(serialisedFigure)
 
 				figures[figureId] = figure
 				eraseGrid:AddFigure(figureId, figure)
-
-				if (os.clock() - startTime) > timeBudget then
-
-					repeat
-						timeBudget = coroutine.yield()
-					until timeBudget ~= nil
-
-					startTime = os.clock()
-				end
 			end
 
 			return {
 				Figures = figures,
-				NextFigureZIndex = boardData.CurrentZIndex,
+				NextFigureZIndex = currentZIndex,
+				ClearCount = clearCount,
+				EraseGrid = eraseGrid,
 			}
 
 		end)
@@ -209,14 +257,24 @@ local fetchers = {
 
 	["v3"] = function(dataStore, board, boardKey, boardKeyValue)
 
+		hasKeys(boardKeyValue, "boardKeyValue", {
+			NextFigureZIndex = "number",
+			ChunkCount = "number",
+			FirstChunk = "string",
+			ClearCount = "number",
+		})
+
 		local nextFigureZIndex = boardKeyValue.NextFigureZIndex
 		local chunkCount = boardKeyValue.ChunkCount
+		local clearCount = boardKeyValue.ClearCount
 
 		local chunks = {boardKeyValue.FirstChunk}
 
 		for i=2, chunkCount do
 			local chunkKey = boardKey .. "/" .. tostring(i)
-			table.insert(chunks, get(dataStore, chunkKey))
+			local chunk = get(dataStore, chunkKey)
+			assert(typeof(chunk) == "string", "Expected chunk "..i.." to have type string")
+			table.insert(chunks, chunk)
 		end
 
 		return coroutine.create(function(timeBudget)
@@ -274,6 +332,7 @@ local fetchers = {
 				Figures = figures,
 				NextFigureZIndex = nextFigureZIndex,
 				EraseGrid = eraseGrid,
+				ClearCount = clearCount,
 			}
 		end)
 
@@ -281,7 +340,7 @@ local fetchers = {
 
 }
 
-return function (dataStore, board, boardKey, loadData)
+return function (dataStore, board, boardKey)
 
 	local storedData = get(dataStore, boardKey)
 
@@ -290,7 +349,6 @@ return function (dataStore, board, boardKey, loadData)
 	end
 
 	if typeof(storedData) == "string" then
-		-- print("Fetching legacy for "..boardKey)
 
 		return fetchers["Legacy"](dataStore, board, boardKey, storedData)
 
@@ -303,10 +361,8 @@ return function (dataStore, board, boardKey, loadData)
 		end
 
 		if not fetchers[formatVersion] then
-			error("Format version not recognised: "..formatVersion)
+			error("Format version not recognised: "..formatVersion.."\nThe latest ")
 		end
-
-		-- print("Fetching "..formatVersion.." for "..boardKey)
 
 		return fetchers[formatVersion](dataStore, board, boardKey, storedData)
 

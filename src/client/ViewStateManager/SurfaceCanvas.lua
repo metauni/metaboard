@@ -42,10 +42,26 @@ local SurfaceCanvas = Roact.Component:extend("SurfaceCanvas")
 function SurfaceCanvas:init()
 	self.ButtonPartRef = Roact.createRef()
 
-	self.EnforceLimit = true
+	local loading
+	if next(self.props.Figures) then
+		self.LineLimit = 0
+		self.LineCount = 0
+		self.ReverseOrderedFigureEntries = Array.sort(Dictionary.entries(self.props.Figures), function(entry1, entry2)
+			return entry1[2].ZIndex > entry2[2].ZIndex
+		end)
+		self.LoadedFigures = {}
+
+		loading = true
+	else
+		if self.props.LineLoadFinishedCallback then
+			self.props.LineLoadFinishedCallback()
+		end
+		loading = false
+	end
 
 	self:setState({
-		LineLimit = 0,
+		SurfaceClickable = self.props.OpenedBoardState.Value == nil,
+		Loading = loading,
 		UnverifiedDrawingTasks = {},
 		CurrentUnverifiedDrawingTaskId = Roact.None,
 	})
@@ -53,27 +69,9 @@ end
 
 function SurfaceCanvas:didMount()
 
-	task.spawn(function()
-		debug.setmemorycategory("SurfaceCanvas (heap)")
-		while self.EnforceLimit do
-			task.wait(math.random() * 0.01)
-			local budget = self.props.GetLineBudget()
-
-			if budget > 0 then
-				self:setState(function(prevState)
-					return {
-						LineLimit = prevState.LineLimit + budget,
-					}
-				end)
-			end
-		end
-
-		if self.props.LineLoadFinishedCallback then
-			self.props.LineLoadFinishedCallback()
-			self:setState({
-				DrawingSurfaceActive = true
-			})
-		end
+	self.OpenBoardStateConnection = self.props.OpenedBoardState.Changed:Connect(function()
+		
+		self:setState({ SurfaceClickable = self.props.OpenedBoardState.Value == nil })
 	end)
 
 	self.InRangeChecker = coroutine.create(function()
@@ -107,6 +105,9 @@ function SurfaceCanvas:didMount()
 end
 
 function SurfaceCanvas:willUnmount()
+
+	self.OpenBoardStateConnection:Disconnect()
+
 	if self.VRIO then
 		self.VRIO.Destroy()
 		self.VRIO = nil
@@ -144,78 +145,97 @@ function SurfaceCanvas.getDerivedStateFromProps(nextProps, lastState)
 
 end
 
+function SurfaceCanvas:shouldUpdate(nextProps, nextState)
+	if self.state.Loading and nextProps.BudgetThisFrame then
+
+		self.LineLimit += nextProps.BudgetThisFrame
+
+		local changed = false
+		while self.LineCount <= self.LineLimit and #self.ReverseOrderedFigureEntries > 0 do
+			local nextFigureEntry = self.ReverseOrderedFigureEntries[#self.ReverseOrderedFigureEntries]
+			local figureId, figure = nextFigureEntry[1], nextFigureEntry[2]
+
+			local figureLineCount
+			if figure.Type == "Curve" then
+				figureLineCount = #figure.Points-1
+			else
+				figureLineCount = 1
+			end
+
+			if self.LineCount + figureLineCount <= self.LineLimit then
+				self.LoadedFigures[figureId] = figure
+				self.LineCount += figureLineCount
+
+				self.ReverseOrderedFigureEntries[#self.ReverseOrderedFigureEntries] = nil
+				changed = true
+			else
+				break
+			end
+		end
+
+		return changed
+	else
+		return not (Dictionary.equals(self.props, nextProps) and Dictionary.equals(self.state, nextState))
+	end
+end
+
+function SurfaceCanvas:didUpdate(previousProps, previousState)
+	if self.state.Loading and #self.ReverseOrderedFigureEntries == 0 then
+		if self.props.LineLoadFinishedCallback then
+			self.props.LineLoadFinishedCallback()
+		end
+		self:setState({
+			Loading = false
+		})
+	end
+end
+
 function SurfaceCanvas:render()
-	local figureMaskBundles = {}
-	local lineCount = 0
 
 	local allFigures
-	do
-		if self.EnforceLimit then
-			allFigures = {}
+	local figureMaskBundles
 
-			for figureId, figure in pairs(self.props.Figures) do
-				if figure.Type == "Curve" then
-					lineCount += #figure.Points
-				else
-					lineCount += 1
+	if self.state.Loading then
+
+		allFigures = self.LoadedFigures
+		figureMaskBundles = {}
+
+	else
+
+		allFigures = table.clone(self.props.Figures)
+		figureMaskBundles = {}
+
+		for taskId, drawingTask in pairs(self.props.DrawingTasks) do
+			if drawingTask.Type == "Erase" then
+				local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+				for figureId, figureMask in pairs(figureIdToFigureMask) do
+					local bundle = figureMaskBundles[figureId] or {}
+					bundle[taskId] = figureMask
+					figureMaskBundles[figureId] = bundle
 				end
+			else
+				local figure = DrawingTask.Render(drawingTask)
 
-				allFigures[figureId] = figure
+				allFigures[taskId] = figure
 
-				if lineCount > self.state.LineLimit then
-					break
-				end
 			end
-		else
-			allFigures = table.clone(self.props.Figures)
 		end
-	end
 
-	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
-		if drawingTask.Type == "Erase" then
-			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
-			for figureId, figureMask in pairs(figureIdToFigureMask) do
-				local bundle = figureMaskBundles[figureId] or {}
-				bundle[taskId] = figureMask
-				figureMaskBundles[figureId] = bundle
-			end
-		else
-			local figure = DrawingTask.Render(drawingTask)
+		for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
 
-			if self.EnforceLimit then
-				if figure.Type == "Curve" then
-					lineCount += #figure.Points-1
-				else
-					lineCount += 1
+			if drawingTask.Type == "Erase" then
+				local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+				for figureId, figureMask in pairs(figureIdToFigureMask) do
+					local bundle = figureMaskBundles[figureId] or {}
+					bundle[taskId] = figureMask
+					figureMaskBundles[figureId] = bundle
 				end
 
-				if lineCount > self.state.LineLimit then
-					break
-				end
+			else
+
+				allFigures[taskId] = DrawingTask.Render(drawingTask)
 			end
-
-			allFigures[taskId] = figure
 		end
-	end
-
-	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
-
-		if drawingTask.Type == "Erase" then
-			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
-			for figureId, figureMask in pairs(figureIdToFigureMask) do
-				local bundle = figureMaskBundles[figureId] or {}
-				bundle[taskId] = figureMask
-				figureMaskBundles[figureId] = bundle
-			end
-
-		else
-
-			allFigures[taskId] = DrawingTask.Render(drawingTask)
-		end
-	end
-
-	if self.EnforceLimit and lineCount <= self.state.LineLimit then
-		self.EnforceLimit = false
 	end
 
 	local partFigures = e(PartCanvas, {
@@ -235,7 +255,7 @@ function SurfaceCanvas:render()
 			the board isn't currently loading lines and there's no other board open
 			(in which case self.props.OnSurfaceClick is nil).
 		--]]
-		if not VRService.VREnabled and not self.EnforceLimit and self.props.OnSurfaceClick then
+		if not VRService.VREnabled and not self.Loading then
 			buttonPart = e("Part", {
 
 				CFrame = self.props.CanvasCFrame,
@@ -253,7 +273,7 @@ function SurfaceCanvas:render()
 
 					ClickDetector = e("ClickDetector", {
 
-						MaxActivationDistance = math.huge,
+						MaxActivationDistance = self.state.SurfaceClickable and math.huge or 0,
 
 					}),
 
@@ -285,7 +305,7 @@ function SurfaceCanvas:render()
 		This commented out stuff is for putting all of the lines within a viewportframe.
 		This saves massively on fps but it's unfortunately low resolution.
 	--]]
-	
+
 
 	-- local canvasViewport = e(CanvasViewport, {
 
@@ -312,7 +332,6 @@ function SurfaceCanvas:render()
 
 			BoardStatView = Config.Debug and e(BoardStatView, merge(self.props, {
 
-				LineCount = lineCount,
 				UnverifiedDrawingTasks = self.state.UnverifiedDrawingTasks,
 
 			}))

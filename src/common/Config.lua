@@ -14,24 +14,24 @@ Config.Persistence = {
 
 	DataStoreName = "MetaboardPersistence",
 	ReadOnly = false,
-	BoardKeyPrefix = "metaboard",
+	PersistIdToBoardKey = function(persistId)
+		return "metaboard"..tostring(persistId)
+	end,
+	BoardKeyToHistoryKey = function(boardKey, clearCount)
+		return "History/"..boardKey..":"..tostring(clearCount)
+	end,
 
 	-- Interval in seconds between board persistence saves
 	-- Note that there is a 6s cooldown on writing to the same DataStore
 	-- key, so that AutoSaveInterval is lower bounded by 6
 	AutoSaveInterval = 30,
-	RestoreAllIntermission = 3,
-	RestoreAllNumSimultaneousBoards = 3,
-
-	LinesLoadedBeforeWait = 300, -- Number of lines to load in Restore before task.wait
-
-	-- Number of lines to iterate over while erasing before task.wait
-	LinesSeenBeforeWait = 50,
 
 	-- How many bytes of data to store per key (limit is 4MB)
 	ChunkSizeLimit = 3500000,
 
-	RestoreTimePerFrame = 5 * 0.001,
+	-- A target limit for the amount of time per-frame spent on deserialising
+	-- fetched data from the datastore.
+	RestoreTimePerFrame = 15 * 0.001,
 
 	UseMockDataStoreService = false,
 }
@@ -153,7 +153,7 @@ if game:GetService("RunService"):IsServer() then
 
 	if PlaceConfigScript then
 
-		print("[Metaboard] Applying PlaceConfig")
+		print("[metaboard] Applying PlaceConfig")
 		local PlaceConfig = require(PlaceConfigScript)
 
 		assert(typeof(PlaceConfig) == "function", "Bad metaboardPlaceConfig, should be function that modifies Config")

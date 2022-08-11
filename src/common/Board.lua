@@ -113,11 +113,12 @@ function Board:CommitAllDrawingTasks()
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid)
+function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
 	figures = figures or {}
 	drawingTasks = drawingTasks or {}
 	playerHistories = playerHistories or {}
 	nextFigureZIndex = nextFigureZIndex or 0
+	clearCount = clearCount or 0
 
 	for userId, playerHistory in pairs(playerHistories) do
 		setmetatable(playerHistory, History)
@@ -127,6 +128,7 @@ function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex
 	self.DrawingTasks = drawingTasks
 	self.PlayerHistories = playerHistories
 	self.NextFigureZIndex = nextFigureZIndex
+	self.ClearCount = clearCount
 
 	if not eraseGrid then
 		eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)

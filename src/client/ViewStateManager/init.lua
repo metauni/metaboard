@@ -8,9 +8,9 @@ local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 local Destructor = require(Common.Packages.Destructor)
+local Signal = require(Common.Packages.GoodSignal)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
-
 
 -- Helper Functions
 local setActive = require(script.setActive)
@@ -19,7 +19,7 @@ local setDead = require(script.setDead)
 local kNearest = require(script.kNearest)
 local visibilityDot = require(script.visibilityDot)
 
-local LINEFRAMEBUDGET = 150
+local LINEFRAMEBUDGET = 50
 
 local ViewStateManager = {}
 ViewStateManager.__index = ViewStateManager
@@ -32,11 +32,58 @@ function ViewStateManager.new()
 	-- board -> setActive() | setDormant() | setDead()
 	self.ViewStates = {}
 
-	self.Character = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+	RunService.Heartbeat:Connect(function()
+		if self.BoardsToLoadThisFrame and #self.BoardsToLoadThisFrame > 0 then
+
+			local boardToLoad do
+
+				local closestLoading
+				local closestInFOV
+				local closestVisible
+
+				for i, board in ipairs(self.BoardsToLoadThisFrame) do
+
+					local viewState = self.ViewStates[board]
+					if viewState.WhenLoaded then
+						closestLoading = closestLoading or board
+					end
+
+					local boardPos = board:SurfaceCFrame().Position
+					local _, inFOV = workspace.CurrentCamera:WorldToViewportPoint(boardPos)
+					if inFOV then
+						closestInFOV = closestInFOV or board
+
+						if board:SurfaceCFrame().LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) < 0 then
+							closestVisible = closestVisible or board
+							break
+						end
+					end
+				end
+
+				boardToLoad = closestVisible or closestInFOV or closestLoading
+			end
+
+			if boardToLoad then
+				local viewState = self.ViewStates[boardToLoad]
+
+				viewState.LoadMore(128)
+
+				if viewState.WhenLoaded == nil then
+					self.BoardsToLoadThisFrame = Array.removeValue(self.BoardsToLoadThisFrame, boardToLoad)
+				end
+			end
+		end
+
+	end)
 
 	self.CanvasesFolder = Instance.new("Folder")
 	self.CanvasesFolder.Name = "ClientManagedCanvases"
 	self.CanvasesFolder.Parent = workspace
+
+	self.OpenedBoardState = {
+		Value = nil,
+		Changed = Signal.new()
+	}
 
 	self.BudgetThisFrame = LINEFRAMEBUDGET
 
@@ -66,18 +113,16 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 		end
 	end
 
-	local numNotDead = Dictionary.count(boardToViewStatus, function(status)
-		return status ~= "Dead"
-	end)
+	do
+		local loadingBoards = Dictionary.map(self.ViewStates, function(state, board)
+			return state.WhenLoaded, board
+		end)
 
-	self.GetLineBudget = function()
-		local boardBudget = LINEFRAMEBUDGET / numNotDead
-		if self.BudgetThisFrame - boardBudget >= 0 then
-			self.BudgetThisFrame -= boardBudget
-			return boardBudget
-		else
-			return 0
-		end
+		local character = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+		local characterPos = character:GetPivot().Position
+		local kNearestArray, kNearestSet = kNearest(characterPos, loadingBoards, math.huge)
+
+		self.BoardsToLoadThisFrame = kNearestArray
 	end
 
 	local viewStateSetter = {
@@ -88,18 +133,32 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 
 	-- Set viewstate based on status
 	self.ViewStates = Dictionary.map(boardToViewStatus, function(viewStatus, board)
+
 		local viewState = self.ViewStates[board]
+
 		if not viewState then
 			viewState = setDead(self, board, nil)
 		end
-		return viewStateSetter[viewStatus](self, board, viewState)
+
+		if viewStatus == viewState.Status then
+			return viewState
+		else
+			return viewStateSetter[viewStatus](self, board, viewState)
+		end
+
 	end)
 end
 
 function ViewStateManager:RefreshViewStates()
-	self:_reconcileBoards(Dictionary.map(self.ViewStates, function(viewState)
-		return viewState.Status
-	end))
+	local viewStateSetter = {
+		Active = setActive,
+		Dormant = setDormant,
+		Dead = setDead,
+	}
+
+	self.ViewStates = Dictionary.map(self.ViewStates, function(viewState, board)
+		return viewStateSetter[viewState.Status](self, board, viewState)
+	end)
 end
 
 function ViewStateManager:UpdateWithAllActive(instanceToBoard)
@@ -121,7 +180,8 @@ end
 function ViewStateManager:UpdateWithBudget(instanceToBoard, lineBudget)
 	local allBoards = Set.fromArray(Dictionary.values(instanceToBoard))
 
-	local characterPos = self.Character:GetPivot().Position
+	local character = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+	local characterPos = character:GetPivot().Position
 
 	local nearestArray, _ = kNearest(characterPos, allBoards, Set.count(allBoards))
 

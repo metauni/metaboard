@@ -13,7 +13,7 @@ local extractHostObject = require(script.Parent.extractHostObject)
 return function(self, board, viewData)
 	local oldViewData = viewData or {}
 
-	local makeElement = function(whenLoaded)
+	local makeElement = function(whenLoaded, budgetThisFrame)
 
 		return e(SurfaceCanvas, {
 
@@ -21,29 +21,27 @@ return function(self, board, viewData)
 			DrawingTasks = board.DrawingTasks,
 			CanvasSize = board:SurfaceSize(),
 			CanvasCFrame = board:SurfaceCFrame(),
-			GetLineBudget = function()
-				return self.GetLineBudget()
-			end,
+			BudgetThisFrame = budgetThisFrame,
 			LineLoadFinishedCallback = whenLoaded,
 			Board = board,
 
 			--[[
 				Make the surface clickable only if no other board is open.
 			--]]
-			OnSurfaceClick = self.OpenedBoard == nil and function()
+			OpenedBoardState = self.OpenedBoardState,
+			OnSurfaceClick = function()
 				DrawingUI(board, "Gui", function()
 					-- This function is called when the Drawing UI is closed
-					self.OpenedBoard = nil
-					self:RefreshViewStates()
+					self.OpenedBoardState.Value = nil
+					self.OpenedBoardState.Changed:Fire()
 				end)
-				self.OpenedBoard = board
-				self:RefreshViewStates()
-			end or nil,
+				self.OpenedBoardState.Value = board
+			end,
 		})
 	end
 
 	if oldViewData.Status == "Active" then
-		Roact.update(oldViewData.Tree, makeElement(oldViewData.WhenLoaded))
+		Roact.update(oldViewData.Tree, makeElement(oldViewData.WhenLoaded, nil))
 	else
 
 		local newViewData = {}
@@ -55,11 +53,11 @@ return function(self, board, viewData)
 			newViewData.WhenLoaded = nil
 		end
 
-		newViewData.Tree = Roact.mount(makeElement(newViewData.WhenLoaded), self.CanvasesFolder, board:FullName())
+		newViewData.Tree = Roact.mount(makeElement(newViewData.WhenLoaded, nil), self.CanvasesFolder, board:FullName())
 
 		local updateConnection = board.DataChangedSignal:Connect(function()
 			if not newViewData.Paused then
-				Roact.update(newViewData.Tree, makeElement())
+				Roact.update(newViewData.Tree, makeElement(newViewData.WhenLoaded, nil))
 			end
 		end)
 
@@ -72,6 +70,9 @@ return function(self, board, viewData)
 			newViewData.Tree = nil
 			newViewData.Canvas = nil
 			newViewData.Destroy = nil
+		end
+		newViewData.LoadMore = function(budgetThisFrame)
+			Roact.update(newViewData.Tree, makeElement(newViewData.WhenLoaded, budgetThisFrame))
 		end
 
 		return newViewData

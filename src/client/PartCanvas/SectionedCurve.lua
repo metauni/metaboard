@@ -50,7 +50,7 @@ function SubCurve:render()
 		end
 
 		local roundedP0 = i == 1 or mab
-		local roundedP1 = i+1 == mcd
+		local roundedP1 = mcd
 		-- roundedP1 = true
 
 		local p0Extend, p1Extend = 0, 0

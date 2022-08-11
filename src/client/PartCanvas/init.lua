@@ -85,47 +85,27 @@ function PureFigure:shouldUpdate(nextProps, nextState)
 	end
 end
 
-local PartCanvas = Roact.PureComponent:extend("PartCanvas")
-
--- function PartCanvas:didMount()
--- 	local ZThicknessStudsValue: NumberValue = workspace.ZThicknessStuds
--- 	local StudsPerZIndexValue: NumberValue = workspace.StudsPerZIndex
-
--- 	ZThicknessStudsValue.Changed:Connect(function(value)
--- 		Config.SurfaceCanvas.ZThicknessStuds = value * 0.001
--- 		self:setState({})
--- 	end)
-
--- 	StudsPerZIndexValue.Changed:Connect(function(value)
--- 		Config.SurfaceCanvas.StudsPerZIndex = value * 0.001
--- 		self:setState({})
--- 	end)
--- end
-
-function PartCanvas:render()
-
-	assert(self.props.CanvasCFrame)
+return function (props)
+	assert(props.CanvasCFrame)
 
 	local pureFigures = {}
 
-	for figureId, figure in pairs(self.props.Figures) do
+	for figureId, figure in pairs(props.Figures) do
 
 		pureFigures[figureId] = e(PureFigure, {
 
 			Figure = figure,
-			FigureMasks = self.props.FigureMaskBundles[figureId] or {},
-			CanvasSize = self.props.CanvasSize,
-			CanvasCFrame = self.props.CanvasCFrame,
+			FigureMasks = props.FigureMaskBundles[figureId] or {},
+			CanvasSize = props.CanvasSize,
+			CanvasCFrame = props.CanvasCFrame,
 
 		})
 	end
 
-	if self.props.AsFragment then
+	if props.AsFragment then
 		return Roact.createFragment(pureFigures)
 	else
 		return e("Folder", {}, pureFigures)
 	end
 
 end
-
-return PartCanvas
