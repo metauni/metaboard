@@ -3,6 +3,10 @@
 	"tree": {
 		"$path": "src/server",
 
+		"version": {
+			"$path": "./version.txt"
+		},
+
 		"metaboardCommon": {
 			"$path": "src/common"
 		},

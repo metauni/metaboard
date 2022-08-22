@@ -1,0 +1,6 @@
+[tools]
+rojo = "rojo-rbx/rojo@7.2.1"
+remodel = "rojo-rbx/remodel@0.10.0"
+selene = "Kampfkarren/selene@0.20.0"
+stylua = "johnnymorganz/stylua@0.14.2"
+tarmac = "Roblox/tarmac@0.7.0"
