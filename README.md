@@ -6,7 +6,7 @@ Interactive drawing boards in Roblox.
 
 There are two components to install: the metaboard backend code, and a metaboard model to draw on.
 
-### From Roblox
+### From Roblox - WARNING: NOT UP TO DATE
 You can find [metaboard](https://www.roblox.com/library/8573087394/metaboard) in Roblox Studio by searching "metaboard" in the Toolbox.
 Double-click it to insert it (it will appear under `Workspace`) and then move it to `ServerScriptService`. This contains the Scripts,
 LocalScripts and Guis for handling all metaboard interaction, which are automatically
@@ -14,9 +14,8 @@ distributed when you start your Roblox game.
 You will need to manually update this file if you want the newest release.
 
 ### From Github Releases
-Download the [latest release](https://github.com/metauni/metaboard/releases/latest). In Roblox Studio, right click on `ServerScriptService`, click `Insert from File` and insert the `metaboard-v*.rbxmx` file. This contains the Scripts,
-LocalScripts and Guis for handling all metaboard interaction, which are automatically
-distributed when you start your Roblox game.
+Download the [latest release](https://github.com/metauni/metaboard/releases/latest) (look for `metaboard-v*.rbxm`). In Roblox Studio, right click on `ServerScriptService`, click `Insert from File` and insert the `metaboard-v*.rbxm` file. This contains the Scripts,
+LocalScripts and Guis for handling all metaboard interaction and DataStore persistence.
 You will need to manually update this file if you want the newest release.
 
 ## Adding boards to your game
@@ -33,48 +32,42 @@ Don't be afraid to resize and stretch these boards as you please!
 
 ## Board Structure
 
-A metaboard can be either a `BasePart` or a `Model` with a `PrimaryPart`.
-To turn a `BasePart`/`Model` into a metaboard, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
+A metaboard can be either a `Part` or a `Model` with a `PrimaryPart` (the latter is recommended).
+To turn a `Part`/`Model` into a metaboard, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
 plugin to give it the tag `"metaboard"`. Then add any of the following optional
 values as children.
 
 | Object      | Name        | Value | Description |
 | ----------- | ----------- | ----------- | ----- |
 | StringValue | Face        | `String` (one of "Front" (default), "Back", "Left", "Right", "Top", "Bottom") | The surface of the part that should be used as the board |
-| BoolValue   | Clickable   | `Bool` | Set to false to prevent opening this board in the gui |
 
 If the metaboard is a `Model`, the `PrimaryPart` should be set to the part which defines the drawing surface of the model (make sure the right `Face : StringValue` is configured).
 
 For more customised positioning of the board, make an invisible part for the board and size/position it on your model however you like (you should tag the parent model as the metaboard, not the invisible part, and remember to set the invisible part as the `PrimaryPart`).
 
-## Subscriber Boards
+## Custom Configuration
 
-Any metaboard can be a subscriber of another board (the broadcaster), meaning anything that appears on the broadcaster board is replicated onto the subscriber board.
+All of the configuration values used in metaboard are stored in a ModuleScript at `metaboard -> metaboardCommon -> Config`. There are cases where you may want to
+use different config values on a per-place basis. Instead of modifying the `Config` script, you can copy the ModuleScript called `metaboardPlaceConfig` from `metaboard` to `ServerScriptService`. This ModuleScript returns a function which takes the config table as its argument and modifies the keys (no return value). All scripts that import the original Config file will receive the table with these edits applied (but only if `metaboardPlaceConfig` is a child of `ServerScriptService`).
 
-There are two ways of setting up this link
-1. Create a folder called "Subscribers" as a child of the broadcaster, then make an `ObjectValue` called "Subscriber" and set its `Value` to the subscriber. You can make any number of subscribers in this folder.
-2. Create an `ObjectValue` under the subscriber called "SubscribedTo" and set its `Value` to the broadcaster.
-	You can make any number of these to subscribe to multiple boards (they must all be called "SubscribedTo").
-
-When you start your world, any links made with the second method will be converted according to use the first method.
-
-### WARNING
-> Subscriber boards can have undefined behaviour, and can introduce performance strains if used liberally.
+You can keep this same config file around when you update the metaboard package.
 
 ## Persistent Boards
 
-Any metaboard can be synced to a DataStore so that it retains its contents across server restarts. To enable persistence for a board, create an `IntValue` under the board called "PersistId" and set it it to the subkey used to store the board contents.
+Any metaboard can be synced to a DataStore so that it retains its contents across server restarts.
+
+By default, metaboard uses a datastore called `"MetaboardPersistence"` to save and restore board data. You can configure which datastore is used in `metaboardPlaceConfig`. For example you could use a different datastore for each place. There you can also set `Config.Persistence.ReadOnly` to `true`, so that you can see and draw on the existing boards in Studio without modifying anything in the datastore.
+
+Note that `Config.Persistence.DataStoreName` is ignored in pockets, where automatic naming is used.
+
+To enable persistence for a board, create an `IntValue` under the board called `PersistId` and choose a unique value. This value is used to determine the key in the datastore where the board data will be saved, so it must be unique to prevent overwriting another board's data. You should also keep track of keys you've used in the past for the same reason.
 
 Since persistent boards use the Roblox DataStore API there are several limitations you should be aware of:
 
-* In private servers the DataStore key for a board is of the form "ps<ownerId>:metaboard<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less.
+<!-- * In private servers the DataStore key for a board is of the form "ps<ownerId>:metaboard<PersistId>". Since keys for DataStores cannot exceed `50` characters in length, and player Ids are (currently) eight digits, that means that you should keep `PersistId`'s to `30` digits or less. -->
 
 * The DataStore keys for persistent boards are the same in any live server, and `SetAsync` is currently used rather than `UpdateAsync`, so there is a risk of data corruption if two players in different servers attempt to the use the "same" persistent board. We strongly recommend therefore that you reserve use of persistent boards to *private servers*.
 
-* Persistent boards will be locked and only Clear allowed if the board reaches a threshold where it would exceed the storage requirement for the DataStore.
+* Changed persistent boards are autosaved by default every `30sec` - this can be modified (see [Custom Configuration](#custom-configuration)).
 
-* The `GetAsync` [rate limit](https://developer.roblox.com/en-us/articles/Data-store) on DataStores has been handled by throttling the loading of persistent boards so that they never hit this limit (the throttling is conservative).
-
-* Changed persistent boards are autosaved by default every `30sec`.
-
-* On server shutdown there is a `30sec` hard limit, within which all boards which have changed after the last autosave must be saved if we are to avoid dataloss. Given that `SetAsync` has a rate limit of `60 + numPlayers * 10` calls per minute, and assuming we can spend at most `20sec` on boards, that means we can support at most `20 + numPlayers * 3` changed boards since the last autosave if we are to avoid dataloss, purely due to rate limits. A full board costs about `1.2sec` to save under adversarial conditions (i.e. many other full boards). So to be safe we can afford at most `16` changed boards per autosave period.
+* On server shutdown there is a 30sec hard limit, within which all boards which have changed after the last autosave must be saved if we are to avoid dataloss. A full board costs about 1.2sec to save under adversarial conditions (i.e. many other full boards). So if we assume we have 20 of those 30 seconds for metaboard shutdown, we can afford at most 16 changed boards per autosave period. There is a budget for datastore requests, but the more likely bottleneck is save time per-board.
