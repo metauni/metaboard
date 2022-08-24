@@ -48,7 +48,7 @@ For more customised positioning of the board, make an invisible part for the boa
 ## Custom Configuration
 
 All of the configuration values used in metaboard are stored in a ModuleScript at `metaboard -> metaboardCommon -> Config`. There are cases where you may want to
-use different config values on a per-place basis. Instead of modifying the `Config` script, you can copy the ModuleScript called `metaboardPlaceConfig` from `metaboard` to `ServerScriptService`. This ModuleScript returns a function which takes the config table as its argument and modifies the keys (no return value). All scripts that import the original Config file will receive the table with these edits applied (but only if `metaboardPlaceConfig` is a child of `ServerScriptService`).
+use different config values on a per-place basis. Instead of modifying the `Config` script, you can copy the ModuleScript called `metaboardPlaceConfig` from `metaboard` to `ReplicatedStorage`. This ModuleScript returns a function which takes the config table as its argument and modifies the keys (no return value). All scripts that import the original Config file will receive the table with these edits applied (but only if `metaboardPlaceConfig` is a child of `ReplicatedStorage`).
 
 You can keep this same config file around when you update the metaboard package.
 

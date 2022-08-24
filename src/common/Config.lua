@@ -147,17 +147,15 @@ Config.VR = {
 	PenToolName = "MetaChalk"
 }
 
-if game:GetService("RunService"):IsServer() then
-	local PlaceConfigScript = game:GetService("ServerScriptService"):FindFirstChild("metaboardPlaceConfig")
+local PlaceConfigScript = game:GetService("ReplicatedStorage"):FindFirstChild("metaboardPlaceConfig")
 
-	if PlaceConfigScript then
+if PlaceConfigScript then
 
-		print("[metaboard] Applying PlaceConfig")
-		local PlaceConfig = require(PlaceConfigScript)
+	print("[metaboard] Applying PlaceConfig")
+	local PlaceConfig = require(PlaceConfigScript)
 
-		assert(typeof(PlaceConfig) == "function", "Bad metaboardPlaceConfig, should be function that modifies Config")
-		PlaceConfig(Config)
-	end
+	assert(typeof(PlaceConfig) == "function", "Bad metaboardPlaceConfig, should be function that modifies Config")
+	PlaceConfig(Config)
 end
 
 return Config
