@@ -21,7 +21,7 @@ local VRIO = require(script.Parent.VRIO)
 local merge = Dictionary.merge
 
 -- Drawing Tools
-local Pen = require(script.Parent.VRIO.Pen)
+-- local Pen = require(script.Parent.VRIO.Pen)
 
 local function inRange(self)
 	local boardLookVector = self.props.CanvasCFrame.LookVector
@@ -85,7 +85,7 @@ function SurfaceCanvas:didMount()
 
 			elseif not isInRange and self.VRIO then
 
-				if self.ToolHeld then
+				if self.state.ToolHeld then
 					self.props.Board.Remotes.FinishDrawingTask:FireServer()
 				end
 
@@ -146,7 +146,7 @@ function SurfaceCanvas.getDerivedStateFromProps(nextProps, lastState)
 end
 
 function SurfaceCanvas:shouldUpdate(nextProps, nextState)
-	if self.state.Loading and nextProps.BudgetThisFrame then
+	if nextState.Loading and nextProps.BudgetThisFrame then
 
 		self.LineLimit += nextProps.BudgetThisFrame
 

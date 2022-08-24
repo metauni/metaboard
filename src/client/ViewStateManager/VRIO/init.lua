@@ -56,8 +56,6 @@ return function (self)
 
 	local connections = {}
 
-	local toolQueue = ToolQueue(self)
-	self.ToolHeld = false
 	self.EquippedTool = Pen
 	self.EraserSize = 0.05
 	self.TriggerActiveConnection = nil
@@ -90,12 +88,10 @@ return function (self)
 			-- We connect to listen to VR pen movements as soon as the trigger is depressed
 			-- even if it is too far from the board to draw.
 			if inRange(self,boardTool.Handle.Attachment.WorldPosition) then
-				toolQueue.Enqueue(function(state)
-					return toolFunctions.ToolDown(self, state, toScalar(boardTool.Handle.Attachment.WorldPosition, 
-									self.props.CanvasCFrame, self.props.CanvasSize))
-				end)
-
 				self.ActiveStroke = true
+				self:setState(function(state)
+					return toolFunctions.ToolDown(self, state, toScalar(boardTool.Handle.Attachment.WorldPosition, self.props.CanvasCFrame, self.props.CanvasSize))
+				end)
 			end
 
 			self.TriggerActiveConnection = RunService.RenderStepped:Connect(function()
@@ -103,15 +99,15 @@ return function (self)
 
 				if inRange(self,penPos) then
 					if self.ActiveStroke then
-						toolQueue.Enqueue(function(state)
+						self:setState(function(state)
 							return toolFunctions.ToolMoved(self, state, toScalar(penPos, self.props.CanvasCFrame, self.props.CanvasSize))
 						end)
 					else
-						toolQueue.Enqueue(function(state)
+					
+						self.ActiveStroke = true
+						self:setState(function(state)
 							return toolFunctions.ToolDown(self, state, toScalar(penPos, self.props.CanvasCFrame, self.props.CanvasSize))
 						end)
-
-						self.ActiveStroke = true
 					end
 				
 					-- Rumble increases with distance *through* the board
@@ -127,7 +123,7 @@ return function (self)
 					end
 				else
 					if self.ActiveStroke then
-						toolQueue.Enqueue(function(state)
+						self:setState(function(state)
 							return toolFunctions.ToolUp(self, state)
 						end)
 
@@ -153,8 +149,7 @@ return function (self)
 
 		if input.KeyCode == Enum.KeyCode.ButtonR2 then
 			if self.TriggerActiveConnection then self.TriggerActiveConnection:Disconnect() end
-			
-			toolQueue.Enqueue(function(state)
+			self:setState(function(state)
 				return toolFunctions.ToolUp(self, state)
 			end)
 			self.ActiveStroke = false
@@ -173,7 +168,6 @@ return function (self)
 			for _, connection in ipairs(connections) do
 				connection:Disconnect()
 			end
-			toolQueue.Destroy()
 
 			if self.TriggerActiveConnection then self.TriggerActiveConnection:Disconnect() end
 		end

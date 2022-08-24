@@ -20,15 +20,15 @@ return function (self)
 
 	local connections = {}
 
-	local toolQueue = ToolQueue(self)
-	self.ToolHeld = false
+	-- local toolQueue = ToolQueue(self)
+	-- self.ToolHeld = false
 	self.EquippedTool = Pen
 	self.EraserSize = 0.1
 
 	table.insert(connections, UserInputService.InputBegan:Connect(function(input)
 
 		if input.UserInputType == Enum.UserInputType.Keyboard then
-			if not self.ToolHeld then
+			if not self.state.ToolHeld then
 				if input.KeyCode == Enum.KeyCode.E then
 					self.EquippedTool = Eraser
 				elseif input.KeyCode == Enum.KeyCode.P then
@@ -46,17 +46,17 @@ return function (self)
 	table.insert(connections, UserInputService.InputBegan:Connect(function(input)
 
 		if input.UserInputType == Enum.UserInputType.MouseButton3 then
-			toolQueue.Enqueue(function(state)
+			self:setState(function(state)
 				return toolFunctions.ToolDown(self, state, toScalar(input.Position.X, input.Position.Y, self.props.CanvasCFrame, self.props.CanvasSize))
 			end)
 		end
-
+		
 	end))
-
+	
 	table.insert(connections, UserInputService.InputChanged:Connect(function(input)
-
+		
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
-			toolQueue.Enqueue(function(state)
+			self:setState(function(state)
 				return toolFunctions.ToolMoved(self, state, toScalar(input.Position.X, input.Position.Y, self.props.CanvasCFrame, self.props.CanvasSize))
 			end)
 		end
@@ -66,7 +66,7 @@ return function (self)
 	table.insert(connections, UserInputService.InputEnded:Connect(function(input)
 
 		if input.UserInputType == Enum.UserInputType.MouseButton3 then
-			toolQueue.Enqueue(function(state)
+			self:setState(function(state)
 				return toolFunctions.ToolUp(self, state)
 			end)
 		end
@@ -80,7 +80,6 @@ return function (self)
 			for _, connection in ipairs(connections) do
 				connection:Disconnect()
 			end
-			toolQueue.Destroy()
 
 		end
 

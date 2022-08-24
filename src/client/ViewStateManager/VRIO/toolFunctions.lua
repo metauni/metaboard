@@ -17,12 +17,9 @@ local toolDown, toolMoved, toolUp
 function toolDown(self, state, canvasPos)
 
 	-- Must finish tool drawing task before starting a new one
-	if self.ToolHeld then
+	if state.ToolHeld then
 		state = merge(state, toolUp(self, state))
-		self.ToolHeld = false
 	end
-
-	self.ToolHeld = true
 
 	local drawingTask = self.EquippedTool.newDrawingTask(self, state)
 
@@ -32,6 +29,8 @@ function toolDown(self, state, canvasPos)
 
 	return {
 
+		ToolHeld = true,
+
 		CurrentUnverifiedDrawingTaskId = initialisedDrawingTask.Id,
 
 		UnverifiedDrawingTasks = set(state.UnverifiedDrawingTasks, initialisedDrawingTask.Id, initialisedDrawingTask),
@@ -40,7 +39,7 @@ function toolDown(self, state, canvasPos)
 end
 
 function toolMoved(self, state, canvasPos)
-	if not self.ToolHeld then return end
+	if not state.ToolHeld then return end
 
 	local drawingTask = state.UnverifiedDrawingTasks[state.CurrentUnverifiedDrawingTaskId]
 
@@ -56,7 +55,7 @@ function toolMoved(self, state, canvasPos)
 end
 
 function toolUp(self, state)
-	if not self.ToolHeld then return end
+	if not state.ToolHeld then return end
 
 	local drawingTask = state.UnverifiedDrawingTasks[state.CurrentUnverifiedDrawingTaskId]
 
@@ -64,9 +63,9 @@ function toolUp(self, state)
 
 	self.props.Board.Remotes.FinishDrawingTask:FireServer()
 
-	self.ToolHeld = false
-
 	return {
+
+		ToolHeld = false,
 
 		CurrentUnverifiedDrawingTaskId = Roact.None,
 
