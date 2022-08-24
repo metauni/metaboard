@@ -34,7 +34,7 @@ local function set(dataStore: DataStore, key: string, data)
 		return dataStore:SetAsync(key, data)
 	end)
 	if not success then
-		error("[metaboard] SetAsync fail for " .. key .. " with " .. string.len(data) .. " bytes " .. errormessage)
+		error("[metaboard] SetAsync fail for " .. key .. ". " .. errormessage)
 	end
 end
 
