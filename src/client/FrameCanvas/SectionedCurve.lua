@@ -39,6 +39,9 @@ function SubCurve:render()
 				Width = self.props.Width,
 				Color = self.props.Color,
 
+				CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+				CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
+
 			})
 		end
 
@@ -99,9 +102,11 @@ function SubCurve:render()
       p1Extend = self.props.Width/2
     end
 
+		local pixelGapCorrection0 = i > 1 and 0.5/ self.props.CanvasAbsoluteSize.Y or 0
+		local pixelGapCorrection1 = i + 1 < #points and 0.5/ self.props.CanvasAbsoluteSize.Y or 0
 
-		local p0E = points[i] + p0Extend * (points[i] - points[i+1]).Unit
-		local p1E = points[i+1] + p1Extend * (points[i+1] - points[i]).Unit
+		local p0E = points[i] + (p0Extend + pixelGapCorrection0) * (points[i] - points[i+1]).Unit
+		local p1E = points[i+1] + (p1Extend + pixelGapCorrection1) * (points[i+1] - points[i]).Unit
 
 
 		return Line({
@@ -110,6 +115,9 @@ function SubCurve:render()
 			P1 = p1E,
 			Width = self.props.Width,
 			Color = self.props.Color,
+
+			CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+			CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
 
 			Rounded = rounded,
 
@@ -131,6 +139,9 @@ function SubCurve:render()
 			Width = self.props.Width,
 			Color = self.props.Color,
 
+			CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+			CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
+
 		})
 	end
 
@@ -143,12 +154,7 @@ function SubCurve:render()
     IgnoreGuiInset = true,
     DisplayOrder = self.props.ZIndex + self.props.ZIndexOffset,
 
-    -- [Roact.Children] = lines,
-    [Roact.Children] = {
-      Container = self.props.Container({
-				[Roact.Children] = lines,
-			}),
-    },
+    [Roact.Children] = lines,
 
   })
 end
@@ -158,6 +164,8 @@ function SubCurve:shouldUpdate(newProps, newState)
   if newProps.LastIndex ~= self.props.LastIndex then return true end
   if newProps.Width ~= self.props.Width then return true end
   if newProps.Color ~= self.props.Color then return true end
+  if newProps.CanvasAbsolutePosition ~= self.props.CanvasAbsolutePosition then return true end
+  if newProps.CanvasAbsoluteSize ~= self.props.CanvasAbsoluteSize then return true end
 
   for i=self.props.FirstIndex, self.props.LastIndex do
     if newProps.Points[i] ~= self.props.Points[i] then return true end
@@ -196,7 +204,8 @@ function Curve:render()
       ZIndex = self.props.ZIndex,
       Mask = self.props.Mask,
 
-      Container = container,
+			CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+			CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
       ZIndexOffset = self.props.ZIndexOffset,
 
     })
@@ -214,7 +223,8 @@ function Curve:render()
     ZIndex = self.props.ZIndex,
     Mask = self.props.Mask,
 
-    Container = container,
+    CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+		CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
     ZIndexOffset = self.props.ZIndexOffset
 
   })

@@ -47,9 +47,6 @@ local App = Roact.PureComponent:extend("App")
 
 function App:init()
 
-	self.CanvasAbsolutePositionBinding, self.SetCanvasAbsolutePosition = Roact.createBinding(Vector2.new(0,0))
-	self.CanvasAbsoluteSizeBinding, self.SetCanvasAbsoluteSize = Roact.createBinding(Vector2.new(100,100))
-
 	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(UDim2.fromOffset(0,0))
 
 	local toolState do
@@ -290,8 +287,22 @@ function App:render()
 		Size = CANVAS_REGION_SIZE,
 		AspectRatio = self.props.AspectRatio,
 
-		OnAbsolutePositionUpdate = self.SetCanvasAbsolutePosition,
-		OnAbsoluteSizeUpdate = self.SetCanvasAbsoluteSize,
+		OnAbsolutePositionUpdate = function(absolutePosition)
+
+			self:setState({
+
+				CanvasAbsolutePosition = absolutePosition
+
+			})
+		end,
+		OnAbsoluteSizeUpdate = function(absoluteSize)
+
+			self:setState({
+
+				CanvasAbsoluteSize = absoluteSize
+
+			})
+		end,
 
 	})
 
@@ -329,10 +340,10 @@ function App:render()
 
 	})
 
-	local canvasIO = self.state.CanWrite and e(CanvasIO, {
+	local canvasIO = self.state.CanWrite and self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize and e(CanvasIO, {
 
-		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
-		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		CanvasAbsolutePosition = self.state.CanvasAbsolutePosition,
+		CanvasAbsoluteSize = self.state.CanvasAbsoluteSize,
 		AspectRatio = self.props.Board:AspectRatio(),
 		Margin = toolState.EquippedTool ~= Eraser and cursorWidth or 0,
 
@@ -404,14 +415,14 @@ function App:render()
 		BoardViewerComponent = comp[self.props.BoardViewMode]
 	end
 
-	local boardViewer = e(BoardViewerComponent, {
+	local boardViewer = self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize and e(BoardViewerComponent, {
 
 		Figures = allFigures,
 
 		FigureMaskBundles = figureMaskBundles,
 
-		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
-		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
+		CanvasAbsolutePosition = self.state.CanvasAbsolutePosition,
+		CanvasAbsoluteSize = self.state.CanvasAbsoluteSize,
 
 		Board = self.props.Board,
 
@@ -419,15 +430,14 @@ function App:render()
 
 	})
 
-	local eraseGridDebug = Config.Debug and e(EraseGridDebug, {
+	local eraseGridDebug = Config.Debug and self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize and e(EraseGridDebug, {
 
 		Board = self.props.Board,
 
-		AbsoluteSizeBinding = self.CanvasAbsoluteSizeBinding,
-		AbsolutePositionBinding = self.CanvasAbsolutePositionBinding,
+		CanvasAbsoluteSize = self.state.CanvasAbsoluteSize,
+		CanvasAbsolutePosition = self.state.CanvasAbsolutePosition,
 
-
-	}) or nil
+	})
 
 
 	return e("ScreenGui", {

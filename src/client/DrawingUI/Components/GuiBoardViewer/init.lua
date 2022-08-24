@@ -31,7 +31,7 @@ local GuiBoardViewer = Roact.PureComponent:extend("GuiBoardViewer")
 	Typically mapped bindings are created on the fly in :render() but this causes
 	it to update any bound properties even if they haven't changed.
 --]]
-local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
+local function setBindings(self, absoluteSize, absolutePosition)
 	self.camPropsBinding, self.setCamProps = Roact.createBinding({
 		CFrame = workspace.CurrentCamera.CFrame,
 		FieldOfView = workspace.CurrentCamera.FieldOfView,
@@ -45,55 +45,49 @@ local function setBindings(self, absoluteSizeBinding, absolutePositionBinding)
 		return (1 / viewportSize.Y) * 2 * zDistance * math.tan(math.rad(fieldOfView) / 2)
 	end
 
-	self.blockerSizeBinding = Roact.joinBindings({
-		CamProps = self.camPropsBinding,
-		AbsoluteSize = absoluteSizeBinding,
-		AbsolutePosition = absolutePositionBinding,
-	}):map(function(values)
-		local zDistance = values.CamProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
+	self.blockerSizeBinding = self.camPropsBinding:map(function(camProps)
 
-		local factor = pixelsToStuds(values.CamProps.ViewportSize, values.CamProps.FieldOfView, zDistance)
+		local zDistance = camProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
+
+		local factor = pixelsToStuds(camProps.ViewportSize, camProps.FieldOfView, zDistance)
 
 		-- Size it to cover the whole canvas region (spatial audio button can move)
 		-- Shrink it slightly so it's not visible at edges
 		return Vector3.new(
-			values.AbsoluteSize.X * factor * 0.99,
-			values.AbsoluteSize.Y * factor * 0.99,
+			absoluteSize.X * factor * 0.99,
+			absoluteSize.Y * factor * 0.99,
 			Config.GuiCanvas.MuteButtonBlockerThickness
 		)
 	end)
 
-	self.blockerCFrameBinding = Roact.joinBindings({
-		CamProps = self.camPropsBinding,
-		AbsoluteSize = absoluteSizeBinding,
-		AbsolutePosition = absolutePositionBinding,
-	}):map(function(values)
-		local zDistance = values.CamProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
+	self.blockerCFrameBinding = self.camPropsBinding:map(function(camProps)
 
-		local factor = pixelsToStuds(values.CamProps.ViewportSize, values.CamProps.FieldOfView, zDistance)
+		local zDistance = camProps.NearPlaneZ + Config.GuiCanvas.MuteButtonNearPlaneZOffset
 
-		local viewportCentre = values.CamProps.ViewportSize / 2
-		local canvasCentre = values.AbsolutePosition + values.AbsoluteSize / 2 + Vector2.new(0, 36)
+		local factor = pixelsToStuds(camProps.ViewportSize, camProps.FieldOfView, zDistance)
+
+		local viewportCentre = camProps.ViewportSize / 2
+		local canvasCentre = absolutePosition + absoluteSize / 2 + Vector2.new(0, 36)
 		local pixelShift = canvasCentre - viewportCentre
 
 		local x = pixelShift.X * factor
 		local y = -pixelShift.Y * factor
 
 		-- Position blocker to coincide with canvas
-		return values.CamProps.CFrame * CFrame.new(x, y, 0)
-			+ values.CamProps.CFrame.LookVector * (zDistance + Config.GuiCanvas.MuteButtonBlockerThickness / 2)
+		return camProps.CFrame * CFrame.new(x, y, 0)
+			+ camProps.CFrame.LookVector * (zDistance + Config.GuiCanvas.MuteButtonBlockerThickness / 2)
 	end)
 end
 
 function GuiBoardViewer:init()
-	setBindings(self, self.props.AbsoluteSizeBinding, self.props.AbsolutePositionBinding)
+	setBindings(self, self.props.CanvasAbsoluteSize, self.props.CanvasAbsolutePosition)
 end
 
 function GuiBoardViewer:willUpdate(nextProps, nextState)
-	if nextProps.AbsoluteSizeBinding ~= self.props.AbsoluteSizeBinding
-			or nextProps.AbsolutePositionBinding ~= self.props.AbsolutePositionBinding then
+	if nextProps.CanvasAbsoluteSize ~= self.props.CanvasAbsoluteSize
+			or nextProps.CanvasAbsolutePosition ~= self.props.CanvasAbsolutePosition then
 
-		setBindings(self, self.props.AbsoluteSizeBinding, self.props.AbsolutePositionBinding)
+		setBindings(self, nextProps.CanvasAbsoluteSize, nextProps.CanvasAbsolutePosition)
 	end
 end
 
@@ -151,8 +145,8 @@ function GuiBoardViewer:render()
 
 		FigureMaskBundles = self.props.FigureMaskBundles,
 
-		AbsolutePositionBinding = self.props.AbsolutePositionBinding,
-		AbsoluteSizeBinding = self.props.AbsoluteSizeBinding,
+		CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
+		CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
 
 		-- Surface guis are used in each figure which globally resets ZIndexing
 		-- inside that surfaceGui, but they are all shifted up by this value so that
@@ -163,8 +157,8 @@ function GuiBoardViewer:render()
 	-- Display a cloned instance of an empty board in a viewport frame.
 	local boardViewport = e(BoardViewport, {
 
-		TargetAbsolutePositionBinding = self.props.AbsolutePositionBinding,
-		TargetAbsoluteSizeBinding = self.props.AbsoluteSizeBinding,
+		TargetAbsolutePosition = self.props.CanvasAbsolutePosition,
+		TargetAbsoluteSize = self.props.CanvasAbsoluteSize,
 		Board = self.props.Board,
 		ZIndex = 0,
 

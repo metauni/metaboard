@@ -17,9 +17,9 @@ return function(props)
 
 	return e("Frame", {
 
+		Position = UDim2.fromOffset(centre.X * props.CanvasAbsoluteSize.Y + props.CanvasAbsolutePosition.X, centre.Y * props.CanvasAbsoluteSize.Y + props.CanvasAbsolutePosition.Y + 36),
+		Size = UDim2.fromOffset(math.max(1, length * props.CanvasAbsoluteSize.Y), math.max(1, props.Width * props.CanvasAbsoluteSize.Y)),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(centre.X, centre.Y),
-		Size = UDim2.fromScale(length, props.Width),
 		Rotation = rotation,
 
 		BackgroundColor3 = props.Color,

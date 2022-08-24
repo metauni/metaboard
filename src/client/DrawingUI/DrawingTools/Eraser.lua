@@ -8,7 +8,7 @@ local Erase = require(Common.DrawingTask.Erase)
 return {
 	newDrawingTask = function(self, state)
 		local taskId = Config.GenerateUUID()
-		local thicknessYScale = Config.DrawingTools.EraserStrokeWidths[state.ToolState.SelectedEraserSizeName] / self.CanvasAbsoluteSizeBinding:getValue().Y
+		local thicknessYScale = Config.DrawingTools.EraserStrokeWidths[state.ToolState.SelectedEraserSizeName] / self.state.CanvasAbsoluteSize.Y
 
 		return Erase.new(taskId, thicknessYScale)
 	end,

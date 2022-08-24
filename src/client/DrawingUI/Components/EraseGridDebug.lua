@@ -16,6 +16,8 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 --]]
 return function(props)
 
+	print("yeehaw")
+
 	local eraseGrid = props.Board.EraseGrid
 	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.Canvas.DefaultEraseGridPixelSize)
 	local gridHeight =  math.ceil(1 / Config.Canvas.DefaultEraseGridPixelSize)
@@ -51,13 +53,9 @@ return function(props)
 
 	return e("Frame", {
 
-		Size = props.AbsoluteSizeBinding:map(function(absoluteSize)
-			return UDim2.fromOffset(absoluteSize.Y, absoluteSize.Y)
-		end),
+		Size = UDim2.fromOffset(props.CanvasAbsoluteSize.Y, props.CanvasAbsoluteSize.Y),
 
-		Position = props.AbsolutePositionBinding:map(function(absolutePosition)
-			return UDim2.fromOffset(absolutePosition.X, absolutePosition.Y + 36)
-		end),
+		Position = UDim2.fromOffset(props.CanvasAbsolutePosition.X, props.CanvasAbsolutePosition.Y + 36),
 
 		BackgroundTransparency = 1,
 

@@ -13,7 +13,9 @@ local e = Roact.createElement
 	Also fires callbacks to record the resulting box absolutePosition and
 	absoluteSize whenever it changes (e.g. window resize).
 --]]
-return function(props)
+local ConstrainedBox = Roact.PureComponent:extend("ConstrainedBox")
+
+function ConstrainedBox:render()
 
 	local box = e("Frame", {
 
@@ -24,15 +26,15 @@ return function(props)
 		Size = UDim2.fromScale(1,1),
 
 		[Roact.Change.AbsoluteSize] = function(rbx)
-			props.OnAbsoluteSizeUpdate(rbx.AbsoluteSize)
+			self.props.OnAbsoluteSizeUpdate(rbx.AbsoluteSize)
 		end,
 		[Roact.Change.AbsolutePosition] = function(rbx)
-			props.OnAbsolutePositionUpdate(rbx.AbsolutePosition)
+			self.props.OnAbsolutePositionUpdate(rbx.AbsolutePosition)
 		end,
 
 		[Roact.Children] = {
 			UIAspectRatioConstraint = e("UIAspectRatioConstraint", {
-				AspectRatio = props.AspectRatio,
+				AspectRatio = self.props.AspectRatio,
 			})
 		}
 	})
@@ -41,8 +43,8 @@ return function(props)
 
 		BackgroundTransparency = 1,
 
-		Position = props.Position,
-		Size = props.Size,
+		Position = self.props.Position,
+		Size = self.props.Size,
 
 		[Roact.Children] = {
 			Box = box
@@ -50,3 +52,5 @@ return function(props)
 
 	})
 end
+
+return ConstrainedBox

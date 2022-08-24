@@ -12,7 +12,7 @@ return {
 	newDrawingTask = function(self, state)
 		local taskId = Config.GenerateUUID()
 		local stroke = deriveStroke(state)
-		local thicknessYScale = stroke.Width / self.CanvasAbsoluteSizeBinding:getValue().Y
+		local thicknessYScale = stroke.Width / self.state.CanvasAbsoluteSize.Y
 		local color = stroke.ShadedColor.Color
 
 		return FreeHand.new(taskId, color, thicknessYScale)

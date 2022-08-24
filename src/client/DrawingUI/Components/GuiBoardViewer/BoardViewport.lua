@@ -38,35 +38,9 @@ local function boardToCameraCFrame(boardHeight, viewportAbsoluteSize, targetAbso
 	return CFrame.Angles(0,math.pi,0) * CFrame.new(-xOffsetStuds,-yOffsetStuds, zDistance)
 end
 
---[[
-	Assign mapped binding for the cframe of the camera
-
-	Typically mapped bindings are created on the fly in :render() but this causes
-	it to update any bound properties even if they haven't changed.
---]]
-local function setBindings(self, board, fieldOfView)
-	self.cFrameBinding = Roact.joinBindings({
-		self.ViewportAbsoluteSizeBinding,
-		self.props.TargetAbsolutePositionBinding,
-		self.props.TargetAbsoluteSizeBinding,
-	}):map(function(values)
-		local boardCFrame = board:SurfaceCFrame()
-		return boardCFrame * boardToCameraCFrame(board:SurfaceSize().Y, values[1], values[2], values[3], fieldOfView)
-	end)
-end
-
 function BoardViewport:init()
-	self.ViewportAbsoluteSizeBinding, self.SetViewportAbsoluteSize = Roact.createBinding(workspace.CurrentCamera.ViewportSize)
 	self.CamRef = Roact.createRef()
 	self.VpfRef = Roact.createRef()
-
-	setBindings(self, self.props.Board, self.props.FieldOfView)
-end
-
-function BoardViewport:willUpdate(nextProps, nextState)
-	if nextProps.Board ~= self.props.Board or nextProps.FieldOfView ~= self.props.FieldOfView then
-		setBindings(self, nextProps.Board, nextProps.FieldOfView)
-	end
 end
 
 function BoardViewport:didMount()
@@ -84,7 +58,7 @@ function BoardViewport:render()
 	local cam = e("Camera", {
 
 		FieldOfView = self.props.FieldOfView,
-		CFrame = self.cFrameBinding,
+		CFrame = self.props.Board:SurfaceCFrame() * boardToCameraCFrame(self.props.Board:SurfaceSize().Y, workspace.CurrentCamera.ViewportSize, self.props.TargetAbsolutePosition, self.props.TargetAbsoluteSize, self.props.FieldOfView),
 
 		[Roact.Ref] = self.CamRef,
 
@@ -108,10 +82,6 @@ function BoardViewport:render()
 		Ambient = Color3.new(1,1,1),
 		LightColor = Color3.new(140/255,140/255,140/255),
 		LightDirection = Vector3.new(0,-2,-1),
-
-		[Roact.Change.AbsoluteSize] = function(vpfInstance)
-			self.SetViewportAbsoluteSize(vpfInstance.AbsoluteSize)
-		end,
 
 	}, {
 		CanvasCamera = cam,

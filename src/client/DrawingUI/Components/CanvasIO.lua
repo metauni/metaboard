@@ -18,11 +18,8 @@ local CanvasIO = Roact.PureComponent:extend("CanvasIO")
 	(sx,sy) ∈ [0,aspectRatio] x [0,1]
 --]]
 local function toCanvasPoint(self, x: number, y: number): Vector2
-
-	local absPosition = self.props.AbsolutePositionBinding:getValue()
-	local absSize = self.props.AbsoluteSizeBinding:getValue()
-
-	return Vector2.new(x - absPosition.X, y - (absPosition.Y + 36)) / absSize.Y
+	
+	return Vector2.new(x - self.props.CanvasAbsolutePosition.X, y - (self.props.CanvasAbsolutePosition.Y + 36)) / self.props.CanvasAbsoluteSize.Y
 end
 
 --[[
@@ -39,33 +36,6 @@ local function withinCanvas(self, x: number, y: number): boolean
 		0 <= canvasPoint.Y and canvasPoint.Y <= 1
 end
 
---[[
-	Assign mapped bindings for position and size of canvas button
-
-	Typically mapped bindings are created on the fly in :render() but this causes
-	it to update any bound properties even if they haven't changed.
---]]
-local function setBindings(self, margin: number)
-
-	self.positionBinding = self.props.AbsolutePositionBinding:map(function(absPosition)
-		return UDim2.fromOffset(absPosition.X + margin/2, absPosition.Y + margin/2 + 36)
-	end)
-
-	self.sizeBinding = self.props.AbsoluteSizeBinding:map(function(absSize)
-		return UDim2.fromOffset(absSize.X - margin, absSize.Y - margin)
-	end)
-end
-
-function CanvasIO:init()
-	setBindings(self, self.props.Margin)
-end
-
-function CanvasIO:willUpdate(nextProps, nextState)
-	if nextProps.Margin ~= self.props.Margin then
-		setBindings(self, nextProps.Margin)
-	end
-end
-
 function CanvasIO:render()
 
 	local cursorPositionBinding = self.props.CursorPositionBinding
@@ -78,8 +48,8 @@ function CanvasIO:render()
 		BackgroundTransparency = 1,
 
 		AnchorPoint = self.props.AnchorPoint,
-		Position = self.positionBinding,
-		Size = self.sizeBinding,
+		Position = UDim2.fromOffset(self.props.CanvasAbsolutePosition.X + self.props.Margin/2, self.props.CanvasAbsolutePosition.Y + self.props.Margin/2 + 36),
+		Size = UDim2.fromOffset(self.props.CanvasAbsoluteSize.X - self.props.Margin, self.props.CanvasAbsoluteSize.Y - self.props.Margin),
 
 		--[[
 			Multiple user inputs can occur per frame (1 to 3) so we queue them so
