@@ -16,8 +16,6 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 --]]
 return function(props)
 
-	print("yeehaw")
-
 	local eraseGrid = props.Board.EraseGrid
 	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.Canvas.DefaultEraseGridPixelSize)
 	local gridHeight =  math.ceil(1 / Config.Canvas.DefaultEraseGridPixelSize)

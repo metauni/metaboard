@@ -80,11 +80,6 @@ function ViewStateManager.new()
 	self.CanvasesFolder.Name = "ClientManagedCanvases"
 	self.CanvasesFolder.Parent = workspace
 
-	self.OpenedBoardState = {
-		Value = nil,
-		Changed = Signal.new()
-	}
-
 	self.BudgetThisFrame = LINEFRAMEBUDGET
 
 	self.Destructor:Add(RunService.RenderStepped:Connect(function()

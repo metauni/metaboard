@@ -60,7 +60,6 @@ function SurfaceCanvas:init()
 	end
 
 	self:setState({
-		SurfaceClickable = self.props.OpenedBoardState.Value == nil,
 		Loading = loading,
 		UnverifiedDrawingTasks = {},
 		CurrentUnverifiedDrawingTaskId = Roact.None,
@@ -68,11 +67,6 @@ function SurfaceCanvas:init()
 end
 
 function SurfaceCanvas:didMount()
-
-	self.OpenBoardStateConnection = self.props.OpenedBoardState.Changed:Connect(function()
-		
-		self:setState({ SurfaceClickable = self.props.OpenedBoardState.Value == nil })
-	end)
 
 	self.InRangeChecker = coroutine.create(function()
 		while true do
@@ -273,7 +267,7 @@ function SurfaceCanvas:render()
 
 					ClickDetector = e("ClickDetector", {
 
-						MaxActivationDistance = self.state.SurfaceClickable and math.huge or 0,
+						MaxActivationDistance = self.props.OnSurfaceClick and math.huge or 0,
 
 					}),
 
@@ -289,7 +283,7 @@ function SurfaceCanvas:render()
 							Position = UDim2.fromScale(0,0),
 							Size = UDim2.fromScale(1,1),
 
-							[Roact.Event.Activated] = self.props.OnSurfaceClick,
+							[Roact.Event.Activated] = self.props.OnSurfaceClick or nil,
 
 						})
 

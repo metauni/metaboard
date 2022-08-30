@@ -28,14 +28,17 @@ return function(self, board, viewData)
 			--[[
 				Make the surface clickable only if no other board is open.
 			--]]
-			OpenedBoardState = self.OpenedBoardState,
-			OnSurfaceClick = function()
+			OnSurfaceClick = self.OpenedBoard == nil and function()
+				
+				self.OpenedBoard = board
+				
 				DrawingUI(board, "Gui", function()
 					-- This function is called when the Drawing UI is closed
-					self.OpenedBoardState.Value = nil
-					self.OpenedBoardState.Changed:Fire()
+					self.OpenedBoard = nil
+					self:RefreshViewStates()
 				end)
-				self.OpenedBoardState.Value = board
+				
+				self:RefreshViewStates()
 			end,
 		})
 	end
