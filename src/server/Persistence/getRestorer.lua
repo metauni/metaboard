@@ -1,10 +1,10 @@
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local HttpService = game:GetService("HttpService")
-local DataStoreService = game:GetService("DataStoreService")
 
 -- Imports
 local Config = require(Common.Config)
+local DataStoreService = Config.Persistence.DataStoreService
 local EraseGrid = require(Common.EraseGrid)
 local Figure = require(Common.Figure)
 local Sift = require(Common.Packages.Sift)

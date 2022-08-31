@@ -32,7 +32,13 @@ Config.Persistence = {
 	-- fetched data from the datastore.
 	RestoreTimePerFrame = 15 * 0.001,
 
-	UseMockDataStoreService = false,
+	-- Can replace standard DataStoreService with MockDataStoreService for
+	-- development purposes
+	DataStoreService = game:GetService("DataStoreService"),
+
+	-- Time in seconds (or nil) to wait before retrieving datastore for restoring
+	-- boards. (nil means no wait, 0 means wait til next frame)
+	RestoreDelay = nil,
 }
 
 Config.Canvas = {

@@ -9,6 +9,7 @@ local BoardService = require(Common.BoardService)
 
 -- Imports
 local Config = require(Common.Config)
+local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
 local BoardRemotes = require(Common.BoardRemotes)
 local Figure = require(Common.Figure)
@@ -125,14 +126,14 @@ local dataStore do
 
 	print("[metaboard] Using "..dataStoreName.." for Persistence DataStore")
 
-	local DataStoreService =
-		Config.Persistence.UseMockDataStoreService
-		and require(Common.Packages.MockDataStoreService)
-		or game:GetService("DataStoreService")
-
 	if not dataStoreName then
 		warn("[metaboard] No DataStoreName given, not loading any boards")
 		return
+	end
+
+	if Config.Persistence.RestoreDelay then
+		
+		task.wait(Config.Persistence.RestoreDelay)
 	end
 
 	dataStore = DataStoreService:GetDataStore(dataStoreName)
@@ -273,20 +274,24 @@ else
 		ChangedSinceStore = {}
 	end)
 
-	while true do
+	task.spawn(function()
+		while true do
 
-		task.wait(Config.Persistence.AutoSaveInterval)
+			task.wait(Config.Persistence.AutoSaveInterval)
 
-		if next(ChangedSinceStore) then
-			print(("[metaboard] Storing %d boards"):format(Set.count(ChangedSinceStore)))
+			if next(ChangedSinceStore) then
+				print(("[metaboard] Storing %d boards"):format(Set.count(ChangedSinceStore)))
+			end
+
+			for board in pairs(ChangedSinceStore) do
+
+				local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
+				task.spawn(Persistence.Store, dataStore, boardKey, board)
+			end
+
+			ChangedSinceStore = {}
 		end
-
-		for board in pairs(ChangedSinceStore) do
-
-			local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
-			task.spawn(Persistence.Store, dataStore, boardKey, board)
-		end
-
-		ChangedSinceStore = {}
-	end
+	end)
 end
+
+print(("[metaboard] Initialised (%s)"):format(script:FindFirstChild("version") and script.version.Value or "dev version"))
