@@ -22,7 +22,7 @@ return function(props)
   }, {
     ConfirmClearButton = e("TextButton", {
       AutoButtonColor = true,
-      Font = Enum.Font.GothamSemibold,
+      Font = Enum.Font.GothamMedium,
       Text = "Confirm Clear",
       TextColor3 = Config.UITheme.Stroke,
       TextSize = 24,
@@ -39,7 +39,7 @@ return function(props)
 
     CancelButton = e("TextButton", {
       AutoButtonColor = true,
-      Font = Enum.Font.GothamSemibold,
+      Font = Enum.Font.GothamMedium,
       Text = "Cancel",
       TextColor3 = Config.UITheme.Stroke,
       TextSize = 24,
