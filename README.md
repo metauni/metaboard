@@ -71,3 +71,9 @@ Since persistent boards use the Roblox DataStore API there are several limitatio
 * Changed persistent boards are autosaved by default every `30sec` - this can be modified (see [Custom Configuration](#custom-configuration)).
 
 * On server shutdown there is a 30sec hard limit, within which all boards which have changed after the last autosave must be saved if we are to avoid dataloss. A full board costs about 1.2sec to save under adversarial conditions (i.e. many other full boards). So if we assume we have 20 of those 30 seconds for metaboard shutdown, we can afford at most 16 changed boards per autosave period. There is a budget for datastore requests, but the more likely bottleneck is save time per-board.
+
+## License
+
+metaboard uses the MPL-2.0 License. See [LICENSE](./LICENSE).
+
+External packages used in metaboard can be found under [packages](./packages/), and license information for those packages in [packages/LICENSES.md](packages/LICENSES.md).
