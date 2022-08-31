@@ -1,5 +1,3 @@
--- Adapted from https://github.com/Fraktality/Destructor
-
 local Destructor = {}
 Destructor.__index = Destructor
 

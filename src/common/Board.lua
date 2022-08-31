@@ -8,7 +8,7 @@ local EraseGrid = require(Common.EraseGrid)
 local DrawingTask = require(Common.DrawingTask)
 local History = require(Common.History)
 local Signal = require(Common.Packages.GoodSignal)
-local Destructor = require(Common.Packages.Destructor)
+local Destructor = require(Common.Destructor)
 local Sift = require(Common.Packages.Sift)
 
 -- Dictionary Operations
