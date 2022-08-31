@@ -10,7 +10,11 @@
 				"$path": "src/server",
 		
 				"metaboardCommon": {
-					"$path": "src/common"
+					"$path": "src/common",
+
+					"Packages": {
+						"$path": "packages"
+					}
 				},
 		
 				"metaboardPlayer" : {
