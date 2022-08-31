@@ -6,5 +6,5 @@ upload-to-group-id = 13108882
 [[inputs]]
 glob = "assets/**/*.png"
 codegen = true
-codegen-path = "src/common/Assets.lua"
+codegen-path = "assets/Assets.lua"
 codegen-base-path = "assets"

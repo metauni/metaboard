@@ -12,6 +12,10 @@
 
 			"Packages": {
 				"$path": "packages"
+			},
+
+			"Assets": {
+				"$path": "assets/Assets.lua"
 			}
 		},
 
