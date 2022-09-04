@@ -182,7 +182,17 @@ function Board:LinesForBudget()
 end
 
 function Board:SurfacePart()
-	return self._instance:IsA("Model") and self._instance.PrimaryPart or self._instance
+	
+	if self._instance:IsA("Model") then
+		
+		assert(self._instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..self:FullName())
+		return self._instance.PrimaryPart
+		
+	else
+
+		return self._instance
+	
+	end
 end
 
 local _faceAngleCFrame = {
