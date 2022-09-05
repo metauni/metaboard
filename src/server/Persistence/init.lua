@@ -26,17 +26,6 @@ local getRestorer = require(script.getRestorer)
 local RestoreContext = {}
 local ProcessorCoroutine = nil
 
-local function jsonEncode(input, name: string?)
-
-	local json = HttpService:JSONEncode(input)
-	if not json then
-		name = name or ""
-		warn("[metaboard] " .. name .. " JSON encoding failed")
-	end
-
-	return json
-end
-
 local function waitForBudget(requestType: Enum.DataStoreRequestType)
 
 	while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync) <= 0 do
