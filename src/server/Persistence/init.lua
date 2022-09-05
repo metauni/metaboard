@@ -10,13 +10,14 @@ local HttpService = game:GetService("HttpService")
 
 -- Imports
 local Config = require(Common.Config)
+local DataStoreService = Config.Persistence.DataStoreService
 local Figure = require(Common.Figure)
 local EraseGrid = require(Common.EraseGrid)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Constants
-local FORMAT_VERSION = require(script.currentFormatVersion)
+local FORMAT_VERSION = script.currentFormatVersion.Value
 
 -- Helper functions
 local getRestorer = require(script.getRestorer)
@@ -26,25 +27,24 @@ local RestoreContext = {}
 local ProcessorCoroutine = nil
 
 local function jsonEncode(input, name: string?)
+
 	local json = HttpService:JSONEncode(input)
 	if not json then
 		name = name or ""
-		error("[metaboard] " .. name .. " JSON encoding failed")
+		warn("[metaboard] " .. name .. " JSON encoding failed")
 	end
 
 	return json
 end
 
-local function set(dataStore: DataStore, key: string, data)
-	local success, errormessage = pcall(function()
-		return dataStore:SetAsync(key, data)
-	end)
-	if not success then
-		error("[metaboard] SetAsync fail for " .. key .. ". " .. errormessage)
+local function waitForBudget(requestType: Enum.DataStoreRequestType)
+
+	while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync) <= 0 do
+		task.wait()
 	end
 end
 
-local function store(dataStore, boardKey, board)
+local function store(dataStore, boardKey, board, ignoreBudget)
 	--[[
 		At "metaboard<persistId>", we store this table (not json-encoded)
 			{
@@ -109,11 +109,20 @@ local function store(dataStore, boardKey, board)
 		local serialisedFigure = Figure.Serialise(figure)
 
 		-- Encode as JSON with newline separator at the end
-		local entryJson = jsonEncode({ figureId, serialisedFigure }, "SerialisedFigureEntry") .. "\n"
+		local entryJson = HttpService:JSONEncode({ figureId, serialisedFigure })
+
+		if not entryJson then
+			
+			warn("[metaboard] "..boardKey..", JSON encoding failed for figure: "..figureId)
+			continue
+		end
+
+		entryJson = entryJson.."\n"
 
 		-- Max storage at single key is 4MB
 		if entryJson:len() > Config.Persistence.ChunkSizeLimit then
-			print(("[metaboard] figure %s too large for a single chunk"):format(figureId))
+
+			warn(("[metaboard] %s, figure %s too large for a single chunk"):format(boardKey, figureId))
 			continue
 		end
 
@@ -148,39 +157,78 @@ local function store(dataStore, boardKey, board)
 		chunks = {""}
 	end
 
-	--[[
-		At <boardKey> store the board info and the first chunk in a table
+	local totalBytes = 0
 
-		Then store chunk[i] at <boardKey>/i for i >= 2.
-	--]]
+	local success, errormessage = xpcall(function()
 
-	set(dataStore, boardKey, {
-		_FormatVersion = FORMAT_VERSION,
+		--[[
+			At <boardKey> store the board info and the first chunk in a table
 
-		NextFigureZIndex = nextFigureZIndex,
-		AspectRatio = aspectRatio,
-		ClearCount = clearCount,
-		ChunkCount = #chunks,
-		FirstChunk = chunks[1],
-	})
+			Then store chunk[i] at <boardKey>/i for i >= 2.
+		--]]
 
-	-- Note this doesn't account for the overhead of the table stored with the
-	-- first chunk.
-	local totalBytes = #chunks[1]
-	for i=2, #chunks do
-		totalBytes += chunks[i]:len()
-		set(dataStore, boardKey .. "/"..tostring(i), chunks[i])
+		if not ignoreBudget then
+			
+			waitForBudget(Enum.DataStoreRequestType.SetIncrementAsync)
+		end
+
+		dataStore:SetAsync(boardKey, {
+
+			_FormatVersion = FORMAT_VERSION,
+
+			NextFigureZIndex = nextFigureZIndex,
+			AspectRatio = aspectRatio,
+			ClearCount = clearCount,
+			ChunkCount = #chunks,
+			FirstChunk = chunks[1],
+		})
+
+		-- Note this doesn't account for the overhead of the table stored with the
+		-- first chunk.
+		totalBytes += #chunks[1]
+		for i=2, #chunks do
+
+			if not ignoreBudget then
+			
+				waitForBudget(Enum.DataStoreRequestType.SetIncrementAsync)
+			end
+
+			dataStore:SetAsync(boardKey .. "/"..tostring(i), chunks[i])
+			totalBytes += chunks[i]:len()
+		end
+	
+	end, debug.traceback)
+
+	if not success then
+
+		warn("[metaboard] Storing fail for " .. boardKey .. ". " .. errormessage)
+		return
 	end
 
-	print(
-		string.format(
-			"[metaboard] Stored %d bytes across %d chunks at key %s in %.2fs",
-			totalBytes,
-			#chunks,
-			boardKey,
-			tick() - startTime
+	if #chunks > 1 then
+		
+		print(
+			string.format(
+				"[metaboard] Stored %d bytes across %d chunks at key %s in %.2fs",
+				totalBytes,
+				#chunks,
+				boardKey,
+				tick() - startTime
+			)
 		)
-	)
+	
+	else
+
+		print(
+			string.format(
+				"[metaboard] Stored %d bytes at key %s in %.2fs",
+				totalBytes,
+				boardKey,
+				tick() - startTime
+			)
+		)
+	end
+
 end
 
 local function processRestorers()
@@ -220,7 +268,7 @@ local function processRestorers()
 
 			if not success then
 				local message = ("[metaboard] Restore failed for key %s for board %s, \n	%s"):format(boardKey, board:FullName(), result)
-				print(message)
+				warn(message)
 
 				coroutine.resume(receiver, false, message)
 
@@ -250,8 +298,8 @@ local function restore(dataStore, boardKey, board)
 
 	if RestoreContext[boardKey] then
 		local context = RestoreContext[boardKey]
-		local message = ("[metaboard] %s has the same PersistId (%s) as %s. Ignoring."):format(board:FullName(), boardKey, context.Board)
-		print(message)
+		local message = ("[metaboard] %s has the same PersistId (%s) as %s. Ignoring."):format(board:FullName(), boardKey, context.Board:FullName())
+		warn(message)
 		return false, message
 	end
 
@@ -265,11 +313,11 @@ local function restore(dataStore, boardKey, board)
 		getRestorer retrieves all the data it needs from the relevant keys,
 		then returns a coroutine that deserialises and loads the data
 	--]]
-	local success, result = pcall(getRestorer, dataStore, board, boardKey)
+	local success, result = xpcall(getRestorer, debug.traceback, dataStore, board, boardKey)
 
 	if not success then
 		local message = ("[metaboard] Fetch failed for key %s, \n	%s"):format(boardKey, result)
-		print(message)
+		warn(message)
 
 		RestoreContext[boardKey] = nil
 
@@ -309,6 +357,11 @@ local function restore(dataStore, boardKey, board)
 end
 
 return {
-	Store = store,
+	StoreWhenBudget = function(dataStore, boardKey, board)
+		return store(dataStore, boardKey, board, false)
+	end,
+	StoreNow = function(dataStore, boardKey, board)
+		return store(dataStore, boardKey, board, true)
+	end,
 	Restore = restore,
 }

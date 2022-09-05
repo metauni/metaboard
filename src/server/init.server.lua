@@ -182,7 +182,7 @@ local function bindInstance(instance: Model | Part)
 					task.spawn(function()
 						board.ClearCount += 1
 						local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
-						Persistence.Store(dataStore, historyKey, board)
+						Persistence.StoreWhenBudget(dataStore, historyKey, board)
 					end)
 				end
 	
@@ -268,13 +268,20 @@ else
 	game:BindToClose(function()
 
 		if next(ChangedSinceStore) then
-			print(string.format("[metaboard] Storing %d boards", Set.count(ChangedSinceStore)))
+			
+			print(
+				string.format(
+					"[metaboard] Storing %d boards on-close. SetIncrementAsync budget is %s.",
+					Set.count(ChangedSinceStore),
+					DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
+				)
+			)
 		end
 
 		for board in pairs(ChangedSinceStore) do
 
 			local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
-			Persistence.Store(dataStore, boardKey, board)
+			Persistence.StoreNow(dataStore, boardKey, board)
 		end
 
 		ChangedSinceStore = {}
@@ -292,7 +299,7 @@ else
 			for board in pairs(ChangedSinceStore) do
 
 				local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
-				task.spawn(Persistence.Store, dataStore, boardKey, board)
+				task.spawn(Persistence.StoreWhenBudget, dataStore, boardKey, board)
 			end
 
 			ChangedSinceStore = {}

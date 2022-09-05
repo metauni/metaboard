@@ -20,21 +20,17 @@ local function jsonDecode(json: string, name: string?)
 	local data = HttpService:JSONDecode(json)
 	if not data then
 		name = name or ""
-		error("" .. name .. " JSON decoding failed")
+		error(name .. " JSON decoding failed")
 	end
 
 	return data
 end
 
-local function get(dataStore: DataStore, key: string)
+local function waitForBudget(requestType: Enum.DataStoreRequestType)
+
 	while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync) <= 0 do
-		-- TODO maybe make this longer?
 		task.wait()
 	end
-
-	local result = dataStore:GetAsync(key)
-
-	return result
 end
 
 local typeCheckSerialised = {
@@ -99,7 +95,9 @@ local fetchers = {
 
 				local curvesSegmentKey = boardKey .. ":c"..curvesSegmentId
 
-				local curveSegment = get(dataStore, curvesSegmentKey)
+				waitForBudget(Enum.DataStoreRequestType.GetAsync)
+
+				local curveSegment = dataStore:GetAsync(curvesSegmentKey)
 
 				assert(typeof(curveSegment) == "string", "Expected CurveSegement to have type string")
 
@@ -277,9 +275,14 @@ local fetchers = {
 		local chunks = {boardKeyValue.FirstChunk}
 
 		for i=2, chunkCount do
+
+			waitForBudget(Enum.DataStoreRequestType.GetAsync)
+
 			local chunkKey = boardKey .. "/" .. tostring(i)
-			local chunk = get(dataStore, chunkKey)
+			local chunk = dataStore:GetAsync(chunkKey)
+
 			assert(typeof(chunk) == "string", "Expected chunk "..i.." to have type string")
+			
 			table.insert(chunks, chunk)
 		end
 
@@ -346,9 +349,16 @@ local fetchers = {
 
 }
 
+--[[
+	Errors thrown by this function or inside any of the restorer coroutines
+	are caught further up and contextualised with the boardKey
+--]]
+
 return function (dataStore, board, boardKey)
 
-	local storedData = get(dataStore, boardKey)
+	waitForBudget(Enum.DataStoreRequestType.GetAsync)
+
+	local storedData = dataStore:GetAsync(boardKey)
 
 	if not storedData then
 		return nil
