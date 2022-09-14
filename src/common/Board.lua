@@ -16,10 +16,7 @@ local History = require(Common.History)
 local Signal = require(Common.Packages.GoodSignal)
 local Destructor = require(Common.Destructor)
 local Sift = require(Common.Packages.Sift)
-
--- Dictionary Operations
-local Dictionary = Sift.Dictionary
-local merge = Dictionary.merge
+local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Board
 local Board = {}
@@ -107,7 +104,7 @@ function Board:CommitAllDrawingTasks()
 		end
 	end
 
-	local allFigures = merge(self.Figures, drawingTaskFigures)
+	local allFigures = Dictionary.merge(self.Figures, drawingTaskFigures)
 
 	local allMaskedFigures = allFigures
 	for taskId, drawingTask in pairs(self.DrawingTasks) do
@@ -120,11 +117,12 @@ function Board:CommitAllDrawingTasks()
 end
 
 function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
-	figures = figures or {}
-	drawingTasks = drawingTasks or {}
-	playerHistories = playerHistories or {}
-	nextFigureZIndex = nextFigureZIndex or 0
-	clearCount = clearCount or 0
+	assert(figures)
+	assert(drawingTasks)
+	assert(playerHistories)
+	assert(nextFigureZIndex)
+	-- eraseGrid can be nil (can be recreated)
+	-- clearCount is not always needed
 
 	for userId, playerHistory in pairs(playerHistories) do
 		setmetatable(playerHistory, History)
@@ -182,7 +180,7 @@ function Board:LinesForBudget()
 end
 
 function Board:SurfacePart()
-	
+
 	if self._instance:IsA("Model") then
 		
 		assert(self._instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..self:FullName())
@@ -238,6 +236,138 @@ end
 function Board:AspectRatio()
 	local size = self:SurfaceSize()
 	return size.X / size.Y
+end
+
+--[[
+	These ProcessX methods implement a change to the board state, most of them
+	corresponding to some user input.
+	BoardServer and BoardClient make uses of these in the :ConnectRemotes() method.
+--]]
+
+function Board:ProcessInitDrawingTask(authorId: string, drawingTask, canvasPos: Vector2)
+	
+	-- Get or create the player history for this player
+	local playerHistory = self.PlayerHistories[authorId] or History.new(Config.History.Capacity)
+
+	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self, canvasPos)
+	self.DrawingTasks = Dictionary.set(self.DrawingTasks, drawingTask.Id, initialisedDrawingTask)
+
+	playerHistory:Push(initialisedDrawingTask)
+	self.PlayerHistories[authorId] = playerHistory
+
+	-- Any drawing task which doesn't appear in any player history is a candidate for committing
+	local needsCommitDrawingTasks = table.clone(self.DrawingTasks)
+	for playerId, pHistory in pairs(self.PlayerHistories) do
+
+		for historyDrawingTask in pHistory:IterPastAndFuture() do
+
+			needsCommitDrawingTasks[historyDrawingTask.Id] = nil
+
+		end
+	end
+
+	for taskId, dTask in pairs(needsCommitDrawingTasks) do
+		local canCommit
+
+		if dTask.Type == "Erase" then
+			-- Every figure being (partially) erased must be gone from DrawingTasks
+			canCommit = Dictionary.every(dTask.FigureIdToMask, function(mask, figureId)
+				return self.DrawingTasks[figureId] == nil
+			end)
+		else
+			canCommit = true
+		end
+
+		if canCommit then
+			self.Figures = DrawingTask.Commit(dTask, self.Figures)
+			self.DrawingTasks = Dictionary.set(self.DrawingTasks, dTask.Id, nil)
+		end
+
+		-- Drawing Tasks not committed now will be committed later when canCommitt == true
+
+	end
+
+	-- Any callbacks connected to self.DataChangedSignal will fire in RenderStepped.
+	self:DataChanged()
+end
+
+function Board:ProcessUpdateDrawingTask(authorId: string, canvasPos: Vector2)
+
+	local drawingTask = self.PlayerHistories[authorId]:MostRecent()
+	assert(drawingTask)
+
+	local updatedDrawingTask = DrawingTask.Update(drawingTask, self, canvasPos)
+
+	local playerHistory = self.PlayerHistories[authorId]
+	playerHistory:SetMostRecent(updatedDrawingTask)
+
+	self.DrawingTasks = Dictionary.set(self.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
+
+	self:DataChanged()
+end
+
+function Board:ProcessFinishDrawingTask(authorId: string)
+	
+	local drawingTask = self.PlayerHistories[authorId]:MostRecent()
+	assert(drawingTask)
+
+	local finishedDrawingTask = Dictionary.set(DrawingTask.Finish(drawingTask, self), "Finished", true)
+
+	local playerHistory = self.PlayerHistories[authorId]
+	playerHistory:SetMostRecent(finishedDrawingTask)
+
+	self.DrawingTasks = Dictionary.set(self.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
+
+	self:DataChanged()
+end
+
+function Board:ProcessUndo(authorId: string)
+
+	local playerHistory = self.PlayerHistories[authorId]
+
+	if playerHistory == nil or playerHistory:CountPast() < 1 then
+		error("Cannot undo, past empty")
+		return
+	end
+	
+	local drawingTask = playerHistory:StepBackward()
+	assert(drawingTask)
+
+	DrawingTask.Undo(drawingTask, self)
+
+	self.DrawingTasks = Dictionary.set(self.DrawingTasks, drawingTask.Id, nil)
+
+	self:DataChanged()
+end
+
+function Board:ProcessRedo(authorId: string)
+	
+	local playerHistory = self.PlayerHistories[authorId]
+
+	if playerHistory == nil or playerHistory:CountFuture() < 1 then
+		error("Cannot redo, future empty")
+		return
+	end
+
+	local drawingTask = playerHistory:StepForward()
+	assert(drawingTask)
+
+	self.DrawingTasks = Dictionary.set(self.DrawingTasks, drawingTask.Id, drawingTask)
+
+	DrawingTask.Redo(drawingTask, self)
+
+	self:DataChanged()
+end
+
+function Board:ProcessClear(_)
+	
+	self.PlayerHistories = {}
+	self.DrawingTasks = {}
+	self.Figures = {}
+	self.NextFigureZIndex = 0
+	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+
+	self:DataChanged()
 end
 
 return Board

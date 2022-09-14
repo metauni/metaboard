@@ -218,6 +218,7 @@ local function store(dataStore, boardKey, board, ignoreBudget)
 		)
 	end
 
+	return true
 end
 
 local function processRestorers()
@@ -322,7 +323,8 @@ local function restore(dataStore, boardKey, board)
 
 			Figures = {},
 			NextFigureZIndex = 0,
-			EraseGrid = EraseGrid.new(board:AspectRatio())
+			EraseGrid = EraseGrid.new(board:AspectRatio()),
+			ClearCount = 0,
 
 		}
 	else

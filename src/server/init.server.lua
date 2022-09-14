@@ -30,7 +30,6 @@ local merge = Dictionary.merge
 local indicateInvalidBoard = require(script.indicateInvalidBoard)
 
 -- Script Globals
-local InstanceToBoard = {}
 local ChangedSinceStore = {}
 
 BoardService.GetBoards.OnServerInvoke = function(player)
@@ -46,7 +45,7 @@ BoardService.GetBoards.OnServerInvoke = function(player)
 	--]]
 
 	local numericBoardTable = {}
-	for _, board in pairs(InstanceToBoard) do
+	for _, board in pairs(BoardService.Boards) do
 
 		-- Client will be a watcher now
 		-- TODO: is there a better way to do this?
@@ -156,14 +155,14 @@ local function bindInstance(instance: Model | Part)
 	local boardRemotes = BoardRemotes.new(instance)
 
 	local board = BoardServer.new(instance, boardRemotes, persistId, persistId == nil)
-	InstanceToBoard[instance] = board
+	BoardService.Boards[instance] = board
 
 	BoardService.BoardAdded:FireAllClients(instance, boardRemotes, persistId)
 
 	-- Connect the remote events to receive updates when the board is loaded.
 
 	if not persistId then
-		board._destructor:Add(board.Remotes:Connect(board, nil))
+		board:ConnectRemotes(nil)
 	else
 
 		task.spawn(function()
@@ -178,7 +177,7 @@ local function bindInstance(instance: Model | Part)
 				board.Loaded = true
 				board.LoadedSignal:Fire()
 
-				local onClear = function()
+				local beforeClear = function()
 					task.spawn(function()
 						board.ClearCount += 1
 						local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
@@ -186,7 +185,7 @@ local function bindInstance(instance: Model | Part)
 					end)
 				end
 	
-				board.Remotes:Connect(board, onClear)
+				board:ConnectRemotes(beforeClear)
 			else
 
 				indicateInvalidBoard(board, result)
@@ -218,7 +217,9 @@ local function bindInstance(instance: Model | Part)
 				board.Figures,
 				board.DrawingTasks,
 				board.PlayerHistories,
-				board.NextFigureZIndex
+				board.NextFigureZIndex,
+				nil,
+				board.ClearCount
 			)
 
 			board.Watchers[player] = true
@@ -233,7 +234,9 @@ local function bindInstance(instance: Model | Part)
 					board.Figures,
 					board.DrawingTasks,
 					board.PlayerHistories,
-					board.NextFigureZIndex
+					board.NextFigureZIndex,
+					nil,
+					board.ClearCount
 				)
 
 				board.Watchers[player] = true

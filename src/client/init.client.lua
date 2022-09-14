@@ -45,20 +45,18 @@ Roact.setGlobalConfig({
 	},
 })
 
-local InstanceToBoard = {}
-
 local openedBoard = nil
 
 local function bindBoardInstance(instance, remotes, persistId)
 
 	-- Ignore if already seen this board
-	if InstanceToBoard[instance] then
+	if BoardService.Boards[instance] then
 		return
 	end
 
 	local board = BoardClient.new(instance, remotes, persistId, false)
 
-	InstanceToBoard[instance] = board
+	BoardService.Boards[instance] = board
 
 	--[[
 		Get prepared to receive the board data from the server and load it,
@@ -67,13 +65,13 @@ local function bindBoardInstance(instance, remotes, persistId)
 	do
 		local connection
 		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(
-			function(success, figures, drawingTasks, playerHistories, nextFigureZIndex)
+			function(success, figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
 
 				if success then
-					board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex)
+					board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
 					board.Loaded = true
 
-					board.Remotes:Connect(board)
+					board:ConnectRemotes()
 				else
 					error("Failed board data request")
 				end
@@ -120,7 +118,7 @@ local viewStateManager = ViewStateManager.new()
 
 task.spawn(function()
 	while true do
-		local loadedBoards = Dictionary.filter(InstanceToBoard, function(board)
+		local loadedBoards = Dictionary.filter(BoardService.Boards, function(board)
 			return board.Loaded
 		end)
 
