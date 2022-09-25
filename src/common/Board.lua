@@ -215,7 +215,7 @@ function Board:SurfaceCFrame()
 
 	local surfacePart = self:SurfacePart()
 
-	return surfacePart:GetPivot()
+	return surfacePart.CFrame
 		* _faceAngleCFrame[self.Face]
 		* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](surfacePart.Size))
 end
