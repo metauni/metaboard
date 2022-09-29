@@ -22,12 +22,19 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local Board = {}
 Board.__index = Board
 
-function Board.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
+export type BoardArgs = {
+	Instance: Model | Part,
+	BoardRemotes: any,
+	SurfaceCFrame: CFrame,
+	SurfaceSize: Vector2,
+}
+
+function Board.new(boardArgs)
 	local self = setmetatable({
-		_instance = instance,
-		Remotes = boardRemotes,
-		PersistId = persistId,
-		Loaded = loaded,
+		_instance = boardArgs.Instance,
+		Remotes = boardArgs.BoardRemotes,
+		SurfaceCFrame = boardArgs.SurfaceCFrame,
+		SurfaceSize = boardArgs.SurfaceSize,
 		PlayerHistories = {},
 		DrawingTasks = {},
 		Figures = {},
@@ -66,16 +73,7 @@ function Board.new(instance: Model | Part, boardRemotes, persistId: number?, loa
 		end
 	end))
 
-	do
-		local faceValue = instance:FindFirstChild("Face")
-		if faceValue then
-			self.Face = faceValue.Value
-		else
-			self.Face = "Front"
-		end
-	end
-
-	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+	self.EraseGrid = EraseGrid.new(self:AspectRatio())
 
 	return self
 end
@@ -116,37 +114,38 @@ function Board:CommitAllDrawingTasks()
 	return allMaskedFigures
 end
 
-function Board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
-	assert(figures)
-	assert(drawingTasks)
-	assert(playerHistories)
-	assert(nextFigureZIndex)
+function Board:LoadData(data)
+	assert(data.Figures)
+	assert(data.DrawingTasks)
+	assert(data.PlayerHistories)
+	assert(data.NextFigureZIndex)
 	-- eraseGrid can be nil (can be recreated)
 	-- clearCount is not always needed
 
-	for userId, playerHistory in pairs(playerHistories) do
+	for userId, playerHistory in pairs(data.PlayerHistories) do
 		setmetatable(playerHistory, History)
 	end
 
-	self.Figures = figures
-	self.DrawingTasks = drawingTasks
-	self.PlayerHistories = playerHistories
-	self.NextFigureZIndex = nextFigureZIndex
-	self.ClearCount = clearCount
+	self.Figures = data.Figures
+	self.DrawingTasks = data.DrawingTasks
+	self.PlayerHistories = data.PlayerHistories
+	self.NextFigureZIndex = data.NextFigureZIndex
+	self.ClearCount = data.ClearCount
 
-	if not eraseGrid then
-		eraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
-
-		local committedFigures = self:CommitAllDrawingTasks()
-
-		for figureId, figure in pairs(committedFigures) do
-			eraseGrid:AddFigure(figureId, figure)
+	local eraseGrid = data.EraseGrid do
+		
+		if not eraseGrid then
+			eraseGrid = EraseGrid.new(self:AspectRatio())
+	
+			local committedFigures = self:CommitAllDrawingTasks()
+	
+			for figureId, figure in pairs(committedFigures) do
+				eraseGrid:AddFigure(figureId, figure)
+			end
 		end
 	end
 
-
 	self.EraseGrid = eraseGrid
-
 end
 
 --[[
@@ -179,63 +178,10 @@ function Board:LinesForBudget()
 	return count
 end
 
-function Board:SurfacePart()
-
-	if self._instance:IsA("Model") then
-		
-		assert(self._instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..self:FullName())
-		return self._instance.PrimaryPart
-		
-	else
-
-		return self._instance
-	
-	end
-end
-
-local _faceAngleCFrame = {
-	Front  = CFrame.Angles(0, 0, 0),
-	Left   = CFrame.Angles(0, math.pi / 2, 0),
-	Back   = CFrame.Angles(0, math.pi, 0),
-	Right  = CFrame.Angles(0, -math.pi / 2, 0),
-	Top    = CFrame.Angles(math.pi / 2, 0, 0),
-	Bottom = CFrame.Angles(-math.pi / 2, 0, 0)
-}
-
-local _faceSurfaceOffsetGetter = {
-	Front  = function(size) return size.Z / 2 end,
-	Left   = function(size) return size.X / 2 end,
-	Back   = function(size) return size.Z / 2 end,
-	Right  = function(size) return size.X / 2 end,
-	Top    = function(size) return size.Y / 2 end,
-	Bottom = function(size) return size.Y / 2 end
-}
-
-function Board:SurfaceCFrame()
-
-	local surfacePart = self:SurfacePart()
-
-	return surfacePart.CFrame
-		* _faceAngleCFrame[self.Face]
-		* CFrame.new(0, 0, -_faceSurfaceOffsetGetter[self.Face](surfacePart.Size))
-end
-
-local _faceDimensionsGetter = {
-	Front  = function(size) return Vector2.new(size.X, size.Y) end,
-	Left   = function(size) return Vector2.new(size.Z, size.Y) end,
-	Back   = function(size) return Vector2.new(size.X, size.Y) end,
-	Right  = function(size) return Vector2.new(size.Z, size.Y) end,
-	Top    = function(size) return Vector2.new(size.X, size.Z) end,
-	Bottom = function(size) return Vector2.new(size.X, size.Z) end,
-}
-
-function Board:SurfaceSize()
-	return _faceDimensionsGetter[self.Face](self:SurfacePart().Size)
-end
 
 function Board:AspectRatio()
-	local size = self:SurfaceSize()
-	return size.X / size.Y
+
+	return self.SurfaceSize.X / self.SurfaceSize.Y
 end
 
 --[[
@@ -365,7 +311,7 @@ function Board:ProcessClear(_)
 	self.DrawingTasks = {}
 	self.Figures = {}
 	self.NextFigureZIndex = 0
-	self.EraseGrid = EraseGrid.new(self:SurfaceSize().X / self:SurfaceSize().Y)
+	self.EraseGrid = EraseGrid.new(self:AspectRatio())
 
 	self:DataChanged()
 end

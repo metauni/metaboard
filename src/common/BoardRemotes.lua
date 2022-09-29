@@ -4,23 +4,6 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
--- Services
-local Common = game:GetService("ReplicatedStorage").metaboardCommon
-local RunService = game:GetService("RunService")
-
--- Imports
-local Config = require(Common.Config)
-local History = require(Common.History)
-local DrawingTask = require(Common.DrawingTask)
-local Figure = require(Common.Figure)
-local EraseGrid = require(Common.EraseGrid)
-local Sift = require(Common.Packages.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
-
--- Dictionary Operations
-local set = Dictionary.set
-local merge = Dictionary.merge
-
 -- BoardRemotes Module
 local BoardRemotes = {}
 BoardRemotes.__index = BoardRemotes
@@ -39,7 +22,7 @@ local function createRemoteFunction(name : string, parent : Instance)
 	return remoteFunction
 end
 
-local events = {
+local remoteEventNames = {
 	"InitDrawingTask",
 	"UpdateDrawingTask",
 	"FinishDrawingTask",
@@ -47,27 +30,56 @@ local events = {
 	"Redo",
 	"Clear",
 	"SetData",
-	"RequestBoardData",
+}
+
+local remoteFunctionNames = {
+	"GetBoardData",
 }
 
 -- The remote events needed for a board (parented to the board instance)
 -- This should be created by the server and waited for by the clients
 function BoardRemotes.new(instance : Model | Part)
 	local remotesFolder = Instance.new("Folder")
-	remotesFolder.Name = "Remotes"
+	remotesFolder.Name = "metaboardRemotes"
 	local self = setmetatable({}, BoardRemotes)
 
-	for _, eventName in ipairs(events) do
+	for _, eventName in ipairs(remoteEventNames) do
 		self[eventName] = createRemoteEvent(eventName, remotesFolder)
+	end
+
+	for _, functionName in ipairs(remoteFunctionNames) do
+		self[functionName] = createRemoteFunction(functionName, remotesFolder)
 	end
 
 	remotesFolder.Parent = instance
 	return self
 end
 
+function BoardRemotes.WaitForRemotes(instance: Model | Part)
+
+	local remotesFolder = instance:WaitForChild("metaboardRemotes")
+
+	local self = setmetatable({}, BoardRemotes)
+
+	for _, eventName in ipairs(remoteEventNames) do
+		self[eventName] = remotesFolder:WaitForChild(eventName)
+	end
+
+	for _, functionName in ipairs(remoteFunctionNames) do
+		self[functionName] = remotesFolder:WaitForChild(functionName)
+	end
+
+	return self
+end
+
 function BoardRemotes:Destroy()
-	for _, eventName in ipairs(events) do
+	
+	for _, eventName in ipairs(remoteEventNames) do
 		self[eventName]:Destroy()
+	end
+
+	for _, functionName in ipairs(remoteFunctionNames) do
+		self[functionName]:Destroy()
 	end
 end
 

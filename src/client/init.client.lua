@@ -6,24 +6,15 @@
 
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
-local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
-local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
-local UserGameSettings = UserSettings():GetService("UserGameSettings")
-local VRService = game:GetService("VRService")
 
 -- Imports
 local Config = require(Common.Config)
 local BoardClient = require(script.BoardClient)
-local BoardRemotes = require(Common.BoardRemotes)
-local EraseGrid = require(Common.EraseGrid)
-local DrawingUI = require(script.DrawingUI)
 local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
 local ViewStateManager = require(script.ViewStateManager)
-local Sift = require(Common.Packages.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local Roact: Roact = require(Common.Packages.Roact)
 
 --[[
@@ -45,44 +36,7 @@ Roact.setGlobalConfig({
 	},
 })
 
-local openedBoard = nil
-
-local function bindBoardInstance(instance, remotes, persistId)
-
-	-- Ignore if already seen this board
-	if BoardService.Boards[instance] then
-		return
-	end
-
-	local board = BoardClient.new(instance, remotes, persistId, false)
-
-	BoardService.Boards[instance] = board
-
-	--[[
-		Get prepared to receive the board data from the server and load it,
-		then fire request event.
-	--]]
-	do
-		local connection
-		connection = board.Remotes.RequestBoardData.OnClientEvent:Connect(
-			function(success, figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
-
-				if success then
-					board:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
-					board.Loaded = true
-
-					board:ConnectRemotes()
-				else
-					error("Failed board data request")
-				end
-				
-				connection:Disconnect()
-			end
-		)
-
-		board.Remotes.RequestBoardData:FireServer()
-	end
-end
+--------------------------------------------------------------------------------
 
 --[[
 	Preload all of the assets (so that they are shown immediately when needed)
@@ -98,31 +52,56 @@ do
 
 	task.spawn(function()
 		ContentProvider:PreloadAsync(assetList)
-		print("[metaboard] Assets preloaded")
 	end)
 end
 
-BoardService.BoardAdded.OnClientEvent:Connect(function(instance: Part | Model, remotes, persistId: number?)
-	bindBoardInstance(instance, setmetatable(remotes, BoardRemotes), persistId)
-end)
+--------------------------------------------------------------------------------
 
-do
-	local boards = BoardService.GetBoards:InvokeServer()
+local function bindInstanceAsync(instance)
 
-	for _, board in ipairs(boards) do
-		bindBoardInstance(board.Instance, setmetatable(board.Remotes, BoardRemotes), board.PersistId)
+	if not instance:IsDescendantOf(workspace) then
+		
+		return
 	end
+
+	-- Ignore if already seen this board
+	if BoardService.Boards[instance] then
+		return
+	end
+
+	if not instance:GetAttribute("BoardServerInitialised") then
+		
+		instance:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
+	end
+
+	local board = BoardClient.new(instance)
+	
+	local data = board.Remotes.GetBoardData:InvokeServer()
+	
+	board:ConnectRemotes()
+
+	board:LoadData(data)
+
+	BoardService.Boards[instance] = board
 end
+
+for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+	
+	task.spawn(bindInstanceAsync, instance)
+end
+
+CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
+
+-- TODO: Think about GetInstanceRemovedSignal (destroying metaboards)
+
+--------------------------------------------------------------------------------
 
 local viewStateManager = ViewStateManager.new()
 
 task.spawn(function()
 	while true do
-		local loadedBoards = Dictionary.filter(BoardService.Boards, function(board)
-			return board.Loaded
-		end)
 
-		viewStateManager:UpdateWithAllActive(loadedBoards)
+		viewStateManager:UpdateWithAllActive(BoardService.Boards)
 		task.wait(0.5)
 	end
 end)

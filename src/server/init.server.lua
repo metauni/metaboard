@@ -17,49 +17,15 @@ local BoardService = require(Common.BoardService)
 local Config = require(Common.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
-local BoardRemotes = require(Common.BoardRemotes)
-local Figure = require(Common.Figure)
 local Persistence = require(script.Persistence)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
-
--- Dictionary Operations
-local merge = Dictionary.merge
 
 -- Helper Functions
 local indicateInvalidBoard = require(script.indicateInvalidBoard)
 
 -- Script Globals
 local ChangedSinceStore = {}
-
-BoardService.GetBoards.OnServerInvoke = function(player)
-	--[[
-		Cannot just pass `Boards` table, since the instance-keys get converted
-		to strings, so if two boards instances have the same name, only one
-		key-value pair will survive. Instead, we pass a numeric table of boards,
-		and the client can extract the instance from each board.
-
-		We also don't pass the whole board, just the critical data the client needs.
-		Complex class-objects like Signals will probably trigger "tables cannot be
-		cyclic".
-	--]]
-
-	local numericBoardTable = {}
-	for _, board in pairs(BoardService.Boards) do
-
-		-- Client will be a watcher now
-		-- TODO: is there a better way to do this?
-		board.Watchers[player] = true
-
-		table.insert(numericBoardTable, {
-			Instance = board._instance,
-			Remotes = board.Remotes,
-			PersistId = board.PersistId,
-		})
-	end
-
-	return numericBoardTable
-end
 
 --[[
 	Manually deliver the client scripts once the AdminCommands module has written
@@ -144,123 +110,94 @@ local dataStore do
 	dataStore = DataStoreService:GetDataStore(dataStoreName)
 end
 
-local function bindInstance(instance: Model | Part)
+local function bindInstanceAsync(instance: Model | Part)
+	
 	if not instance:IsDescendantOf(workspace) then
+
 		return
 	end
 
 	local persistIdValue = instance:FindFirstChild("PersistId")
 	local persistId = persistIdValue and persistIdValue.Value
 
-	local boardRemotes = BoardRemotes.new(instance)
+	local board = BoardServer.new(instance)
 
-	local board = BoardServer.new(instance, boardRemotes, persistId, persistId == nil)
-	BoardService.Boards[instance] = board
+	-- Indicate that the board has been setup enough for clients to do their setup
+	-- and request the board data.
+	instance:SetAttribute("BoardServerInitialised", true)
 
-	BoardService.BoardAdded:FireAllClients(instance, boardRemotes, persistId)
+	local handleBoardDataRequest = function(player)
+		
+		board.Watchers[player] = true
 
-	-- Connect the remote events to receive updates when the board is loaded.
+		return {
+			
+			Figures = board.Figures,
+			DrawingTasks = board.DrawingTasks,
+			PlayerHistories = board.PlayerHistories,
+			NextFigureZIndex = board.NextFigureZIndex,
+			EraseGrid = nil,
+			ClearCount = nil
+		}
+	end
 
 	if not persistId then
+
 		board:ConnectRemotes(nil)
+		board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
+
 	else
 
-		task.spawn(function()
+		local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 
-			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
+		local success, result = Persistence.Restore(dataStore, boardKey, board)
 
-			local success, result = Persistence.Restore(dataStore, boardKey, board)
+		if success then
+			
+			board:LoadData({
 
-			if success then
-				
-				board:LoadData(result.Figures, {}, {}, result.NextFigureZIndex, result.EraseGrid, result.ClearCount)
-				board.Loaded = true
-				board.LoadedSignal:Fire()
+				Figures = result.Figures,
+				DrawingTasks = {},
+				PlayerHistories = {},
+				NextFigureZIndex = result.NextFigureZIndex,
+				EraseGrid = result.EraseGrid,
+				ClearCount = result.ClearCount,
+			})
 
-				local beforeClear = function()
-					task.spawn(function()
-						board.ClearCount += 1
-						local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
-						Persistence.StoreWhenBudget(dataStore, historyKey, board)
-					end)
-				end
-	
-				board:ConnectRemotes(beforeClear)
-			else
+			board.DataChangedSignal:Connect(function()
 
-				indicateInvalidBoard(board, result)
-
-			end
-
-		end)
-	end
-
-	if persistId then
-
-		board.DataChangedSignal:Connect(function()
-			ChangedSinceStore[board] = true
-		end)
-	end
-
-	--[[
-		Clients request the data for boards via this event. The data is sent
-		back via the same event immediately if the board is already loaded,
-		otherwise it will be sent back when the loaded signal fires.
-	--]]
-	board.Remotes.RequestBoardData.OnServerEvent:Connect(function(player)
-
-		if board.Loaded then
-
-			board.Remotes.RequestBoardData:FireClient(
-				player,
-				true, -- indicate successful request
-				board.Figures,
-				board.DrawingTasks,
-				board.PlayerHistories,
-				board.NextFigureZIndex,
-				nil,
-				board.ClearCount
-			)
-
-			board.Watchers[player] = true
-		else
-
-			local connection
-			connection = board.LoadedSignal:Connect(function()
-
-				board.Remotes.RequestBoardData:FireClient(
-					player,
-					true, -- indicate successful request
-					board.Figures,
-					board.DrawingTasks,
-					board.PlayerHistories,
-					board.NextFigureZIndex,
-					nil,
-					board.ClearCount
-				)
-
-				board.Watchers[player] = true
-
-				connection:Disconnect()
+				ChangedSinceStore[persistId] = board
 			end)
 
+			local beforeClear = function()
+				task.spawn(function()
+					board.ClearCount += 1
+					local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
+					Persistence.StoreWhenBudget(dataStore, historyKey, board)
+				end)
+			end
+
+			board:ConnectRemotes(beforeClear)
+			board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
+
+		else
+
+			indicateInvalidBoard(board, result)
+
 		end
-	end)
+	end
+
+	-- For external code to access 
+	BoardService.Boards[instance] = board
 end
 
---[[
-	The server is in charge of deciding what becomes a metaboard. Clients
-	retrieve boards directly from the server via BoardService, not via
-	CollectionService.
---]]
-CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(function(instance)
-	bindInstance(instance)
-end)
 
 for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-	bindInstance(instance)
-	task.wait()
+
+	task.spawn(bindInstanceAsync, instance)
 end
+
+CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
 
 if Config.Persistence.ReadOnly then
 
@@ -275,15 +212,15 @@ else
 			print(
 				string.format(
 					"[metaboard] Storing %d boards on-close. SetIncrementAsync budget is %s.",
-					Set.count(ChangedSinceStore),
+					Dictionary.count(ChangedSinceStore),
 					DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
 				)
 			)
 		end
 
-		for board in pairs(ChangedSinceStore) do
+		for persistId, board in pairs(ChangedSinceStore) do
 
-			local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
+			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 			Persistence.StoreNow(dataStore, boardKey, board)
 		end
 
@@ -296,12 +233,12 @@ else
 			task.wait(Config.Persistence.AutoSaveInterval)
 
 			if next(ChangedSinceStore) then
-				print(("[metaboard] Storing %d boards"):format(Set.count(ChangedSinceStore)))
+				print(("[metaboard] Storing %d boards"):format(Dictionary.count(ChangedSinceStore)))
 			end
 
-			for board in pairs(ChangedSinceStore) do
+			for persistId, board in pairs(ChangedSinceStore) do
 
-				local boardKey = Config.Persistence.PersistIdToBoardKey(board.PersistId)
+				local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 				task.spawn(Persistence.StoreWhenBudget, dataStore, boardKey, board)
 			end
 

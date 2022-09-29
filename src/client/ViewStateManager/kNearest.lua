@@ -8,7 +8,7 @@ return function(position: Vector3, boardSet, k)
 	local nearestArray = {}
 	local nearestSet = {}
 
-	for i = 1, k do
+	for _ = 1, k do
 		local minSoFar = math.huge
 		local nearestBoard = nil
 		for board in pairs(boardSet) do
@@ -16,7 +16,7 @@ return function(position: Vector3, boardSet, k)
 				continue
 			end
 
-			local distance = (board:SurfaceCFrame().Position - position).Magnitude
+			local distance = (board.SurfaceCFrame.Position - position).Magnitude
 			if distance < minSoFar then
 				nearestBoard = board
 				minSoFar = distance

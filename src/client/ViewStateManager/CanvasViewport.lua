@@ -25,7 +25,7 @@ function CanvasViewport:render()
 	local cam = e("Camera", {
 
 		FieldOfView = self.props.FieldOfView,
-		CFrame = self.props.Board:SurfaceCFrame() * self:BoardToCameraCFrame(),
+		CFrame = self.props.Board.SurfaceCFrame * self:BoardToCameraCFrame(),
 
 		[Roact.Ref] = self.CamRef,
 
@@ -58,7 +58,7 @@ function CanvasViewport:render()
 end
 
 function CanvasViewport:BoardToCameraCFrame()
-	local subjectHeight = self.props.Board:SurfaceSize().Y
+	local subjectHeight = self.props.Board.SurfaceSize.Y
 
 	local tanHalfFOV = math.tan(math.rad(self.props.FieldOfView/2))
 

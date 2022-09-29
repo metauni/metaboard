@@ -70,8 +70,8 @@ function WorkspaceBoardViewer:render()
 
 		FigureMaskBundles = self.props.FigureMaskBundles,
 
-		CanvasSize = self.props.Board:SurfaceSize(),
-		CanvasCFrame = self.props.Board:SurfaceCFrame(),
+		CanvasSize = self.props.Board.SurfaceSize,
+		CanvasCFrame = self.props.Board.SurfaceCFrame,
 
 		AsFragment = false,
 	})
@@ -113,8 +113,8 @@ end
 
 function WorkspaceBoardViewer:CameraCFrame(screenAbsoluteSize, targetAbsolutePosition, targetAbsoluteSize)
 	local fov = self.fov
-	local subjectHeight = self.props.Board:SurfaceSize().Y
-	local subjectCFrame = self.props.Board:SurfaceCFrame()
+	local subjectHeight = self.props.Board.SurfaceSize.Y
+	local subjectCFrame = self.props.Board.SurfaceCFrame
 
 	local tanHalfFOV = math.tan(math.rad(fov/2))
 

@@ -5,5 +5,5 @@
 -- --]]
 
 return function (board, position)
-	return board:SurfaceCFrame().LookVector:Dot(position - board:SurfaceCFrame().Position)
+	return board.SurfaceCFrame.LookVector:Dot(position - board.SurfaceCFrame.Position)
 end

@@ -25,8 +25,8 @@ return function(self, board, viewData)
 
 			Figures = board.Figures,
 			DrawingTasks = board.DrawingTasks,
-			CanvasSize = board:SurfaceSize(),
-			CanvasCFrame = board:SurfaceCFrame(),
+			CanvasSize = board.SurfaceSize,
+			CanvasCFrame = board.SurfaceCFrame,
 			BudgetThisFrame = budgetThisFrame,
 			LineLoadFinishedCallback = whenLoaded,
 			Board = board,

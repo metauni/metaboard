@@ -9,9 +9,8 @@ local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local Players = game:GetService("Players")
 
 -- Import
-local Config = require(Common.Config)
 local Board = require(Common.Board)
-local Signal = require(Common.Packages.GoodSignal)
+local BoardRemotes = require(Common.BoardRemotes)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
@@ -21,23 +20,98 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local BoardServer = setmetatable({}, Board)
 BoardServer.__index = BoardServer
 
-function BoardServer.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
-	local self = setmetatable(Board.new(instance, boardRemotes, persistId, loaded), BoardServer)
+function BoardServer.new(instance: Model | Part)
+
+	if workspace.StreamingEnabled then
+		
+		assert(instance:IsA("Model"), 
+			"[metaboard] metaboard instance "..instance:GetFullName().." is not a model.\n"
+			.."Incompatible with Workspace.StreamingEnabled = true"
+		)
+	end
+
+	local surfaceCFrame, surfaceSize do
+		
+		local surfacePart
+
+		if instance:IsA("Model") then
+			
+			assert(instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..instance:GetFullName())
+			surfacePart = instance.PrimaryPart
+		else
+			
+			surfacePart = instance
+		end
+
+		local faceAngleCFrame = {
+			Front  = CFrame.Angles(0, 0, 0),
+			Left   = CFrame.Angles(0, math.pi / 2, 0),
+			Back   = CFrame.Angles(0, math.pi, 0),
+			Right  = CFrame.Angles(0, -math.pi / 2, 0),
+			Top    = CFrame.Angles(math.pi / 2, 0, 0),
+			Bottom = CFrame.Angles(-math.pi / 2, 0, 0)
+		}
+
+		local faceSurfaceOffsetGetter = {
+			Front  = function(size) return size.Z / 2 end,
+			Left   = function(size) return size.X / 2 end,
+			Back   = function(size) return size.Z / 2 end,
+			Right  = function(size) return size.X / 2 end,
+			Top    = function(size) return size.Y / 2 end,
+			Bottom = function(size) return size.Y / 2 end
+		}
+
+		local faceDimensionsGetter = {
+			Front  = function(size) return Vector2.new(size.X, size.Y) end,
+			Left   = function(size) return Vector2.new(size.Z, size.Y) end,
+			Back   = function(size) return Vector2.new(size.X, size.Y) end,
+			Right  = function(size) return Vector2.new(size.Z, size.Y) end,
+			Top    = function(size) return Vector2.new(size.X, size.Z) end,
+			Bottom = function(size) return Vector2.new(size.X, size.Z) end,
+		}
+
+		local face do
+
+			local faceValue = instance:FindFirstChild("Face")
+			face = faceValue and face.Value or "Front"
+		end
+
+
+		surfaceSize = faceDimensionsGetter[face](surfacePart.Size)
+		surfaceCFrame = surfacePart.CFrame
+			* faceAngleCFrame[face]
+			* CFrame.new(0, 0, -faceSurfaceOffsetGetter[face](surfacePart.Size))
+	end
+
+	-- Values needed for clients with board streamed out
+	do
+		
+		local surfaceCFrameValue = Instance.new("CFrameValue")
+		surfaceCFrameValue.Name = "SurfaceCFrameValue"
+		surfaceCFrameValue.Value = surfaceCFrame
+		surfaceCFrameValue.Parent = instance
+		
+		local surfaceSizeValue = Instance.new("Vector3Value")
+		surfaceSizeValue.Name = "SurfaceSizeValue"
+		surfaceSizeValue.Value = Vector3.new(surfaceSize.X, surfaceSize.Y, 0)
+		surfaceSizeValue.Parent = instance
+	end
+
+	local boardRemotes = BoardRemotes.new(instance)
+
+	local self = setmetatable(Board.new({
+	
+		Instance = instance,
+		BoardRemotes = boardRemotes,
+		SurfaceCFrame = surfaceCFrame,
+		SurfaceSize = surfaceSize
+	}), BoardServer)
 
 	self.Watchers = {}
 
 	self._destructor:Add(Players.PlayerRemoving:Connect(function(player)
 		self.Watchers[player] = nil
 	end))
-
-	--[[
-		Signal that fires when the board has been populated.
-		Check self.Loaded before connecting to this signal.
-	--]]
-	self.LoadedSignal = Signal.new()
-	self._destructor:Add(function()
-		self.LoadedSignal:DisconnectAll()
-	end)
 
 	return self
 end

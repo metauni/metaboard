@@ -125,8 +125,8 @@ return function(board, viewData)
 			modified[figureId] = {
 				Figure = figure,
 				FigureMasks = masks,
-				CanvasSize = board:SurfaceSize(),
-				CanvasCFrame = board:SurfaceCFrame(),
+				CanvasSize = board.SurfaceSize,
+				CanvasCFrame = board.SurfaceCFrame,
 			}
 		end
 	end

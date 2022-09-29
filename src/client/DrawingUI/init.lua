@@ -41,7 +41,7 @@ return function(board, boardViewMode, onClose)
 			BoardViewMode = boardViewMode,
 
 			Board = board,
-			AspectRatio = board:SurfaceSize().X / board:SurfaceSize().Y,
+			AspectRatio = board:AspectRatio(),
 
 			OnClose = function()
 				destroy()

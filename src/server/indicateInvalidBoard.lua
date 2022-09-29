@@ -8,8 +8,8 @@ return function (board, message)
 
 	local Part = Instance.new("Part")
 	Part.Name = "BoardInvalidIndicator"
-	Part.Size = Vector3.new(board:SurfaceSize().X, board:SurfaceSize().Y, 0.01)
-	Part.CFrame = board:SurfaceCFrame() + board:SurfaceCFrame().LookVector * Part.Size.Z/2
+	Part.Size = Vector3.new(board.SurfaceSize.X, board.SurfaceSize.Y, 0.01)
+	Part.CFrame = board.SurfaceCFrame + board.SurfaceCFrame.LookVector * Part.Size.Z/2
 	Part.Transparency = 1
 	Part.Anchored = true
 	Part.CanCollide = false

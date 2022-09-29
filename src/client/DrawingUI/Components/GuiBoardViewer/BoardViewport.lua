@@ -64,7 +64,7 @@ function BoardViewport:render()
 	local cam = e("Camera", {
 
 		FieldOfView = self.props.FieldOfView,
-		CFrame = self.props.Board:SurfaceCFrame() * boardToCameraCFrame(self.props.Board:SurfaceSize().Y, workspace.CurrentCamera.ViewportSize, self.props.TargetAbsolutePosition, self.props.TargetAbsoluteSize, self.props.FieldOfView),
+		CFrame = self.props.Board.SurfaceCFrame * boardToCameraCFrame(self.props.Board.SurfaceSize.Y, workspace.CurrentCamera.ViewportSize, self.props.TargetAbsolutePosition, self.props.TargetAbsoluteSize, self.props.FieldOfView),
 
 		[Roact.Ref] = self.CamRef,
 

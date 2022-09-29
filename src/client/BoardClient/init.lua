@@ -8,8 +8,8 @@
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Import
-local Config = require(Common.Config)
 local Board = require(Common.Board)
+local BoardRemotes = require(Common.BoardRemotes)
 
 --[[
 	The client-side version of a board.
@@ -17,8 +17,20 @@ local Board = require(Common.Board)
 local BoardClient = setmetatable({}, Board)
 BoardClient.__index = BoardClient
 
-function BoardClient.new(instance: Model | Part, boardRemotes, persistId: number?, loaded: boolean)
-	return setmetatable(Board.new(instance, boardRemotes, persistId, loaded), BoardClient)
+function BoardClient.new(instance: Model | Part)
+
+	-- These may not replicate immediately
+	local surfaceCFrameValue = instance:WaitForChild("SurfaceCFrameValue")
+	local surfaceSizeValue = instance:WaitForChild("SurfaceSizeValue")
+	local boardRemotes = BoardRemotes.WaitForRemotes(instance)
+
+	return setmetatable(Board.new({
+	
+		Instance = instance,
+		BoardRemotes = boardRemotes,
+		SurfaceCFrame = surfaceCFrameValue.Value,
+		SurfaceSize = surfaceSizeValue.Value
+	}), BoardClient)
 end
 
 function BoardClient:SetToolState(toolState)
@@ -55,9 +67,9 @@ function BoardClient:ConnectRemotes()
 	table.insert(connections, self.Remotes.Redo.OnClientEvent:Connect(fix(self.ProcessRedo)))
 	table.insert(connections, self.Remotes.Clear.OnClientEvent:Connect(fix(self.ProcessClear)))
 
-	table.insert(connections, self.Remotes.SetData.OnClientEvent:Connect(function(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
+	table.insert(connections, self.Remotes.SetData.OnClientEvent:Connect(function(data)
 
-		self:LoadData(figures, drawingTasks, playerHistories, nextFigureZIndex, eraseGrid, clearCount)
+		self:LoadData(data)
 		self:DataChanged()
 	end))
 

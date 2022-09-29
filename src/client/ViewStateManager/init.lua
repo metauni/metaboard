@@ -14,7 +14,6 @@ local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 local Destructor = require(Common.Destructor)
-local Signal = require(Common.Packages.GoodSignal)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
@@ -54,12 +53,12 @@ function ViewStateManager.new()
 						closestLoading = closestLoading or board
 					end
 
-					local boardPos = board:SurfaceCFrame().Position
+					local boardPos = board.SurfaceCFrame.Position
 					local _, inFOV = workspace.CurrentCamera:WorldToViewportPoint(boardPos)
 					if inFOV then
 						closestInFOV = closestInFOV or board
 
-						if board:SurfaceCFrame().LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) < 0 then
+						if board.SurfaceCFrame.LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) < 0 then
 							closestVisible = closestVisible or board
 							break
 						end

@@ -7,25 +7,47 @@
 return function(self, board, viewData)
 	viewData = viewData or {}
 
-	if viewData.Status ~= "Dead" then
-
-		if viewData.Destroy then
-			viewData.Destroy()
-		end
-
-		local surfacePart = board:SurfacePart()
-		local originalTransparency = surfacePart.Transparency
-
-		surfacePart.Transparency = 3/4 + 1/4 * originalTransparency
-
-		return {
-			Status = "Dead",
-			Destroy = function()
-				surfacePart.Transparency = originalTransparency
-			end
-		}
-
+	if viewData.Destroy then
+		viewData.Destroy()
 	end
 
-	return viewData
+	-- Get the surface part (may be nil if the board is a Model and the primary
+	-- part has streamed out).
+
+	local surfacePart do
+
+		local instance = board._instance
+
+		if instance:IsA("Model") then
+			
+			surfacePart = instance.PrimaryPart
+
+		else
+
+			surfacePart = instance
+
+		end
+	end
+
+	if not surfacePart then
+
+		-- It's been streamed out. Do nothing.
+		
+		return {
+
+			Status = "Dead",
+		}
+	end
+
+	local originalTransparency = surfacePart.Transparency
+
+	surfacePart.Transparency = 3/4 + 1/4 * originalTransparency
+
+	return {
+		
+		Status = "Dead",
+		Destroy = function()
+			surfacePart.Transparency = originalTransparency
+		end
+	}
 end
