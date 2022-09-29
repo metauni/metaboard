@@ -28,7 +28,7 @@ end
 
 local function waitForBudget(requestType: Enum.DataStoreRequestType)
 
-	while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync) <= 0 do
+	while DataStoreService:GetRequestBudgetForRequestType(requestType) <= 0 do
 		task.wait()
 	end
 end
