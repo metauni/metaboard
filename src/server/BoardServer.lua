@@ -73,7 +73,7 @@ function BoardServer.new(instance: Model | Part)
 		local face do
 
 			local faceValue = instance:FindFirstChild("Face")
-			face = faceValue and face.Value or "Front"
+			face = faceValue and faceValue.Value or "Front"
 		end
 
 
