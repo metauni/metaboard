@@ -113,24 +113,42 @@ function Erase.Undo(drawingTask, board)
 
 		local affectedFigures = {}
 
+		-- Gather figures which were affected by this erase
+
 		for figureId, figure in pairs(board.Figures) do
 			if drawingTask.FigureIdToMask[figureId] then
 				affectedFigures[figureId] = figure
 			end
 		end
+
+		-- Gather figures from drawing tasks which were affected by this erase
 		
 		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+
+			if otherDrawingTask == drawingTask then
+				continue
+			end
+
 			if drawingTask.FigureIdToMask[otherDrawingTask.Id] and otherDrawingTask.Type ~= "Erase" then
 				affectedFigures[taskId] = DrawingTask.Render(otherDrawingTask)
 			end
 		end
+		
+		-- Reapply remaining erase drawing task masks to all affected figures 
 
 		local remaskedFigures = affectedFigures
 		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+
+			if otherDrawingTask == drawingTask then
+				continue
+			end
+
 			if otherDrawingTask.Type == "Erase" then
 				remaskedFigures = DrawingTask.Commit(otherDrawingTask, remaskedFigures)
 			end
 		end
+
+		-- Update figures in Erase Grid
 
 		for figureId, figure in pairs(remaskedFigures) do
 			board.EraseGrid:RemoveFigure(figureId, figure)
