@@ -62,7 +62,35 @@ function CanvasIO:render()
 			that they can be performed all at once (only one setState call)
 		--]]
 
-		[Roact.Event.MouseButton1Down] = function(rbx, x, y)
+		[Roact.Event.InputBegan] = function(rbx, inputObject)
+
+			-- Ignore irrelevant input types
+			if inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 
+				and inputObject.UserInputType ~= Enum.UserInputType.Touch then
+				
+				return
+			end
+
+			if inputObject.UserInputType == Enum.UserInputType.Touch then
+
+				-- Only start a new stroke if the active input object has ended
+				
+				if self._activeInputObject then
+					
+					if self._activeInputObject.UserInputState.Value < Enum.UserInputState.End.Value then
+						
+						-- active input object is not done
+						return
+						
+					end
+					
+				end
+			end
+
+			-- Set the new active input object
+			self._activeInputObject = inputObject
+
+			local x, y = inputObject.Position.X, inputObject.Position.Y + 36
 
 			setCursorPixelPosition(x,y)
 
@@ -71,19 +99,19 @@ function CanvasIO:render()
 			end
 		end,
 
-		[Roact.Event.MouseMoved] = function(rbx, x, y)
+		[Roact.Event.InputChanged] = function(rbx, inputObject)
+			
+			if inputObject.UserInputType == Enum.UserInputType.Touch then
+				
+				-- ignore other fingers/palms moving
+				if inputObject ~= self._activeInputObject then
+					return
+				end
+			end
+
+			local x, y = inputObject.Position.X, inputObject.Position.Y + 36
 
 			if withinCanvas(self, x, y) then
-
-				-- Simple palm rejection
-				if UserInputService.TouchEnabled and self.props.ToolHeld then
-					local cursorUDim2 = cursorPositionBinding:getValue()
-					local cursorPos = Vector2.new(cursorUDim2.X.Offset, cursorUDim2.Y.Offset)
-					local diff = (Vector2.new(x,y) - cursorPos).Magnitude
-					if diff > Config.GuiCanvas.MaxLineLengthTouchPixels then
-						return
-					end
-				end
 
 				setCursorPixelPosition(x,y)
 
@@ -99,14 +127,16 @@ function CanvasIO:render()
 			end
 		end,
 
-		[Roact.Event.MouseLeave] = function(rbx, x, y)
+		[Roact.Event.InputEnded] = function(rbx, inputObject)
 
-			if self.props.ToolHeld then
-				self.props.QueueToolUp()
+			if inputObject.UserInputType == Enum.UserInputType.Touch then
+				
+				-- ignore other fingers/palms lifting
+				if inputObject ~= self._activeInputObject then
+	
+					return
+				end
 			end
-		end,
-
-		[Roact.Event.MouseButton1Up] = function(rbx, x, y)
 
 			if self.props.ToolHeld then
 				self.props.QueueToolUp()
