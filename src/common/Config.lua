@@ -103,6 +103,29 @@ Config.UITheme = {
 --]]
 Config.ColorPalette = require(script.Parent.ConfigColorPalette)
 
+Config.DefaultColorWells = {
+	{
+		BaseName = "White",
+		Color = Config.ColorPalette.White.BaseColor,
+	},
+	{
+		BaseName = "Black",
+		Color = Config.ColorPalette.Black.BaseColor,
+	},
+	{
+		BaseName = "Blue",
+		Color = Config.ColorPalette.Blue.BaseColor,
+	},
+	{
+		BaseName = "Green",
+		Color = Config.ColorPalette.Green.BaseColor,
+	},
+	{
+		BaseName = "Red",
+		Color = Config.ColorPalette.Red.BaseColor,
+	},
+}
+
 Config.GuiCanvas = {
 	-- Pixel width of line before adding UICorner
 	-- TODO: Unused?

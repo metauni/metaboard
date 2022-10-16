@@ -16,6 +16,7 @@ local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 local DrawingTask = require(Common.DrawingTask)
+local ToolService = require(script.Parent.ToolService)
 local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
@@ -55,64 +56,14 @@ function App:init()
 
 	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(UDim2.fromOffset(0,0))
 
-	local toolState do
-
-		if self.props.Board.ToolState then
-			toolState = self.props.Board.ToolState
-		else
-
-			local colorWells = {
-				{
-					BaseName = "White",
-					Color = Config.ColorPalette.White.BaseColor,
-				},
-				{
-					BaseName = "Black",
-					Color = Config.ColorPalette.Black.BaseColor,
-				},
-				{
-					BaseName = "Blue",
-					Color = Config.ColorPalette.Blue.BaseColor,
-				},
-				{
-					BaseName = "Green",
-					Color = Config.ColorPalette.Green.BaseColor,
-				},
-				{
-					BaseName = "Red",
-					Color = Config.ColorPalette.Red.BaseColor,
-				},
-			}
-
-			if self.props.Board.DefaultColorWells then
-				for i=1, 5 do
-					colorWells[i] = self.props.Board.DefaultColorWells[i] or colorWells[i]
-				end
-			end
-
-			toolState = {
-				EquippedTool = Pen,
-				SelectedEraserSizeName = "Small",
-				StrokeWidths = {
-					Small = Config.DrawingTools.Defaults.SmallStrokeWidth,
-					Medium = Config.DrawingTools.Defaults.MediumStrokeWidth,
-					Large = Config.DrawingTools.Defaults.LargeStrokeWidth,
-				},
-				SelectedStrokeWidthName = "Small",
-				SelectedColorWellIndex = 1,
-				ColorWells = colorWells,
-			}
-
-		end
-
-	end
+	
 
 	local canWrite = Players.LocalPlayer:GetAttribute("metaadmin_canwrite") ~= false
 
 	self:setState({
 
 		ToolHeld = false,
-		ToolState = toolState,
+		ToolState = ToolService.GetToolState(),
 		SubMenu = Roact.None,
 		UnverifiedDrawingTasks = {},
 		CurrentUnverifiedDrawingTaskId = Roact.None,
@@ -132,15 +83,6 @@ function App:didMount()
 	StarterGui:SetCore("ChatActive", false)
 
 	self.ToolQueue = ToolQueue(self)
-
-	self.SetToolState = function(toolState)
-		self:setState(function(state)
-
-			return {
-				ToolState = merge(state.ToolState, toolState)
-			}
-		end)
-	end
 
 	self.permissionConnection = Players.LocalPlayer:GetAttributeChangedSignal("metaadmin_canwrite"):Connect(function()
 
@@ -179,8 +121,19 @@ end
 function App:willUnmount()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
 	self.ToolQueue.Destroy()
-	self.props.Board.ToolState = self.state.ToolState
 	self.permissionConnection:Disconnect()
+end
+
+function App:SetToolState(toolState)
+	self:setState(function(state)
+
+		local newToolState = merge(state.ToolState, toolState)
+		ToolService.SetToolState(newToolState)
+
+		return {
+			ToolState = newToolState
+		}
+	end)
 end
 
 function App:render()
@@ -198,16 +151,16 @@ function App:render()
 
 		EquippedTool = toolState.EquippedTool,
 		EquipTool = function(tool)
-			self.SetToolState({ EquippedTool = tool })
+			self:SetToolState({ EquippedTool = tool })
 		end,
 
 		StrokeWidths = toolState.StrokeWidths,
 		SelectedStrokeWidthName = toolState.SelectedStrokeWidthName,
 		SelectStrokeWidth = function(name)
-			self.SetToolState({ SelectedStrokeWidthName = name })
+			self:SetToolState({ SelectedStrokeWidthName = name })
 		end,
 		UpdateStrokeWidth = function(strokeWidth)
-			self.SetToolState({
+			self:SetToolState({
 
 				StrokeWidths = merge(toolState.StrokeWidths,{
 					[toolState.SelectedStrokeWidthName] = strokeWidth
@@ -218,16 +171,16 @@ function App:render()
 
 		SelectedEraserSizeName = toolState.SelectedEraserSizeName,
 		SelectEraserSize = function(name)
-			self.SetToolState({ SelectedEraserSizeName = name })
+			self:SetToolState({ SelectedEraserSizeName = name })
 		end,
 
 		ColorWells = toolState.ColorWells,
 		SelectedColorWellIndex = toolState.SelectedColorWellIndex,
 		SelectColorWell = function(index)
-			self.SetToolState({ SelectedColorWellIndex = index })
+			self:SetToolState({ SelectedColorWellIndex = index })
 		end,
 		UpdateColorWell = function(index, shadedColor)
-			self.SetToolState({
+			self:SetToolState({
 				ColorWells = merge(toolState.ColorWells, {
 					[index] = shadedColor
 				})
