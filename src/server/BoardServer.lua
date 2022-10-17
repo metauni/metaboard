@@ -30,72 +30,69 @@ function BoardServer.new(instance: Model | Part)
 		)
 	end
 
-	local surfaceCFrame, surfaceSize do
+	local surfaceCFrame, surfaceSize3
+	
+	local surfacePart
+
+	if instance:IsA("Model") then
 		
-		local surfacePart
-
-		if instance:IsA("Model") then
-			
-			assert(instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..instance:GetFullName())
-			surfacePart = instance.PrimaryPart
-		else
-			
-			surfacePart = instance
-		end
-
-		local faceAngleCFrame = {
-			Front  = CFrame.Angles(0, 0, 0),
-			Left   = CFrame.Angles(0, math.pi / 2, 0),
-			Back   = CFrame.Angles(0, math.pi, 0),
-			Right  = CFrame.Angles(0, -math.pi / 2, 0),
-			Top    = CFrame.Angles(math.pi / 2, 0, 0),
-			Bottom = CFrame.Angles(-math.pi / 2, 0, 0)
-		}
-
-		local faceSurfaceOffsetGetter = {
-			Front  = function(size) return size.Z / 2 end,
-			Left   = function(size) return size.X / 2 end,
-			Back   = function(size) return size.Z / 2 end,
-			Right  = function(size) return size.X / 2 end,
-			Top    = function(size) return size.Y / 2 end,
-			Bottom = function(size) return size.Y / 2 end
-		}
-
-		local faceDimensionsGetter = {
-			Front  = function(size) return Vector2.new(size.X, size.Y) end,
-			Left   = function(size) return Vector2.new(size.Z, size.Y) end,
-			Back   = function(size) return Vector2.new(size.X, size.Y) end,
-			Right  = function(size) return Vector2.new(size.Z, size.Y) end,
-			Top    = function(size) return Vector2.new(size.X, size.Z) end,
-			Bottom = function(size) return Vector2.new(size.X, size.Z) end,
-		}
-
-		local face do
-
-			local faceValue = instance:FindFirstChild("Face")
-			face = faceValue and faceValue.Value or "Front"
-		end
-
-
-		surfaceSize = faceDimensionsGetter[face](surfacePart.Size)
-		surfaceCFrame = surfacePart.CFrame
-			* faceAngleCFrame[face]
-			* CFrame.new(0, 0, -faceSurfaceOffsetGetter[face](surfacePart.Size))
+		assert(instance.PrimaryPart, "metaboard Model must have PrimaryPart set: "..instance:GetFullName())
+		surfacePart = instance.PrimaryPart
+	else
+		
+		surfacePart = instance
 	end
 
-	-- Values needed for clients with board streamed out
-	do
-		
-		local surfaceCFrameValue = Instance.new("CFrameValue")
-		surfaceCFrameValue.Name = "SurfaceCFrameValue"
-		surfaceCFrameValue.Value = surfaceCFrame
-		surfaceCFrameValue.Parent = instance
-		
-		local surfaceSizeValue = Instance.new("Vector3Value")
-		surfaceSizeValue.Name = "SurfaceSizeValue"
-		surfaceSizeValue.Value = Vector3.new(surfaceSize.X, surfaceSize.Y, 0)
-		surfaceSizeValue.Parent = instance
+	local faceAngleCFrame = {
+		Front  = CFrame.Angles(0, 0, 0),
+		Left   = CFrame.Angles(0, math.pi / 2, 0),
+		Back   = CFrame.Angles(0, math.pi, 0),
+		Right  = CFrame.Angles(0, -math.pi / 2, 0),
+		Top    = CFrame.Angles(math.pi / 2, 0, 0),
+		Bottom = CFrame.Angles(-math.pi / 2, 0, 0)
+	}
+
+	local faceSurfaceOffsetGetter = {
+		Front  = function(size) return size.Z / 2 end,
+		Left   = function(size) return size.X / 2 end,
+		Back   = function(size) return size.Z / 2 end,
+		Right  = function(size) return size.X / 2 end,
+		Top    = function(size) return size.Y / 2 end,
+		Bottom = function(size) return size.Y / 2 end
+	}
+
+	local faceDimensionsGetter = {
+		Front  = function(size) return Vector3.new(size.X, size.Y, 0) end,
+		Left   = function(size) return Vector3.new(size.Z, size.Y, 0) end,
+		Back   = function(size) return Vector3.new(size.X, size.Y, 0) end,
+		Right  = function(size) return Vector3.new(size.Z, size.Y, 0) end,
+		Top    = function(size) return Vector3.new(size.X, size.Z, 0) end,
+		Bottom = function(size) return Vector3.new(size.X, size.Z, 0) end,
+	}
+
+	local face do
+
+		local faceValue = instance:FindFirstChild("Face")
+		face = faceValue and faceValue.Value or "Front"
 	end
+
+
+	surfaceSize3 = faceDimensionsGetter[face](surfacePart.Size)
+	surfaceCFrame = surfacePart.CFrame
+		* faceAngleCFrame[face]
+		* CFrame.new(0, 0, -faceSurfaceOffsetGetter[face](surfacePart.Size))
+
+-- Values needed for clients with board streamed out
+	
+	local surfaceCFrameValue = Instance.new("CFrameValue")
+	surfaceCFrameValue.Name = "SurfaceCFrameValue"
+	surfaceCFrameValue.Value = surfaceCFrame
+	surfaceCFrameValue.Parent = instance
+	
+	local surfaceSizeValue = Instance.new("Vector3Value")
+	surfaceSizeValue.Name = "SurfaceSizeValue"
+	surfaceSizeValue.Value = surfaceSize3
+	surfaceSizeValue.Parent = instance
 
 	local boardRemotes = BoardRemotes.new(instance)
 
@@ -104,13 +101,25 @@ function BoardServer.new(instance: Model | Part)
 		Instance = instance,
 		BoardRemotes = boardRemotes,
 		SurfaceCFrame = surfaceCFrame,
-		SurfaceSize = surfaceSize
+		SurfaceSize = surfaceSize3
 	}), BoardServer)
 
 	self.Watchers = {}
 
 	self._destructor:Add(Players.PlayerRemoving:Connect(function(player)
 		self.Watchers[player] = nil
+	end))
+
+	self._destructor:Add(surfacePart:GetPropertyChangedSignal("CFrame"):Connect(function()
+		
+		surfaceCFrameValue.Value = surfacePart.CFrame
+			* faceAngleCFrame[face]
+			* CFrame.new(0, 0, -faceSurfaceOffsetGetter[face](surfacePart.Size))
+	end))
+
+	self._destructor:Add(surfacePart:GetPropertyChangedSignal("Size"):Connect(function()
+		
+		surfaceSizeValue.Value = faceDimensionsGetter[face](surfacePart.Size)
 	end))
 
 	return self
@@ -215,7 +224,7 @@ function BoardServer:ConnectRemotes(beforeClear)
 	self._destructor:Add(function()
 		
 		for _, connection in ipairs(connections) do
-			connection:Destroy()
+			connection:Disconnect()
 		end
 	end)
 end

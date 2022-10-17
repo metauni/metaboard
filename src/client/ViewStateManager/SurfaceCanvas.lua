@@ -30,16 +30,24 @@ local merge = Dictionary.merge
 -- local Pen = require(script.Parent.VRIO.Pen)
 
 local function inRange(self)
-	local boardLookVector = self.props.CanvasCFrame.LookVector
-	local boardRightVector = self.props.CanvasCFrame.RightVector
+
+	local instance = self.props.Board._instance
+
+	if not instance:IsDescendantOf(workspace) then
+		
+		return false
+	end
+
+	local boardLookVector = self.state.CanvasCFrame.LookVector
+	local boardRightVector = self.state.CanvasCFrame.RightVector
 
 	local character = Players.LocalPlayer.Character
 	if character then
-		local characterVector = character:GetPivot().Position - self.props.CanvasCFrame.Position
+		local characterVector = character:GetPivot().Position - self.state.CanvasCFrame.Position
 		local normalDistance = boardLookVector:Dot(characterVector)
 
 		local strafeDistance = boardRightVector:Dot(characterVector)
-		return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= self.props.CanvasSize.X/2 + 5
+		return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= self.state.CanvasSize.X/2 + 5
 	end
 end
 
@@ -65,10 +73,27 @@ function SurfaceCanvas:init()
 		loading = false
 	end
 
+	local parent do
+		
+		local instance = self.props.Board._instance
+
+		if instance:IsDescendantOf(workspace) then
+			
+			parent = self.props.WorkspaceTarget
+
+		else
+
+			parent = self.props.StorageTarget
+		end
+	end
+
 	self:setState({
 		Loading = loading,
 		UnverifiedDrawingTasks = {},
 		CurrentUnverifiedDrawingTaskId = Roact.None,
+		Parent = parent,
+		CanvasCFrame = self.props.Board.SurfaceCFrame,
+		CanvasSize = self.props.Board.SurfaceSize,
 	})
 end
 
@@ -102,11 +127,38 @@ function SurfaceCanvas:didMount()
 		end
 	end)
 	task.defer(self.InRangeChecker)
+
+	local instance = self.props.Board._instance
+
+	self.ParentConnection =  instance.AncestryChanged:Connect(function()
+		
+		if instance:IsDescendantOf(workspace) then
+			
+			self:setState({
+
+				Parent = self.props.WorkspaceTarget
+			})
+			
+		else
+			
+			self:setState({
+
+				Parent = self.props.StorageTarget
+			})
+		end
+	end)
+
+	self.CFrameConnection = instance:FindFirstChild("SurfaceCFrameValue").Changed:Connect(function(cframe)
+		
+		self:setState({
+
+			CanvasCFrame = cframe,
+		})
+	end)
+
 end
 
 function SurfaceCanvas:willUnmount()
-
-	self.OpenBoardStateConnection:Disconnect()
 
 	if self.VRIO then
 		self.VRIO.Destroy()
@@ -114,6 +166,8 @@ function SurfaceCanvas:willUnmount()
 	end
 
 	coroutine.close(self.InRangeChecker)
+	self.ParentConnection:Disconnect()
+	self.CFrameConnection:Disconnect()
 end
 
 function SurfaceCanvas.getDerivedStateFromProps(nextProps, lastState)
@@ -243,8 +297,8 @@ function SurfaceCanvas:render()
 		Figures = allFigures,
 		FigureMaskBundles = figureMaskBundles,
 
-		CanvasSize = self.props.CanvasSize,
-		CanvasCFrame = self.props.CanvasCFrame,
+		CanvasSize = self.state.CanvasSize,
+		CanvasCFrame = self.state.CanvasCFrame,
 
 		AsFragment = true,
 	})
@@ -258,8 +312,8 @@ function SurfaceCanvas:render()
 		if not VRService.VREnabled and not self.Loading then
 			buttonPart = e("Part", {
 
-				CFrame = self.props.CanvasCFrame,
-				Size = Vector3.new(self.props.CanvasSize.X, self.props.CanvasSize.Y, Config.SurfaceCanvas.CanvasThickness),
+				CFrame = self.state.CanvasCFrame,
+				Size = Vector3.new(self.state.CanvasSize.X, self.state.CanvasSize.Y, Config.SurfaceCanvas.CanvasThickness),
 
 				Transparency = 1,
 				["CanQuery"] = true,
@@ -322,20 +376,27 @@ function SurfaceCanvas:render()
 	-- 	[Roact.Children] = canvasViewport,
 	-- })
 
-	return e("Model", {
-		-- Adornee = board._surfacePart,
+	return e(Roact.Portal, {
 
-		[Roact.Children] = {
-			Figures = partFigures,
+		target = self.state.Parent,
+		
+	}, {
+		
+			[self.props.Board:FullName()] = e("Model", {
+			-- Adornee = board._surfacePart,
 
-			SurfaceClickPart = buttonPart,
+			[Roact.Children] = {
+				Figures = partFigures,
 
-			BoardStatView = Config.Debug and e(BoardStatView, merge(self.props, {
+				SurfaceClickPart = buttonPart,
 
-				UnverifiedDrawingTasks = self.state.UnverifiedDrawingTasks,
+				BoardStatView = Config.Debug and e(BoardStatView, merge(self.props, {
 
-			}))
-		},
+					UnverifiedDrawingTasks = self.state.UnverifiedDrawingTasks,
+
+				}))
+			},
+		})
 	})
 end
 

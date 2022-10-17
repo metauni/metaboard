@@ -12,6 +12,7 @@ local finalizers = setmetatable({
 		return item()
 	end,
 	["Instance"] = game.Destroy,
+	["table"] = function(item) item:Destroy() end,
 	["RBXScriptConnection"] = function(connection) connection:Disconnect() end,
 }, {
 	__index = function(self, className)

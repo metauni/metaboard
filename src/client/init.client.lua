@@ -16,6 +16,8 @@ local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
 local ViewStateManager = require(script.ViewStateManager)
 local Roact: Roact = require(Common.Packages.Roact)
+local Sift = require(Common.Packages.Sift)
+local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 --[[
 	We use a fork of Roact so that Instances can have customised default
@@ -57,12 +59,19 @@ end
 
 --------------------------------------------------------------------------------
 
-local function bindInstanceAsync(instance)
+local viewStateManager = ViewStateManager.new()
 
-	if not instance:IsDescendantOf(workspace) then
-		
-		return
+task.spawn(function()
+	while true do
+
+		viewStateManager:UpdateWithAllActive(BoardService.Boards)
+		task.wait(0.5)
 	end
+end)
+
+--------------------------------------------------------------------------------
+
+local function bindInstanceAsync(instance)
 
 	-- Ignore if already seen this board
 	if BoardService.Boards[instance] then
@@ -83,7 +92,17 @@ local function bindInstanceAsync(instance)
 	board:LoadData(data)
 
 	BoardService.Boards[instance] = board
+
+	instance:GetPropertyChangedSignal("Parent"):Connect(function()
+		
+		if instance.Parent == nil then
+			
+			BoardService.Boards[instance] = nil
+		end
+	end)
 end
+
+-- Bind regular metaboards
 
 for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 	
@@ -94,14 +113,14 @@ CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAs
 
 -- TODO: Think about GetInstanceRemovedSignal (destroying metaboards)
 
---------------------------------------------------------------------------------
+-- Bind personal boards
 
-local viewStateManager = ViewStateManager.new()
+for _, instance in ipairs(CollectionService:GetTagged("metaboard_personal_board")) do
+	
+	task.spawn(bindInstanceAsync, instance)
+end
 
-task.spawn(function()
-	while true do
-
-		viewStateManager:UpdateWithAllActive(BoardService.Boards)
-		task.wait(0.5)
-	end
+CollectionService:GetInstanceAddedSignal("metaboard_personal_board"):Connect(function(instance)
+		
+	bindInstanceAsync(instance)
 end)

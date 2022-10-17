@@ -5,6 +5,7 @@
 -- --]]
 
 -- Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -84,6 +85,10 @@ function ViewStateManager.new()
 	self.CanvasesFolder = Instance.new("Folder")
 	self.CanvasesFolder.Name = "ClientManagedCanvases"
 	self.CanvasesFolder.Parent = workspace
+
+	self.CanvasStorage = Instance.new("Folder")
+	self.CanvasStorage.Name = "ClientCanvasStorage"
+	self.CanvasStorage.Parent = ReplicatedStorage
 
 	self.BudgetThisFrame = LINEFRAMEBUDGET
 

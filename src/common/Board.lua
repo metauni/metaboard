@@ -75,7 +75,17 @@ function Board.new(boardArgs)
 
 	self.EraseGrid = EraseGrid.new(self:AspectRatio())
 
+	self._instance.Destroying:Connect(function()
+	
+		self._destructor:Destroy()
+	end)
+
 	return self
+end
+
+function Board:Destroy()
+	
+	self._destructor:Destroy()
 end
 
 function Board:Name()

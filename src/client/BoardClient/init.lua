@@ -24,13 +24,25 @@ function BoardClient.new(instance: Model | Part)
 	local surfaceSizeValue = instance:WaitForChild("SurfaceSizeValue")
 	local boardRemotes = BoardRemotes.WaitForRemotes(instance)
 
-	return setmetatable(Board.new({
+	local self = setmetatable(Board.new({
 	
 		Instance = instance,
 		BoardRemotes = boardRemotes,
 		SurfaceCFrame = surfaceCFrameValue.Value,
 		SurfaceSize = surfaceSizeValue.Value
 	}), BoardClient)
+
+	self._destructor:Add(surfaceCFrameValue.Changed:Connect(function(cframe)
+
+		self.SurfaceCFrame = cframe
+	end))
+
+	self._destructor:Add(surfaceSizeValue.Changed:Connect(function(size)
+		
+		self.SurfaceSize = size
+	end))
+
+	return self
 end
 
 function BoardClient:ConnectRemotes()
@@ -68,7 +80,7 @@ function BoardClient:ConnectRemotes()
 	self._destructor:Add(function()
 		
 		for _, connection in ipairs(connections) do
-			connection:Destroy()
+			connection:Disconnect()
 		end
 	end)
 end
