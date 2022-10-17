@@ -33,14 +33,6 @@ function BoardClient.new(instance: Model | Part)
 	}), BoardClient)
 end
 
-function BoardClient:SetToolState(toolState)
-	self._toolState = toolState
-end
-
-function BoardClient:GetToolState()
-	return self._toolState
-end
-
 function BoardClient:ConnectRemotes()
 
 	local connections = {}
