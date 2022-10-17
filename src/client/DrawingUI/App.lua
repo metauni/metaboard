@@ -82,6 +82,28 @@ function App:didMount()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
 	StarterGui:SetCore("ChatActive", false)
 
+	if UserInputService.TouchEnabled then
+
+		-- Disable character controls (annoying to accidentally trigger on mobile when board is open)
+		
+		local PlayerModuleInstance = Players.LocalPlayer.PlayerScripts:FindFirstChild("PlayerModule")
+
+		if PlayerModuleInstance then
+			
+			local PlayerModule = require(PlayerModuleInstance)
+
+			PlayerModule:GetControls():Disable()
+		end
+
+		-- Fix camera (annoying to accidentally move on mobile when board is open)
+
+		if workspace.CurrentCamera.CameraType == Enum.CameraType.Custom then
+			
+			self._originalCamType = workspace.CurrentCamera.CameraType
+			workspace.CurrentCamera.CameraType = Enum.CameraType.Fixed
+		end
+	end
+
 	self.ToolQueue = ToolQueue(self)
 
 	self.permissionConnection = Players.LocalPlayer:GetAttributeChangedSignal("metaadmin_canwrite"):Connect(function()
@@ -120,6 +142,30 @@ end
 
 function App:willUnmount()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+
+	if UserInputService.TouchEnabled then
+
+		-- Enable Character Controls
+		
+		local PlayerModuleInstance = Players.LocalPlayer.PlayerScripts:FindFirstChild("PlayerModule")
+
+		if PlayerModuleInstance then
+			
+			local PlayerModule = require(PlayerModuleInstance)
+
+			PlayerModule:GetControls():Enable()
+		end
+
+		-- Un-fix camera
+
+		if self._originalCamType then
+			
+			workspace.CurrentCamera.CameraType = self._originalCamType
+		end
+
+		self._originalCamType = nil
+	end
+
 	self.ToolQueue.Destroy()
 	self.permissionConnection:Disconnect()
 end
