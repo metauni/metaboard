@@ -13,6 +13,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local BoardService = require(Common.BoardService)
 local PersonalBoardService = require(script.PersonalBoardService)
+local DroneService = require(script.DroneService)
 
 -- Imports
 local Config = require(Common.Config)
@@ -193,6 +194,7 @@ local function bindInstanceAsync(instance: Model | Part)
 end
 
 PersonalBoardService.Start()
+DroneService.Start()
 
 for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
 
