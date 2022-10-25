@@ -21,6 +21,7 @@ local Drone = require(script.Drone)
 local dataStore = DataStoreService:GetDataStore("DroneToHost")
 local _droneToHostCache = {}
 local NO_HOST = newproxy(true)
+local Drones = {}
 
 local function getHostUserIdAsync(droneUserId: number)
 
@@ -122,8 +123,13 @@ local function bindPlayer(player)
 
 	if hostUserId then
 
+		if Drones[player.UserId] then
+			
+			Drones[player.UserId]:Destroy()
+		end
+
 		-- Handles attaching/detaching from host character
-		local _drone = Drone.new(player, hostUserId)
+		Drones[player.UserId] = Drone.new(player, hostUserId)
 		
 		-- Finds and teleports to the host
 		followHost(player, hostUserId)
@@ -184,6 +190,72 @@ return {
 		end
 
 		Players.PlayerAdded:Connect(bindPlayer)
+
+		Common.DroneEvents.DetachDrone.OnServerEvent:Connect(function(player, droneUserId)
+
+			if not droneUserId then
+
+				warn("[DroneService] Tried to detach nil droneUserId")
+			end
+			
+			if Drones[droneUserId] then
+
+				Drones[droneUserId]:Destroy()
+			end
+		end)
+
+		Common.DroneEvents.ReattachDrone.OnServerEvent:Connect(function(player, droneUserId)
+
+			if not droneUserId then
+
+				warn("[DroneService] Tried to Reattach nil droneUserId")
+			end
+			
+			if Drones[droneUserId] then
+
+				local drone = Drones[droneUserId]
+				drone:Destroy()
+				Drones[droneUserId] = Drone.new(drone.Player, drone.HostUserId)
+			end
+		end)
+
+		Common.DroneEvents.UnlinkDrone.OnServerEvent:Connect(function(player, droneUserId)
+
+			if not droneUserId then
+
+				warn("[DroneService] Tried to Unlink nil droneUserId")
+			end
+
+			if not Drones[droneUserId] then
+				
+				print("NO DRONES[DRONEUSERID]")
+
+				for key, value in Drones do
+					
+					print(key, typeof(key), value)
+				end
+			end
+
+			if Drones[droneUserId] then
+
+				print("UNLINK DESTROYING")
+
+				Drones[droneUserId]:Destroy()
+			end
+
+			Drones[droneUserId] = nil
+			
+			Common.DroneEvents.UnlinkDrone:FireAllClients(droneUserId)
+			
+			while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync) <= 0 do
+			
+				task.wait()
+			end
+
+			
+			dataStore:RemoveAsync(droneUserId)
+			_droneToHostCache[droneUserId] = NO_HOST
+		end)
 	end,
 
 	Assign = function(dronePlayer, hostPlayer)

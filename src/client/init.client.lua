@@ -11,6 +11,7 @@ local ContentProvider = game:GetService("ContentProvider")
 
 -- Imports
 local Config = require(Common.Config)
+local DroneController = require(script.DroneController)
 local BoardClient = require(script.BoardClient)
 local BoardService = require(Common.BoardService)
 local Assets = require(Common.Assets)
@@ -124,3 +125,5 @@ CollectionService:GetInstanceAddedSignal("metaboard_personal_board"):Connect(fun
 		
 	bindInstanceAsync(instance)
 end)
+
+DroneController.Start()

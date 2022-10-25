@@ -15,7 +15,7 @@ local Drone = {}
 Drone.__index = Drone
 
 
-local function attachDroneToHost(droneCharacter: Player, hostCharacter: Player)
+local function attachDroneToHost(drone, droneCharacter: Model, hostCharacter: Model)
 
 	local destructor = Destructor.new()
 
@@ -79,7 +79,19 @@ local function attachDroneToHost(droneCharacter: Player, hostCharacter: Player)
 
 	destructor:Add(weldConstraint)
 
-	droneCharacter:SetAttribute("DroneModeActive", true)
+	droneCharacter:SetAttribute("DroneAttachedToHost", drone.Player.UserId)
+	
+	destructor:Add(function()
+		
+		droneCharacter:SetAttribute("DroneAttachedToHost", nil)
+	end)
+
+	local droneStringValue = Instance.new("IntValue")
+	droneStringValue.Name = "AttachedDrone"
+	droneStringValue.Value = drone.Player.UserId
+	droneStringValue.Parent = hostCharacter
+
+	destructor:Add(droneStringValue)
 
 	return destructor
 end
@@ -90,6 +102,7 @@ function Drone.new(player: Player, hostUserId: number)
 	local self = setmetatable({
 
 		Player = player,
+		HostUserId = hostUserId,
 	}, Drone)
 	
 	self._destructor = Destructor.new()
@@ -106,7 +119,7 @@ function Drone.new(player: Player, hostUserId: number)
 			
 			if self.Player.Character and host.Character then
 			
-				attachDestructor:Add(attachDroneToHost(self.Player.Character, host.Character))
+				attachDestructor:Add(attachDroneToHost(self, self.Player.Character, host.Character))
 			end
 		end
 
@@ -160,6 +173,11 @@ function Drone.new(player: Player, hostUserId: number)
 	end)
 
 	return self
+end
+
+function Drone:Destroy()
+	
+	self._destructor:Destroy()
 end
 
 return Drone
