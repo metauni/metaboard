@@ -20,9 +20,11 @@ local Drone = require(script.Drone)
 -- Globals
 local dataStore = DataStoreService:GetDataStore("DroneToHost")
 local _droneToHostCache = {}
+local NO_HOST = newproxy(true)
 
 local function getHostUserIdAsync(droneUserId: number)
 
+	-- For studio testing
 	if droneUserId == -2 then
 		
 		return -1
@@ -34,7 +36,7 @@ local function getHostUserIdAsync(droneUserId: number)
 	if _droneToHostCache[userIdStr] then
 		
 		hostUserIdStr = _droneToHostCache[userIdStr]
-
+		return hostUserIdStr ~= NO_HOST and tonumber(hostUserIdStr) or nil
 	else
 
 		while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.GetAsync) <= 0 do
@@ -43,15 +45,9 @@ local function getHostUserIdAsync(droneUserId: number)
 		end
 		
 		hostUserIdStr = dataStore:GetAsync(userIdStr)
-		_droneToHostCache[userIdStr] = hostUserIdStr
-	end
+		_droneToHostCache[userIdStr] = hostUserIdStr or NO_HOST
 
-	if hostUserIdStr then
-		
-		return tonumber(hostUserIdStr)
-	else
-		
-		return nil
+		return hostUserIdStr and tonumber(hostUserIdStr) or nil
 	end
 end
 
@@ -120,7 +116,19 @@ local function followHost(drone: Player, hostUserId: number)
 	return destructor
 end
 
+local function bindPlayer(player)
+			
+	local hostUserId = getHostUserIdAsync(player.UserId)
 
+	if hostUserId then
+
+		-- Handles attaching/detaching from host character
+		local _drone = Drone.new(player, hostUserId)
+		
+		-- Finds and teleports to the host
+		followHost(player, hostUserId)
+	end
+end
 
 return {
 
@@ -164,20 +172,6 @@ return {
 			end)
 		end
 
-		local function bindPlayer(player)
-			
-			local hostUserId = getHostUserIdAsync(player.UserId)
-
-			if hostUserId then
-
-				-- Handles attaching/detaching from host character
-				local _drone = Drone.new(player, hostUserId)
-				
-				-- Finds and teleports to the host
-				followHost(player, hostUserId)
-			end
-		end
-
 		for _, player in ipairs(Players:GetPlayers()) do
 			
 			task.spawn(bindPlayer, player)
@@ -185,4 +179,23 @@ return {
 
 		Players.PlayerAdded:Connect(bindPlayer)
 	end,
+
+	Assign = function(dronePlayer, hostPlayer)
+		
+		assert(dronePlayer, "[Drone] No dronePlayer given")
+		assert(hostPlayer, "[Drone] No hostPlayer given")
+		assert(dronePlayer ~= hostPlayer, "[Drone] Drone and Host must be distinct")
+
+		while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync) <= 0 do
+			
+			task.wait()
+		end
+		
+		dataStore:SetAsync(tostring(dronePlayer.UserId), tostring(hostPlayer.UserId))
+		_droneToHostCache[tostring(dronePlayer.UserId)] = tostring(hostPlayer.UserId)
+
+		bindPlayer(dronePlayer)
+	end,
+
+	GetHostUserIdAsync = getHostUserIdAsync,
 }
