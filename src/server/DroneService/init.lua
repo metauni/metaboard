@@ -226,19 +226,7 @@ return {
 				warn("[DroneService] Tried to Unlink nil droneUserId")
 			end
 
-			if not Drones[droneUserId] then
-				
-				print("NO DRONES[DRONEUSERID]")
-
-				for key, value in Drones do
-					
-					print(key, typeof(key), value)
-				end
-			end
-
 			if Drones[droneUserId] then
-
-				print("UNLINK DESTROYING")
 
 				Drones[droneUserId]:Destroy()
 			end
@@ -246,7 +234,7 @@ return {
 			Drones[droneUserId] = nil
 			
 			Common.DroneEvents.UnlinkDrone:FireAllClients(droneUserId)
-			
+
 			while DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync) <= 0 do
 			
 				task.wait()
