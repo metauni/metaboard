@@ -145,6 +145,12 @@ return {
 		
 				local host = Players:GetPlayerByUserId(hostUserId)
 
+				if not host then
+					
+					-- Requested host isn't in this server
+					return
+				end
+
 				local data = {
 					HostUserId = hostUserId,
 					PlaceId = game.PlaceId,
