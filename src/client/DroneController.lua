@@ -20,6 +20,7 @@ return {
 			:setImage("rbxassetid://11374971657")
 			:setLabel("Drone")
 			:set("dropdownSquareCorners", true)
+			:setOrder(2)
 			:setDropdown({
 				Icon.new()
 					:setLabel("Detach")
@@ -48,13 +49,14 @@ return {
 			:setImage("rbxassetid://11374971657")
 			:setLabel("Host")
 			:set("dropdownSquareCorners", true)
+			:setOrder(2)
 			:setDropdown({
 				Icon.new()
 					:setLabel("Unlink Drone")
 					:bindEvent("selected", function(self)
-						
+
 						local character = Players.LocalPlayer.Character
-						
+
 						if character then
 							
 							for _, child in ipairs(character:GetChildren()) do
@@ -65,6 +67,7 @@ return {
 								end
 							end
 						end
+							
 						self:deselect()
 					end),
 		})
@@ -74,6 +77,9 @@ return {
 		local function initCharacter(character: Model)
 			
 			local destructor = Destructor.new()
+
+			droneIcon:deselect()
+			hostIcon:deselect()
 		
 			droneIcon:setEnabled(character:GetAttribute("DroneAttachedToHost") ~= nil)
 			
