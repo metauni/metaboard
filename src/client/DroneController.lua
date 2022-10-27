@@ -14,96 +14,162 @@ return {
 
 	Start = function()
 
-		local droneIcon
-		droneIcon = Icon.new()
-			:setEnabled(false)
-			:setImage("rbxassetid://11374971657")
-			:setLabel("Drone")
-			:set("dropdownSquareCorners", true)
-			:setOrder(2)
-			:setDropdown({
+		local function makeDroneIcon(character)
+
+			local destructor = Destructor.new()
+
+			local hostUserId = character:GetAttribute("DroneAttachedToHost")
+
+			local hostName do
+				
+				local hostPlayer = Players:GetPlayerByUserId(hostUserId)
+
+				if hostPlayer then
+					
+					hostName = hostPlayer.DisplayName
+				end
+			end
+			
+			local droneIcon
+			droneIcon = Icon.new()
+				:setImage("rbxassetid://11374971657")
+				:setLabel("Drone")
+				:setOrder(2)
+				:set("dropdownSquareCorners", true)
+				:set("dropdownMaxIconsBeforeScroll", 10)
+
+			local dropdownIcons = {
+				Icon.new()
+					:setLabel("Host: "..(hostName or "?"))
+					:lock()
+					:set("iconBackgroundTransparency", 1),
 				Icon.new()
 					:setLabel("Detach")
 					:bindEvent("selected", function(self)
 						DroneEvents.DetachDrone:FireServer(Players.LocalPlayer.UserId)
 						self:deselect()
 					end),
-					Icon.new()
+				Icon.new()
 					:setLabel("Reattach")
 					:bindEvent("selected", function(self)
 						DroneEvents.ReattachDrone:FireServer(Players.LocalPlayer.UserId)
 						self:deselect()
 					end),
-					Icon.new()
+				Icon.new()
 					:setLabel("Unlink From Host")
 					:bindEvent("selected", function(self)
 						DroneEvents.UnlinkDrone:FireServer(Players.LocalPlayer.UserId)
 						self:deselect()
-						droneIcon:setEnabled(false)
+						destructor:Destroy()
 					end),
-		})
-		
-		droneIcon:setTheme(Themes["BlueGradient"])
-		
-		local hostIcon = Icon.new()
-			:setImage("rbxassetid://11374971657")
-			:setLabel("Host")
-			:set("dropdownSquareCorners", true)
-			:setOrder(2)
-			:setDropdown({
+			}
+
+			droneIcon:setDropdown(dropdownIcons)
+			
+			droneIcon:setTheme(Themes["BlueGradient"])
+
+			destructor:Add(function()
+				
+				for _, icon in dropdownIcons do
+					
+					icon:destroy()
+				end
+
+				droneIcon:destroy()
+			end)
+
+			return destructor
+		end
+
+		local function makeHostIcon(character)
+
+			local destructor = Destructor.new()
+			
+			local hostIcon = Icon.new()
+				:setImage("rbxassetid://11374971657")
+				:setLabel("Host")
+				:setOrder(2)
+				:set("dropdownSquareCorners", true)
+				:set("dropdownMaxIconsBeforeScroll", 10)
+
+			local dropdownIcons = {
 				Icon.new()
 					:setLabel("Unlink Drone")
 					:bindEvent("selected", function(self)
 
-						local character = Players.LocalPlayer.Character
-
-						if character then
+						for _, child in ipairs(character:GetChildren()) do
 							
-							for _, child in ipairs(character:GetChildren()) do
+							if child:IsA("IntValue") and child.Name == "AttachedDrone" then
 								
-								if child:IsA("IntValue") and child.Name == "AttachedDrone" then
-									
-									DroneEvents.UnlinkDrone:FireServer(child.Value)
-								end
+								DroneEvents.UnlinkDrone:FireServer(child.Value)
 							end
 						end
 							
 						self:deselect()
 					end),
-		})
+			}
+
+			hostIcon:setDropdown(dropdownIcons)
+			
+			hostIcon:setTheme(Themes["BlueGradient"])
 		
-		hostIcon:setTheme(Themes["BlueGradient"])
+			destructor:Add(function()
+				
+				for _, icon in dropdownIcons do
+					
+					icon:destroy()
+				end
+				
+				hostIcon:destroy()
+			end)
+
+			return destructor
+		end
+		
 		
 		local function initCharacter(character: Model)
 			
 			local destructor = Destructor.new()
+			local droneIconDestructor = Destructor.new()
+			local hostIconDestructor = Destructor.new()
 
-			droneIcon:deselect()
-			hostIcon:deselect()
-		
-			droneIcon:setEnabled(character:GetAttribute("DroneAttachedToHost") ~= nil)
-			
+			destructor:Add(droneIconDestructor)
+			destructor:Add(hostIconDestructor)
+
+			if character:GetAttribute("DroneAttachedToHost") then
+				
+				droneIconDestructor = makeDroneIcon(character)
+			end
+
 			destructor:Add(character:GetAttributeChangedSignal("DroneAttachedToHost"):Connect(function()
 				
-				droneIcon:setEnabled(true)
+				droneIconDestructor:Destroy()
+				droneIconDestructor = makeDroneIcon(character)
+
 			end))
-		
-			hostIcon:setEnabled(character:FindFirstChild("AttachedDrone") ~= nil)
+
+			if character:FindFirstChild("AttachedDrone") then
+				
+				hostIconDestructor:Destroy()
+				hostIconDestructor = makeHostIcon(character)
+			end 
 			
 			destructor:Add(character.ChildAdded:Connect(function()
 				
-				hostIcon:setEnabled(character:FindFirstChild("AttachedDrone") ~= nil) 
+				if character:FindFirstChild("AttachedDrone") then
+				
+					hostIconDestructor:Destroy()
+					hostIconDestructor = makeHostIcon(character)
+				end 
 			end))
 			
 			destructor:Add(character.ChildRemoved:Connect(function()
 				
-				hostIcon:setEnabled(character:FindFirstChild("AttachedDrone") ~= nil) 
-			end))
-
-			destructor:Add(function()
+				if character:FindFirstChild("AttachedDrone") then
 				
-				droneIcon:setEnabled(false)
-			end)
+					hostIconDestructor:Destroy()
+				end 
+			end))
 		
 			return destructor
 		end
