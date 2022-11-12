@@ -41,21 +41,21 @@ local function toScalar(position, canvasCFrame, canvasSize)
 end
 
 local function distanceToBoard(self, pos)
-	local boardLookVector = self.props.CanvasCFrame.LookVector
-	local vector = pos - self.props.CanvasCFrame.Position
+	local boardLookVector = self.props.Board.SurfaceCFrame.LookVector
+	local vector = pos - self.props.Board.SurfaceCFrame.Position
 	local normalDistance = boardLookVector:Dot(vector)
 	return normalDistance
 end
 
 local function inRange(self, pos)
-	local boardRightVector = self.props.CanvasCFrame.RightVector
-	local vector = pos - self.props.CanvasCFrame.Position
+	local boardRightVector = self.props.Board.SurfaceCFrame.RightVector
+	local vector = pos - self.props.Board.SurfaceCFrame.Position
 	local strafeDistance = boardRightVector:Dot(vector)
 
 	local normalDistance = distanceToBoard(self, pos)
 	
 	return (- 5 * self.PenActiveDistance <= normalDistance) and (normalDistance <= self.PenActiveDistance)
-		and math.abs(strafeDistance) <= self.props.CanvasSize.X/2 + 5
+		and math.abs(strafeDistance) <= self.props.Board.SurfaceSize.X/2 + 5
 end
 
 return function (self)
@@ -96,7 +96,7 @@ return function (self)
 			if inRange(self,boardTool.Handle.Attachment.WorldPosition) then
 				self.ActiveStroke = true
 				self:setState(function(state)
-					return toolFunctions.ToolDown(self, state, toScalar(boardTool.Handle.Attachment.WorldPosition, self.props.CanvasCFrame, self.props.CanvasSize))
+					return toolFunctions.ToolDown(self, state, toScalar(boardTool.Handle.Attachment.WorldPosition, self.props.Board.SurfaceCFrame, self.props.Board.SurfaceSize))
 				end)
 			end
 
@@ -106,13 +106,13 @@ return function (self)
 				if inRange(self,penPos) then
 					if self.ActiveStroke then
 						self:setState(function(state)
-							return toolFunctions.ToolMoved(self, state, toScalar(penPos, self.props.CanvasCFrame, self.props.CanvasSize))
+							return toolFunctions.ToolMoved(self, state, toScalar(penPos, self.props.Board.SurfaceCFrame, self.props.Board.SurfaceSize))
 						end)
 					else
 					
 						self.ActiveStroke = true
 						self:setState(function(state)
-							return toolFunctions.ToolDown(self, state, toScalar(penPos, self.props.CanvasCFrame, self.props.CanvasSize))
+							return toolFunctions.ToolDown(self, state, toScalar(penPos, self.props.Board.SurfaceCFrame, self.props.Board.SurfaceSize))
 						end)
 					end
 				
