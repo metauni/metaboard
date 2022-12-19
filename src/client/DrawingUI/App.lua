@@ -10,11 +10,14 @@ local Common = game:GetService("ReplicatedStorage").metaboardCommon
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
+local Client = script.Parent.Parent
 
 -- Imports
 local Config = require(Common.Config)
 local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
+local Feather = require(Common.Packages.Feather)
+local FrameCanvas = require(Client.FrameCanvas)
 local DrawingTask = require(Common.DrawingTask)
 local ToolService = require(script.Parent.ToolService)
 local Sift = require(Common.Packages.Sift)
@@ -34,7 +37,6 @@ local Components = script.Parent.Components
 local ConstrainedBox = require(Components.ConstrainedBox)
 local CanvasIO = require(Components.CanvasIO)
 local GuiBoardViewer = require(Components.GuiBoardViewer)
-local WorkspaceBoardViewer = require(Components.WorkspaceBoardViewer)
 local Toolbar = require(Components.Toolbar)
 local Cursor = require(Components.Cursor)
 local ConfirmClearModal = require(Components.ConfirmClearModal)
@@ -55,9 +57,6 @@ local App = Roact.PureComponent:extend("App")
 function App:init()
 
 	self.ToolPosBinding, self.SetToolPos = Roact.createBinding(UDim2.fromOffset(0,0))
-
-	
-
 	local canWrite = Players.LocalPlayer:GetAttribute("metaadmin_canwrite") ~= false
 
 	self:setState({
@@ -72,7 +71,66 @@ function App:init()
 	})
 end
 
+local function getCanvasProps(props, state)
+	
+	local figureMaskBundles = {}
+	local allFigures = table.clone(props.Figures)
+
+	for taskId, drawingTask in pairs(props.DrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
+		end
+	end
+
+	for taskId, drawingTask in pairs(state.UnverifiedDrawingTasks) do
+
+		if drawingTask.Type == "Erase" then
+			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+			for figureId, figureMask in pairs(figureIdToFigureMask) do
+				local bundle = figureMaskBundles[figureId] or {}
+				bundle[taskId] = figureMask
+				figureMaskBundles[figureId] = bundle
+			end
+
+		else
+
+			allFigures[taskId] = DrawingTask.Render(drawingTask)
+		end
+	end
+
+	return {
+
+		Figures = allFigures,
+
+		FigureMaskBundles = figureMaskBundles,
+
+		CanvasAbsolutePosition = state.CanvasAbsolutePosition,
+		CanvasAbsoluteSize = state.CanvasAbsoluteSize,
+
+		Board = props.Board,
+
+		ZIndex = 1,
+	}
+end
+
 function App:didMount()
+
+	self.Canvas = Feather.mount(
+
+		Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)),
+		Players.LocalPlayer.PlayerGui,
+		"metaboardGuiCanvas"
+	)
 
 	--[[
 		Hide all the core gui except the chat button (so badge notifications are
@@ -140,6 +198,19 @@ function App:didMount()
 	end)
 end
 
+function App:willUpdate(nextProps, nextState)
+
+	if 
+		nextState.UnverifiedDrawingTasks ~= self.state.UnverifiedDrawingTasks
+		or nextProps.Figures ~= self.props.Figures
+		or nextProps.DrawingTasks ~= self.props.DrawingTasks
+		or nextState.CanvasAbsolutePosition ~= self.state.CanvasAbsolutePosition
+		or nextState.CanvasAbsoluteSize ~= self.state.CanvasAbsoluteSize then
+
+		Feather.update(self.Canvas, Feather.createElement(FrameCanvas, getCanvasProps(nextProps, nextState)))
+	end
+end
+
 function App:willUnmount()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
 
@@ -168,6 +239,8 @@ function App:willUnmount()
 
 	self.ToolQueue.Destroy()
 	self.permissionConnection:Disconnect()
+
+	Feather.unmount(self.Canvas)
 end
 
 function App:SetToolState(toolState)
@@ -376,55 +449,7 @@ function App:render()
 		end,
 	})
 
-	local figureMaskBundles = {}
-	local allFigures = table.clone(self.props.Figures)
-
-	for taskId, drawingTask in pairs(self.props.DrawingTasks) do
-
-		if drawingTask.Type == "Erase" then
-			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
-			for figureId, figureMask in pairs(figureIdToFigureMask) do
-				local bundle = figureMaskBundles[figureId] or {}
-				bundle[taskId] = figureMask
-				figureMaskBundles[figureId] = bundle
-			end
-
-		else
-
-			allFigures[taskId] = DrawingTask.Render(drawingTask)
-		end
-	end
-
-	for taskId, drawingTask in pairs(self.state.UnverifiedDrawingTasks) do
-
-		if drawingTask.Type == "Erase" then
-			local figureIdToFigureMask = DrawingTask.Render(drawingTask)
-			for figureId, figureMask in pairs(figureIdToFigureMask) do
-				local bundle = figureMaskBundles[figureId] or {}
-				bundle[taskId] = figureMask
-				figureMaskBundles[figureId] = bundle
-			end
-
-		else
-
-			allFigures[taskId] = DrawingTask.Render(drawingTask)
-		end
-	end
-
-	local BoardViewerComponent do
-		local comp = {
-			Workspace = WorkspaceBoardViewer,
-			Gui = GuiBoardViewer,
-		}
-
-		BoardViewerComponent = comp[self.props.BoardViewMode]
-	end
-
-	local boardViewer = self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize and e(BoardViewerComponent, {
-
-		Figures = allFigures,
-
-		FigureMaskBundles = figureMaskBundles,
+	local boardViewer = self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize and e(GuiBoardViewer, {
 
 		CanvasAbsolutePosition = self.state.CanvasAbsolutePosition,
 		CanvasAbsoluteSize = self.state.CanvasAbsoluteSize,

@@ -18,12 +18,12 @@ local Sift = require(Common.Packages.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Components
-local PartCanvas = require(script.Parent.Parent.PartCanvas)
+local WrapPartCanvas = require(script.Parent.Parent.WrapPartCanvas)
 local CanvasViewport = require(script.Parent.CanvasViewport)
 local BoardStatView = require(script.Parent.BoardStatView)
 
 -- Helper Functions
-local VRIO = require(script.Parent.VRIO)
+local VRIO = require(script.Parent.MockVRIO)
 local merge = Dictionary.merge
 
 -- Drawing Tools
@@ -292,7 +292,7 @@ function SurfaceCanvas:render()
 		end
 	end
 
-	local partFigures = e(PartCanvas, {
+	local partFigures = e(WrapPartCanvas, {
 
 		Figures = allFigures,
 		FigureMaskBundles = figureMaskBundles,
