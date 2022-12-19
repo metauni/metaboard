@@ -20,7 +20,6 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
 -- Helper Functions
 local setActive = require(script.setActive)
-local setDormant = require(script.setDormant)
 local setDead = require(script.setDead)
 local kNearest = require(script.kNearest)
 local visibilityDot = require(script.visibilityDot)
@@ -132,7 +131,6 @@ function ViewStateManager:_reconcileBoards(boardToViewStatus)
 
 	local viewStateSetter = {
 		Active = setActive,
-		Dormant = setDormant,
 		Dead = setDead,
 	}
 
@@ -157,7 +155,6 @@ end
 function ViewStateManager:RefreshViewStates()
 	local viewStateSetter = {
 		Active = setActive,
-		Dormant = setDormant,
 		Dead = setDead,
 	}
 

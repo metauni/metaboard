@@ -17,13 +17,11 @@ local Roact: Roact = require(Common.Packages.Roact)
 local e = Roact.createElement
 
 -- Components
-local FrameCanvas = require(Client.FrameCanvas)
 local BoardViewport = require(script.BoardViewport)
 
 --[[
 	Board viewer consisting of:
 		- ViewportFrame that shows a clone of the empty board
-		- Canvas showing figures made out of ScreenGui's and Frame objects
 		- A part positioned to block the spatial-audio mute toggle, which otherwise
 			captures any user input inside its boundaries. See bug report here:
 			https://devforum.roblox.com/t/spatial-voice-icons-can-be-clicked-while-behind-gui-objects/1649049
@@ -144,22 +142,6 @@ function GuiBoardViewer:render()
 		CFrame = self.blockerCFrameBinding,
 	})
 
-	-- Shows the figures as frames gathered in surface guis.
-	local canvas = e(FrameCanvas, {
-
-		Figures = self.props.Figures,
-
-		FigureMaskBundles = self.props.FigureMaskBundles,
-
-		CanvasAbsolutePosition = self.props.CanvasAbsolutePosition,
-		CanvasAbsoluteSize = self.props.CanvasAbsoluteSize,
-
-		-- Surface guis are used in each figure which globally resets ZIndexing
-		-- inside that surfaceGui, but they are all shifted up by this value so that
-		-- we can fit things underneath all of them.
-		ZIndex = 1,
-	})
-
 	-- Display a cloned instance of an empty board in a viewport frame.
 	local boardViewport = e(BoardViewport, {
 
@@ -173,8 +155,6 @@ function GuiBoardViewer:render()
 	})
 
 	return e("Folder", {}, {
-
-		Canvas = canvas,
 
 		BoardViewport = boardViewport,
 

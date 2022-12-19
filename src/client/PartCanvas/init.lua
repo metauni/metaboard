@@ -1,117 +1,57 @@
--- --[[
--- This Source Code Form is subject to the terms of the Mozilla Public
--- License, v. 2.0. If a copy of the MPL was not distributed with this
--- file, You can obtain one at https://mozilla.org/MPL/2.0/.
--- --]]
-
---!strict
-
 -- Services
 local Common = game:GetService("ReplicatedStorage").metaboardCommon
 
 -- Imports
 local Config = require(Common.Config)
-local Roact: Roact = require(Common.Packages.Roact)
-local e = Roact.createElement
-local Figure = require(Common.Figure)
-local Sift = require(Common.Packages.Sift)
+local Feather = require(Common.Packages.Feather)
 
--- Dictionary Operations
-local merge = Sift.Dictionary.merge
+-- Components
+local Curve = require(script.Curve)
 
-local _LineComponent = require(script.Line)
+return function(props, oldProps)
+	
+	local deltaChildren = {}
 
--- FigureComponents
-local FigureComponent = {
-	Curve = require(script.SectionedCurve),
-	Line = (function()
+	local changeAll =
+		oldProps.Figures == nil
+		or
+		props.CanvasCFrame ~= oldProps.CanvasCFrame
+		or
+		props.CanvasSize ~= oldProps.CanvasSize
 
-		return function(props)
-			return e(_LineComponent, merge(props, {
-
-				RoundedP0 = true,
-				RoundedP1 = true,
-
-			}))
+	for figureId, figure in props.Figures do
+		
+		if
+			changeAll
+			or
+			figure ~= oldProps[figureId]
+			or
+			props.FigureMaskBundles[figureId] ~= oldProps.FigureMaskBundles[figureId] then
+			
+			deltaChildren[figureId] = Feather.createElement(Curve, {
+	
+				Curve = figure,
+				Masks = props.FigureMaskBundles[figureId],
+				CanvasSize = props.CanvasSize,
+				CanvasCFrame = props.CanvasCFrame,
+			})
 		end
 
-	end)(),
-	Circle = require(script.Circle),
-}
-
-local PureFigure = Roact.Component:extend("PureFigure")
-
-function PureFigure:render()
-	local figure = self.props.Figure
-
-	local cummulativeMask = Figure.MergeMask(figure.Type, figure.Mask)
-
-	for eraseTaskId, figureMask in pairs(self.props.FigureMasks) do
-		cummulativeMask = Figure.MergeMask(figure.Type, cummulativeMask, figureMask)
 	end
 
-	return e(FigureComponent[self.props.Figure.Type],
-
-
-		merge(self.props.Figure, {
-			CanvasSize = self.props.CanvasSize,
-			CanvasCFrame = self.props.CanvasCFrame,
-
-			Mask = cummulativeMask,
-		})
-
-	)
-end
-
-function PureFigure:shouldUpdate(nextProps, nextState)
-	local shortcut =
-	nextProps.Figure ~= self.props.Figure or
-	nextProps.CanvasSize ~= self.props.CanvasSize or
-	nextProps.CanvasCFrame ~= self.props.CanvasCFrame or
-	nextProps.ZIndexOffset ~= self.props.ZIndexOffset
-
-	if shortcut then
-		return true
-	else
-		-- Check if any new figure masks are different or weren't there before
-		for eraseTaskId, figureMask in pairs(nextProps.FigureMasks) do
-			if figureMask ~= self.props.FigureMasks[eraseTaskId] then
-				return true
+	if oldProps.Figures then
+		
+		for figureId, figure in oldProps.Figures do
+			
+			if not props.Figures[figureId] then
+				
+				deltaChildren[figureId] = Feather.SubtractChild
 			end
 		end
-
-		-- Check if any old figure masks are now different or gone
-		for eraseTaskId, figureMask in pairs(self.props.FigureMasks) do
-			if figureMask ~= nextProps.FigureMasks[eraseTaskId] then
-				return true
-			end
-		end
-
-		return false
-	end
-end
-
-return function (props)
-	assert(props.CanvasCFrame)
-
-	local pureFigures = {}
-
-	for figureId, figure in pairs(props.Figures) do
-
-		pureFigures[figureId] = e(PureFigure, {
-
-			Figure = figure,
-			FigureMasks = props.FigureMaskBundles[figureId] or {},
-			CanvasSize = props.CanvasSize,
-			CanvasCFrame = props.CanvasCFrame,
-
-		})
 	end
 
-	if props.AsFragment then
-		return Roact.createFragment(pureFigures)
-	else
-		return e("Folder", {}, pureFigures)
-	end
+	return Feather.createElement("Model", {
 
+		[Feather.DeltaChildren] = deltaChildren
+	})
 end
