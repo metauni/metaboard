@@ -351,17 +351,35 @@ return function(props, oldProps)
 			if not (mergedMask and mergedMask[tostring(i)]) then
 				
 				deltaChildren[tostring(i)] = curveLine(i, props.Curve, mergedMask, props.CanvasCFrame, props.CanvasSize)
+
+				if i==#props.Curve.Points-1 then
+					
+					deltaChildren["CurveEndCircle"] = circle({
+
+						props.Curve.Points[#props.Curve.Points],
+						props.Curve.Color,
+						props.Curve.Width,
+						props.Curve.ZIndex,
+						props.CanvasSize,
+						props.CanvasCFrame,
+					})
+				end
 			
 			-- Subtract if there was a previously rendered curve and this line was visible
 			elseif oldProps.Curve and not (oldMergedMask and oldMergedMask[tostring(i)]) then
 			
 				deltaChildren[tostring(i)] = Feather.SubtractChild
+
+				if i==#props.Curve.Points-1 then
+					
+					deltaChildren["CurveEndCircle"] = Feather.SubtractChild
+				end
 			end
 		end
 	end
 
 	return e("Folder", {
 
-		[Feather.DeltaChildren] = deltaChildren
+		[Feather.DeltaChildren] = deltaChildren,
 	})
 end

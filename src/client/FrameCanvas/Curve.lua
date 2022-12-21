@@ -298,6 +298,7 @@ return function(props, oldProps)
 		oldProps.CanvasAbsoluteSize ~= props.CanvasAbsoluteSize
 
 	local sections = {}
+	local curveEndCircle = nil
 
 	for i=1, maxPoints-1 do
 
@@ -327,6 +328,21 @@ return function(props, oldProps)
 				
 				section[tostring(i)] = curveLine(i, props.Curve, mergedMask, props.CanvasAbsolutePosition, props.CanvasAbsoluteSize)
 			
+				if i==#props.Curve.Points-1 then
+					
+					curveEndCircle = rectangle({
+
+						props.Curve.Points[#props.Curve.Points] - Vector2.new(props.Curve.Width/2, 0),
+						props.Curve.Points[#props.Curve.Points] + Vector2.new(props.Curve.Width/2, 0),
+						true, -- rounded
+						props.Curve.Color,
+						props.Curve.Width,
+						props.Curve.ZIndex,
+						props.CanvasAbsolutePosition,
+						props.CanvasAbsoluteSize,
+					})
+				end
+
 			-- Subtract if there was a previously rendered curve and this line was visible
 			elseif oldProps.Curve and not (oldMergedMask and oldMergedMask[tostring(i)]) then
 
@@ -335,6 +351,11 @@ return function(props, oldProps)
 				sections[tostring(isection)] = section
 				
 				section[tostring(i)] = Feather.SubtractChild
+
+				if i==#props.Curve.Points-1 then
+					
+					curveEndCircle = Feather.SubtractChild
+				end
 			end
 		end
 	end
@@ -354,6 +375,28 @@ return function(props, oldProps)
 		})
 	end
 
+	if curveEndCircle then
+		
+		if curveEndCircle == Feather.SubtractChild then
+			
+			deltaChildren["CurveEndCircleGui"] = Feather.SubtractChild
+		else
+
+			deltaChildren["CurveEndCircleGui"] = e("ScreenGui", {
+
+				[Feather.Children] = {
+					
+					Circle = curveEndCircle,
+				},
+				[Feather.HostInitProps] = {
+	
+					DisplayOrder = props.Curve.ZIndex + props.ZIndexOffset,
+					IgnoreGuiInset = true,
+				}
+			})
+		end
+	end
+
 	return e("ScreenGui", {
 
 		[Feather.HostInitProps] = {
@@ -363,20 +406,5 @@ return function(props, oldProps)
 		},
 
 		[Feather.DeltaChildren] = deltaChildren,
-
-		[Feather.Children] = not (mergedMask and mergedMask[tostring(#props.Curve.Points-1)]) and {
-
-			CurveEndCircle = rectangle({
-
-				props.Curve.Points[#props.Curve.Points] - Vector2.new(props.Curve.Width/2, 0),
-				props.Curve.Points[#props.Curve.Points] + Vector2.new(props.Curve.Width/2, 0),
-				true, -- rounded
-				props.Curve.Color,
-				props.Curve.Width,
-				props.Curve.ZIndex,
-				props.CanvasAbsolutePosition,
-				props.CanvasAbsoluteSize,
-			})
-		} or nil,
 	})
 end
