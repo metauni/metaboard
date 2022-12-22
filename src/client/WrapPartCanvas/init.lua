@@ -44,7 +44,7 @@ end
 
 function WrapPartCanvas:willUnmount()
 
-	Feather.umount(self.Canvas)
+	Feather.unmount(self.Canvas)
 end
 
 return WrapPartCanvas
