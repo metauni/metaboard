@@ -23,7 +23,7 @@ local CanvasViewport = require(script.Parent.CanvasViewport)
 local BoardStatView = require(script.Parent.BoardStatView)
 
 -- Helper Functions
-local VRIO = require(script.Parent.MockVRIO)
+local VRIO = require(script.Parent.VRIO)
 local merge = Dictionary.merge
 
 -- Drawing Tools
