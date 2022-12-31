@@ -32,7 +32,7 @@ end
 
 function Erase.EraseTouched(drawingTask, board, canvasPos: Vector2)
 
-	local DrawingTask = require(Common.DrawingTask)
+	local DrawingTask = require(script.Parent)
 
 	local changedMasks = {}
 
@@ -106,7 +106,7 @@ function Erase.Undo(drawingTask, board)
 	
 	if drawingTask.Verified then
 
-		local DrawingTask = require(Common.DrawingTask)
+		local DrawingTask = require(script.Parent)
 
 		local affectedFigures = {}
 

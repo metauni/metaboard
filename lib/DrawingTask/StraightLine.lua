@@ -8,6 +8,7 @@
 
 -- Imports
 local root = script.Parent.Parent
+local Config = require(root.Config)
 local Figure = require(root.Figure)
 local Sift = require(root.Parent.Sift)
 
@@ -139,7 +140,7 @@ function StraightLine.Redo(drawingTask, board)
 			end
 		end
 
-		board.EraseGrid:AddLine(drawingTask.Id, singletonMaskedFigure[drawingTask.Id])
+		board.EraseGrid:AddCurve(drawingTask.Id, singletonMaskedFigure[drawingTask.Id])
 	end
 
 	return drawingTask

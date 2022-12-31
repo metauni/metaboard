@@ -1,4 +1,5 @@
 std = "roblox"
+exclude = ["Packages"]
 
 [rules]
 unused_variable = "allow"
