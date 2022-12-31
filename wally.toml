@@ -1,0 +1,11 @@
+[package]
+name = "blinkybool/testpackage"
+version = "0.1.1-rc4"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+Feather = "blinkybool/feather@0.1.0"
+Roact = "roblox/roact@1.4.4"
+Sift = "csqrl/sift@0.0.4"
+GoodSignal = "stravant/goodsignal@0.2.1"

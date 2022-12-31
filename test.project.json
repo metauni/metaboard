@@ -1,38 +1,19 @@
 {
-	"name": "metaboard",
-	"tree": {
-		"$className": "DataModel",
+  "name": "testpackage",
+  "tree": {
+    "$path": "Packages",
+    "$className": "ModuleScript",
 
-		"ReplicatedStorage": {
-			"$ignoreUnknownInstances": true,
-			"$className": "ReplicatedStorage",
+    "$properties": {
+      "Source": "return require(script.lib)"
+    },
 
-			"metaboardCommon": {
-				"$path": "src/common",
+    "lib": {
+      "$path": "lib",
 
-				"Packages": {
-					"$path": "packages",
-
-					"Render": {
-						"$path": "../render/lib"
-					}
-				},
-
-				"Assets": {
-					"$path": "assets/Assets.lua"
-				}
-			},
-			
-			"metaboard": {
-				"$path": "src/server",
-		
-		
-				"metaboardPlayer" : {
-					"$path": "src/client"
-				}
-		
-			}
-		}
-
-	}
+      "Assets": {
+        "$path": "assets/Assets.lua"
+      }
+    }
+  }
 }
