@@ -15,7 +15,7 @@ local Sift = require(root.Parent.Sift)
 local Dictionary = Sift.Dictionary
 
 -- Drawing Tools
-local DrawingTools = root.DrawingTools
+local DrawingTools = script.Parent.Parent.DrawingTools
 local Pen = require(DrawingTools.Pen)
 local StraightEdge = require(DrawingTools.StraightEdge)
 local Eraser = require(DrawingTools.Eraser)

@@ -7,7 +7,7 @@
 -- Imports
 local root = script.Parent.Parent
 local Config = require(root.Config)
-local DrawingTools = root.DrawingTools
+local DrawingTools = script.Parent.DrawingTools
 
 -- Globals
 local _toolState = nil
