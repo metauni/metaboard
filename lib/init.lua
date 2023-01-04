@@ -8,4 +8,5 @@ return {
 	Config = require(script.Config),
 	Board = require(script.Board),
 	Persistence = require(script.Persistence),
+	Figure = require(script.Figure)
 }
