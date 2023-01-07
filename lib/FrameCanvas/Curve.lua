@@ -201,9 +201,9 @@ return function(props, oldProps)
 		-- mask will make this false (which is a good thing!)
 		oldProps.Curve == props.Curve 
 		and 
-		oldProps.CanvasSize == props.CanvasSize
+		oldProps.CanvasAbsoluteSize == props.CanvasAbsoluteSize
 		and 
-		oldProps.CanvasCFrame == props.CanvasCFrame then
+		oldProps.CanvasAbsolutePosition == props.CanvasAbsolutePosition then
 
 		if oldProps.Masks == props.Masks then
 			
