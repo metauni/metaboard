@@ -198,16 +198,32 @@ function App:didMount()
 	end)
 end
 
-function App:willUpdate(nextProps, nextState)
+function App:didUpdate(prevProps, prevState)
 
 	if 
-		nextState.UnverifiedDrawingTasks ~= self.state.UnverifiedDrawingTasks
-		or nextProps.Figures ~= self.props.Figures
-		or nextProps.DrawingTasks ~= self.props.DrawingTasks
-		or nextState.CanvasAbsolutePosition ~= self.state.CanvasAbsolutePosition
-		or nextState.CanvasAbsoluteSize ~= self.state.CanvasAbsoluteSize then
+		prevState.UnverifiedDrawingTasks ~= self.state.UnverifiedDrawingTasks
+		or prevProps.Figures ~= self.props.Figures
+		or prevProps.DrawingTasks ~= self.props.DrawingTasks
+		or prevState.CanvasAbsolutePosition ~= self.state.CanvasAbsolutePosition
+		or prevState.CanvasAbsoluteSize ~= self.state.CanvasAbsoluteSize then
 
-		Feather.update(self.Canvas, Feather.createElement(FrameCanvas, getCanvasProps(nextProps, nextState)))
+		if self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize then
+	
+			-- This crashes Roblox if not deferred :/
+			task.defer(function()
+				
+				if self.Canvas then
+					Feather.update(self.Canvas, Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)))
+				else
+					
+					self.Canvas = Feather.mount(
+						Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)),
+						Players.LocalPlayer.PlayerGui,
+						"metaboardGuiCanvas"
+					)
+				end
+			end)
+		end
 	end
 end
 
