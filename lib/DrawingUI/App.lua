@@ -125,12 +125,15 @@ end
 
 function App:didMount()
 
-	self.Canvas = Feather.mount(
-
-		Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)),
-		Players.LocalPlayer.PlayerGui,
-		"metaboardGuiCanvas"
-	)
+	if self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize then
+		
+		-- This crashes Roblox if not deferred :/
+		self.Canvas = Feather.mount(
+			Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)),
+			Players.LocalPlayer.PlayerGui,
+			"metaboardGuiCanvas"
+		)
+	end
 
 	--[[
 		Hide all the core gui except the chat button (so badge notifications are
@@ -209,20 +212,19 @@ function App:didUpdate(prevProps, prevState)
 
 		if self.state.CanvasAbsolutePosition and self.state.CanvasAbsoluteSize then
 	
-			-- This crashes Roblox if not deferred :/
-			task.defer(function()
+			if self.Canvas then
+				Feather.update(self.Canvas, Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)))
+			else
 				
-				if self.Canvas then
-					Feather.update(self.Canvas, Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)))
-				else
-					
+				-- This crashes Roblox if not deferred :/
+				task.defer(function()
 					self.Canvas = Feather.mount(
 						Feather.createElement(FrameCanvas, getCanvasProps(self.props, self.state)),
 						Players.LocalPlayer.PlayerGui,
 						"metaboardGuiCanvas"
 					)
-				end
-			end)
+				end)
+			end
 		end
 	end
 end
