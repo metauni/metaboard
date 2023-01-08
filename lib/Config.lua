@@ -179,7 +179,7 @@ Config.History = {
 }
 
 Config.VR = {
-	PenToolName = "MetaChalk"
+	PenToolName = "Chalk"
 }
 
 local PlaceConfigScript = game:GetService("ReplicatedStorage"):FindFirstChild("metaboardPlaceConfig")

@@ -318,7 +318,7 @@ return function(props, oldProps)
 			or
 			oldProps.Curve.Points[i-1] ~= props.Curve.Points[i-1] then
 
-			if not (mergedMask and mergedMask[tostring(i)]) then
+			if not (mergedMask and mergedMask[tostring(i)]) and i+1 <= #props.Curve.Points then
 				
 				local isection = math.floor((i-1) / SECTION_LENGTH) + 1
 				local section = sections[tostring(isection)] or {}
@@ -342,7 +342,7 @@ return function(props, oldProps)
 				end
 
 			-- Subtract if there was a previously rendered curve and this line was visible
-			elseif oldProps.Curve and not (oldMergedMask and oldMergedMask[tostring(i)]) then
+			elseif oldProps.Curve and not (oldMergedMask and oldMergedMask[tostring(i)]) and i+1 <= #oldProps.Curve.Points then
 
 				local isection = math.floor((i-1) / SECTION_LENGTH) + 1
 				local section = sections[tostring(isection)] or {}
