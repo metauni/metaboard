@@ -11,5 +11,5 @@
 
 *.DS_Store
 
-Packages
+Packages/**
 wally.lock
