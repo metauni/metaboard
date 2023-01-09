@@ -201,6 +201,10 @@ end
 --]]
 
 function Board:ProcessInitDrawingTask(authorId: string, drawingTask, canvasPos: Vector2)
+
+	if not drawingTask then
+		error(("[metaboard] Tried to init nil Drawing Task\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
 	
 	-- Get or create the player history for this player
 	local playerHistory = self.PlayerHistories[authorId] or History.new(Config.History.Capacity)
@@ -249,12 +253,18 @@ end
 
 function Board:ProcessUpdateDrawingTask(authorId: string, canvasPos: Vector2)
 
-	local drawingTask = self.PlayerHistories[authorId]:MostRecent()
-	assert(drawingTask)
+	local playerHistory = self.PlayerHistories[authorId]
+	if not playerHistory then
+		error(("[metaboard] Tried to update drawing task of player with no history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
+
+	local drawingTask = playerHistory:MostRecent()
+	if not drawingTask then
+		error(("[metaboard] Tried to update non-existent drawing task\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
 
 	local updatedDrawingTask = DrawingTask.Update(drawingTask, self, canvasPos)
 
-	local playerHistory = self.PlayerHistories[authorId]
 	playerHistory:SetMostRecent(updatedDrawingTask)
 
 	self.DrawingTasks = Dictionary.set(self.DrawingTasks, updatedDrawingTask.Id, updatedDrawingTask)
@@ -264,12 +274,18 @@ end
 
 function Board:ProcessFinishDrawingTask(authorId: string)
 	
-	local drawingTask = self.PlayerHistories[authorId]:MostRecent()
-	assert(drawingTask)
+	local playerHistory = self.PlayerHistories[authorId]
+	if not playerHistory then
+		error(("[metaboard] Tried to finish drawing task of player with no history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
+
+	local drawingTask = playerHistory:MostRecent()
+	if not drawingTask then
+		error(("[metaboard] Tried to finish non-existent drawing task\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
 
 	local finishedDrawingTask = Dictionary.set(DrawingTask.Finish(drawingTask, self), "Finished", true)
 
-	local playerHistory = self.PlayerHistories[authorId]
 	playerHistory:SetMostRecent(finishedDrawingTask)
 
 	self.DrawingTasks = Dictionary.set(self.DrawingTasks, finishedDrawingTask.Id, finishedDrawingTask)
@@ -280,14 +296,14 @@ end
 function Board:ProcessUndo(authorId: string)
 
 	local playerHistory = self.PlayerHistories[authorId]
-
-	if playerHistory == nil or playerHistory:CountPast() < 1 then
-		error("Cannot undo, past empty")
-		return
+	if not playerHistory then
+		error(("[metaboard] Tried to perform undo for player with no history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
+	if playerHistory:CountPast() < 1 then
+		error(("[metaboard] Tried to perform undo for player with empty history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
 	end
 	
 	local drawingTask = playerHistory:StepBackward()
-	assert(drawingTask)
 
 	DrawingTask.Undo(drawingTask, self)
 
@@ -299,14 +315,14 @@ end
 function Board:ProcessRedo(authorId: string)
 	
 	local playerHistory = self.PlayerHistories[authorId]
-
-	if playerHistory == nil or playerHistory:CountFuture() < 1 then
-		error("Cannot redo, future empty")
-		return
+	if not playerHistory then
+		error(("[metaboard] Tried to perform redo for player with no history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
 	end
-
+	if playerHistory:CountFuture() < 1 then
+		error(("[metaboard] Tried to perform redo for player with empty history\nBoard Name: %s, authorId: %s"):format(self:FullName(), authorId))
+	end
+	
 	local drawingTask = playerHistory:StepForward()
-	assert(drawingTask)
 
 	self.DrawingTasks = Dictionary.set(self.DrawingTasks, drawingTask.Id, drawingTask)
 
