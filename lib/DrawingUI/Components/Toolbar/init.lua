@@ -218,9 +218,41 @@ function Toolbar:render()
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = UDim2.new(1, 25, 0.5, 0)
 			}),
+
+			UIScale = e("UIScale", {
+				Scale = self.scaleBinding
+			})
 		}
 	})
 
+end
+
+function Toolbar:getScale()
+	
+	local toolbarLength = self.props.ToolMenuWidth + self.props.StrokeMenuWidth + self.props.HistoryMenuWidth + 6
+
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return 1
+	end
+	local viewportSize = camera.ViewportSize
+	local scale = viewportSize.X / (toolbarLength + 250)
+	
+	return math.min(1, scale)
+end
+
+function Toolbar:init()
+	self.scaleBinding, self.setScale = Roact.createBinding(self:getScale())
+end
+
+function Toolbar:didMount()
+	self.conn = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		self.setScale(self:getScale())
+	end)
+end
+
+function Toolbar:willUnmount()
+	self.conn:Disconnect()
 end
 
 function Toolbar:ColoredStrokeMenu()

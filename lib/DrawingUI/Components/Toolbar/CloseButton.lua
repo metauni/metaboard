@@ -54,6 +54,7 @@ function CloseButton:render()
 		Position = position,
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 		BackgroundTransparency = 1,
+		ZIndex = self.props.ZIndex,
 
 		[Roact.Children] = {
 			iconButton
