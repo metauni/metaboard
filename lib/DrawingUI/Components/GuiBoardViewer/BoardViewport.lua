@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 -- --[[
 -- This Source Code Form is subject to the terms of the Mozilla Public
 -- License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -48,24 +49,47 @@ function BoardViewport:init()
 end
 
 function BoardViewport:didMount()
-	self.boardInstanceClone = self.props.Board._instance:Clone()
-	self.boardInstanceClone.Parent = self.VpfRef:getValue()
+
+	-- If the board is inside a model, clone the model
+	local instance: Part = self.props.Board._instance
+	local wholeBoard = instance
+	if instance.Parent:IsA("Model") and instance.Parent.PrimaryPart == instance then
+		wholeBoard = instance.Parent
+	end
+
+	self._wholeBoardClone = wholeBoard:Clone()
+	
+	-- Take off the tags
+	for _, desc in self._wholeBoardClone:GetDescendants() do
+		for _, tag in CollectionService:GetTags(desc) do
+			CollectionService:RemoveTag(desc, tag)
+		end
+	end
+
+	self._wholeBoardClone.Parent = self.VpfRef:getValue()
 end
 
 function BoardViewport:willUnmount()
-	self.boardInstanceClone:Destroy()
-	self.boardInstanceClone = nil
+	self._wholeBoardClone:Destroy()
+	self._wholeBoardClone = nil
 end
 
 function BoardViewport:render()
 
+	local toCamCFrame = boardToCameraCFrame(
+		self.props.Board.SurfaceSize.Y,
+		workspace.CurrentCamera.ViewportSize,
+		self.props.TargetAbsolutePosition,
+		self.props.TargetAbsoluteSize,
+		self.props.FieldOfView
+	)
+
 	local cam = e("Camera", {
 
 		FieldOfView = self.props.FieldOfView,
-		CFrame = self.props.Board.SurfaceCFrame * boardToCameraCFrame(self.props.Board.SurfaceSize.Y, workspace.CurrentCamera.ViewportSize, self.props.TargetAbsolutePosition, self.props.TargetAbsoluteSize, self.props.FieldOfView),
+		CFrame = self.props.Board.SurfaceCFrame * toCamCFrame,
 
 		[Roact.Ref] = self.CamRef,
-
 	})
 
 	return e("ViewportFrame", {

@@ -147,7 +147,7 @@ local fetchers = {
 				local lines = curveData.Lines
 				local zIndex = curveData.ZIndex
 
-				assert(#lines > 0)
+				assert(#lines > 0, "[metaboard] Badly formatted legacy board data")
 				local points = table.create(#lines+1)
 				typeCheckSerialised.Point(lines[1].Start)
 				typeCheckSerialised.Point(lines[1].Stop)

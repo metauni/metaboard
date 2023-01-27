@@ -59,7 +59,7 @@ function StraightLine.Init(drawingTask, board, canvasPos: Vector2)
 	return set(drawingTask, "Curve", newLine)
 end
 
-function StraightLine.Update(drawingTask, board, canvasPos: Vector2)
+function StraightLine.Update(drawingTask, _board, canvasPos: Vector2)
 
 	local newPoints = Array.set(drawingTask.Curve.Points, 2, canvasPos)
 
@@ -134,7 +134,7 @@ function StraightLine.Redo(drawingTask, board)
 
 		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Curve }
 
-		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+		for _, otherDrawingTask in pairs(board.DrawingTasks) do
 			if otherDrawingTask.Type == "Erase" then
 				singletonMaskedFigure = DrawingTask.Commit(otherDrawingTask, singletonMaskedFigure)
 			end

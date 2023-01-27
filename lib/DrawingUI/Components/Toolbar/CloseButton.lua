@@ -9,8 +9,6 @@ local root = script.Parent.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
 local e = Roact.createElement
 
-local Assets = require(root.Assets)
-
 local CloseButton = Roact.PureComponent:extend("CloseButton")
 
 CloseButton.defaultProps = {

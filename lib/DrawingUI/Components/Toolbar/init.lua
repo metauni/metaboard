@@ -11,13 +11,9 @@ local e = Roact.createElement
 
 local Config = require(root.Config)
 local Assets = require(root.Assets)
-local Sift = require(root.Parent.Sift)
-local Dictionary = Sift.Dictionary
 
 -- Drawing Tools
 local DrawingTools = script.Parent.Parent.DrawingTools
-local Pen = require(DrawingTools.Pen)
-local StraightEdge = require(DrawingTools.StraightEdge)
 local Eraser = require(DrawingTools.Eraser)
 
 -- Components

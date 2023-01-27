@@ -12,7 +12,7 @@
 	position to a unique 1D index.
 ]]
 
-return function(width: number, height: number)
+return function(width: number, _height: number)
 	local gridSet = {}
 	
 	local function getIndex(x: number, y: number)

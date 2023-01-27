@@ -6,20 +6,11 @@
 
 -- Imports
 local root = script.Parent.Parent
-local Config = require(root.Config)
 local Feather = require(root.Parent.Feather)
 
 local e = Feather.createElement
 
 local SECTION_LENGTH = 256
-
-local function lerp(a, b, t)
-	if t < 0.5 then
-		return a + (b - a) * t
-	else
-		return b - (b - a) * (1 - t)
-	end
-end
 
 local frameInitProps = {
 	
@@ -29,9 +20,7 @@ local frameInitProps = {
 
 local function rectangle(props)
 
-	local p0, p1, rounded, color, width, zIndex, canvasAbsolutePosition, CanvasAbsoluteSize = unpack(props)
-
-	local aspectRatio = CanvasAbsoluteSize.X / CanvasAbsoluteSize.Y
+	local p0, p1, rounded, color, width, _zIndex, canvasAbsolutePosition, CanvasAbsoluteSize = unpack(props)
 
 	local length = (p0 - p1).Magnitude
 	local centre = (p0 + p1)/2
@@ -254,7 +243,7 @@ return function(props, oldProps)
 
 		mergedMask = mergedMask and table.clone(mergedMask) or {}
 		
-		for key, mask in props.Masks do
+		for _, mask in props.Masks do
 			
 			for iStr in pairs(mask) do
 				
@@ -271,7 +260,7 @@ return function(props, oldProps)
 
 		oldMergedMask = oldMergedMask and table.clone(oldMergedMask) or {}
 		
-		for key, mask in oldProps.Masks do
+		for _, mask in oldProps.Masks do
 			
 			for iStr in pairs(mask) do
 				

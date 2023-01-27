@@ -9,9 +9,6 @@ local root = script.Parent.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
 local e = Roact.createElement
 
-local Config = require(root.Config)
-local Assets = require(root.Assets)
-
 -- Drawing Tools
 local DrawingTools = script.Parent.Parent.Parent.DrawingTools
 local Pen = require(DrawingTools.Pen)
@@ -37,7 +34,6 @@ ToolMenu.defaultProps = {
 function ToolMenu:render()
 	local padding = self.props.Padding
 	local position = self.props.Position
-	local height = self.props.Height
 	local layoutOrder = self.props.LayoutOrder
 	local equippedTool = self.props.EquippedTool
 	local equipTool = self.props.EquipTool

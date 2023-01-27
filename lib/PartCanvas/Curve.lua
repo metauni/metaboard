@@ -285,7 +285,7 @@ return function(props, oldProps)
 
 		mergedMask = mergedMask and table.clone(mergedMask) or {}
 		
-		for key, mask in props.Masks do
+		for _, mask in props.Masks do
 			
 			for iStr in pairs(mask) do
 				
@@ -302,7 +302,7 @@ return function(props, oldProps)
 
 		oldMergedMask = oldMergedMask and table.clone(oldMergedMask) or {}
 		
-		for key, mask in oldProps.Masks do
+		for _, mask in oldProps.Masks do
 			
 			for iStr in pairs(mask) do
 				

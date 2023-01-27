@@ -22,19 +22,35 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local Board = {}
 Board.__index = Board
 
+export type Connection = {
+	Disconnect: () -> (),
+}
+
+export type Signal = {
+	Connect: ((...any) -> ()) -> Connection,
+	Fire: (...any) -> (),
+}
+
+export type Board = {
+	_instance: Part,
+	Remotes: BoardRemotes,
+	PlayerHistories: {[string]: History},
+	DrawingTasks: {[string]: DrawingTask},
+	Figures: {[string]: Figure},
+	NextFigureZIndex: number,
+	DataChangedSignal: {Connect: () -> ()},
+	SurfaceChangedSignal: {Connect: () -> ()},
+}
+
 export type BoardArgs = {
 	Instance: Model | Part,
 	BoardRemotes: any,
-	SurfaceCFrame: CFrame,
-	SurfaceSize: Vector2,
 }
 
-function Board.new(boardArgs)
+function Board.new(boardArgs): Board
 	local self = setmetatable({
 		_instance = boardArgs.Instance,
 		Remotes = boardArgs.BoardRemotes,
-		SurfaceCFrame = boardArgs.SurfaceCFrame,
-		SurfaceSize = boardArgs.SurfaceSize,
 		PlayerHistories = {},
 		DrawingTasks = {},
 		Figures = {},
@@ -73,18 +89,67 @@ function Board.new(boardArgs)
 		end
 	end))
 
-	self.EraseGrid = EraseGrid.new(self:AspectRatio())
-
-	self._instance.Destroying:Connect(function()
+	-- Orientation of the face CFrame
+	local FACE_ANGLE_CFRAME = {
+		Front  = CFrame.Angles(0, 0, 0),
+		Left   = CFrame.Angles(0, math.pi / 2, 0),
+		Back   = CFrame.Angles(0, math.pi, 0),
+		Right  = CFrame.Angles(0, -math.pi / 2, 0),
+		Top    = CFrame.Angles(math.pi / 2, 0, 0),
+		Bottom = CFrame.Angles(-math.pi / 2, 0, 0)
+	}
 	
-		self._destructor:Destroy()
+	-- The width, height and normal axes to the face
+	local FACE_AXES = {
+		Front  = {"X", "Y", "Z"},
+		Left   = {"Z", "Y", "X"},
+		Back   = {"X", "Y", "Z"},
+		Right  = {"Z", "Y", "X"},
+		Top    = {"X", "Z", "Y"},
+		Bottom = {"X", "Z", "Y"},
+	}
+	
+	local faceValue = self._instance:FindFirstChild("Face")
+	local face = faceValue and faceValue.Value or "Front"
+	local faceAxes = FACE_AXES[face]
+	local faceAngleCFrame = FACE_ANGLE_CFRAME[face]
+
+	local function size()
+		return Vector2.new(
+			self._instance.Size[faceAxes[1]],
+			self._instance.Size[faceAxes[2]])
+	end
+
+	local function cframe()
+		return self._instance.CFrame
+			* faceAngleCFrame
+			* CFrame.new(0, 0, -self._instance.Size[faceAxes[3]]/2)
+	end
+
+	self.SurfaceSize = size()
+	self.SurfaceCFrame = cframe()
+
+	self.SurfaceChangedSignal = Signal.new()
+	self._destructor:Add(function()
+		self.SurfaceChangedSignal:DisconnectAll()
 	end)
+
+	self._destructor:Add(self._instance:GetPropertyChangedSignal("Size"):Connect(function()
+		self.SurfaceSize = size()
+		self.SurfaceChangedSignal:Fire()
+	end))
+	
+	self._destructor:Add(self._instance:GetPropertyChangedSignal("CFrame"):Connect(function()
+		self.SurfaceCFrame = cframe()
+		self.SurfaceChangedSignal:Fire()
+	end))
+
+	self.EraseGrid = EraseGrid.new(self:AspectRatio())
 
 	return self
 end
 
 function Board:Destroy()
-	
 	self._destructor:Destroy()
 end
 
@@ -115,7 +180,7 @@ function Board:CommitAllDrawingTasks()
 	local allFigures = Dictionary.merge(self.Figures, drawingTaskFigures)
 
 	local allMaskedFigures = allFigures
-	for taskId, drawingTask in pairs(self.DrawingTasks) do
+	for _, drawingTask in pairs(self.DrawingTasks) do
 		if drawingTask.Type == "Erase" then
 			allMaskedFigures = DrawingTask.Commit(drawingTask, allMaskedFigures)
 		end
@@ -125,14 +190,15 @@ function Board:CommitAllDrawingTasks()
 end
 
 function Board:LoadData(data)
-	assert(data.Figures)
-	assert(data.DrawingTasks)
-	assert(data.PlayerHistories)
-	assert(data.NextFigureZIndex)
+	local msg = "[metaboard] Bad board data "..tostring(self:FullName())
+	assert(data.Figures, msg)
+	assert(data.DrawingTasks, msg)
+	assert(data.PlayerHistories, msg)
+	assert(data.NextFigureZIndex, msg)
 	-- eraseGrid can be nil (can be recreated)
 	-- clearCount is not always needed
 
-	for userId, playerHistory in pairs(data.PlayerHistories) do
+	for _, playerHistory in pairs(data.PlayerHistories) do
 		setmetatable(playerHistory, History)
 	end
 
@@ -165,7 +231,7 @@ end
 function Board:LinesForBudget()
 	local count = 0
 
-	for figureId, figure in pairs(self.Figures) do
+	for _, figure in pairs(self.Figures) do
 		if figure.Type == "Curve" then
 			count += #figure.Points
 		else
@@ -173,7 +239,7 @@ function Board:LinesForBudget()
 		end
 	end
 
-	for taskId, drawingTask in pairs(self.DrawingTasks) do
+	for _, drawingTask in pairs(self.DrawingTasks) do
 		if drawingTask.Type ~= "Erase" then
 			local figure = DrawingTask.Render(drawingTask)
 
@@ -190,7 +256,6 @@ end
 
 
 function Board:AspectRatio()
-
 	return self.SurfaceSize.X / self.SurfaceSize.Y
 end
 
@@ -217,7 +282,7 @@ function Board:ProcessInitDrawingTask(authorId: string, drawingTask, canvasPos: 
 
 	-- Any drawing task which doesn't appear in any player history is a candidate for committing
 	local needsCommitDrawingTasks = table.clone(self.DrawingTasks)
-	for playerId, pHistory in pairs(self.PlayerHistories) do
+	for _, pHistory in pairs(self.PlayerHistories) do
 
 		for historyDrawingTask in pHistory:IterPastAndFuture() do
 
@@ -226,12 +291,12 @@ function Board:ProcessInitDrawingTask(authorId: string, drawingTask, canvasPos: 
 		end
 	end
 
-	for taskId, dTask in pairs(needsCommitDrawingTasks) do
+	for _, dTask in pairs(needsCommitDrawingTasks) do
 		local canCommit
 
 		if dTask.Type == "Erase" then
 			-- Every figure being (partially) erased must be gone from DrawingTasks
-			canCommit = Dictionary.every(dTask.FigureIdToMask, function(mask, figureId)
+			canCommit = Dictionary.every(dTask.FigureIdToMask, function(_mask, figureId)
 				return self.DrawingTasks[figureId] == nil
 			end)
 		else

@@ -8,10 +8,8 @@
 
 -- Imports
 local root = script.Parent.Parent
-local Config = require(root.Config)
 local DrawingTask = require(root.DrawingTask)
 local Roact: Roact = require(root.Parent.Roact)
-local e = Roact.createElement
 local Sift = require(root.Parent.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 local set = Dictionary.set

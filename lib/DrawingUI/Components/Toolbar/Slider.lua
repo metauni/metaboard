@@ -4,9 +4,6 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
--- Services
-local UserInputService = game:GetService("UserInputService")
-
 -- Imports
 local root = script.Parent.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
@@ -71,7 +68,7 @@ function Slider:render()
 		Position = UDim2.fromScale(knobAlpha, 0.5),
 		ZIndex = 1,
 		[Roact.Ref] = self.KnobRef,
-		[Roact.Event.MouseButton1Down] = function(rbx, x,y)
+		[Roact.Event.MouseButton1Down] = function(rbx, x, _y)
 			local knobInstance = self.KnobRef:getValue()
 			local knobCentreX = knobInstance.AbsolutePosition.X + knobInstance.AbsoluteSize.X/2
 
@@ -80,7 +77,7 @@ function Slider:render()
 				HoldDelta = x - knobCentreX
 			})
 		end,
-		[Roact.Event.MouseButton1Up] = function(rbx, x,y)
+		[Roact.Event.MouseButton1Up] = function(rbx)
 			self:setState({
 				Held = false,
 				HoldDelta = 0
@@ -114,25 +111,25 @@ function Slider:render()
 		Position = self.props.Position,
 		Size = UDim2.new(size.X + UDim.new(0, knobSizeOffset), size.Y),
 		BackgroundTransparency = 1,
-		[Roact.Event.MouseButton1Down] = function(rbx, x,y)
+		[Roact.Event.MouseButton1Down] = function(rbx, x, _y)
 			self:setState({
 				Held = true,
 				HoldDelta = 0
 			})
 			onKnobPositionUpdate(self:ToAlpha(rbx, x, 0))
 		end,
-		[Roact.Event.MouseMoved] = function(rbx, x,y)
+		[Roact.Event.MouseMoved] = function(rbx, x, _y)
 			if not self.state.Held then return end
 
 			onKnobPositionUpdate(self:ToAlpha(rbx, x, self.state.HoldDelta))
 		end,
-		[Roact.Event.MouseButton1Up] = function(rbx, x,y)
+		[Roact.Event.MouseButton1Up] = function(rbx)
 			self:setState({
 				Held = false,
 				HoldDelta = 0
 			})
 		end,
-		[Roact.Event.MouseLeave] = function(rbx, x,y)
+		[Roact.Event.MouseLeave] = function(rbx)
 			self:setState({
 				Held = false,
 				HoldDelta = 0

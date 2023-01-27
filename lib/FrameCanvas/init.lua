@@ -6,7 +6,6 @@
 
 -- Imports
 local root = script.Parent
-local Config = require(root.Config)
 local Feather = require(root.Parent.Feather)
 
 -- Components
@@ -54,7 +53,7 @@ return function(props, oldProps)
 
 	if oldProps.Figures then
 		
-		for figureId, figure in oldProps.Figures do
+		for figureId, _ in oldProps.Figures do
 			
 			if not props.Figures[figureId] then
 				

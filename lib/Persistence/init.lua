@@ -252,7 +252,7 @@ local function processRestorers()
 
 		while true do
 
-			assert(coroutine.status(restorer) == "suspended")
+			assert(coroutine.status(restorer) == "suspended", "[metaboard] Expected board restore coroutine to be suspended")
 
 			local success, result = coroutine.resume(restorer, Config.Persistence.RestoreTimePerFrame)
 

@@ -14,10 +14,6 @@ local Dictionary = Sift.Dictionary
 local set = Dictionary.set
 local merge = Dictionary.merge
 
--- Array Operations
-local Array = Sift.Array
-local push = Array.push
-
 local FreeHand = {}
 
 function FreeHand.new(taskId: string, color: Color3, thicknessYScale: number)
@@ -57,7 +53,7 @@ function FreeHand.Init(drawingTask, board, canvasPos: Vector2)
 	return set(drawingTask, "Curve", newCurve)
 end
 
-function FreeHand.Update(drawingTask, board, canvasPos: Vector2)
+function FreeHand.Update(drawingTask, _board, canvasPos: Vector2)
 
 	local newPoints = table.clone(drawingTask.Curve.Points)
 	table.insert(newPoints, canvasPos)
@@ -104,7 +100,7 @@ function FreeHand.Redo(drawingTask, board)
 			
 		local singletonMaskedFigure = { [drawingTask.Id] = drawingTask.Curve }
 
-		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+		for _, otherDrawingTask in pairs(board.DrawingTasks) do
 			if otherDrawingTask.Type == "Erase" then
 				singletonMaskedFigure = DrawingTask.Commit(otherDrawingTask, singletonMaskedFigure)
 			end

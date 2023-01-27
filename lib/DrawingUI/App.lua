@@ -6,7 +6,6 @@
 
 -- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
@@ -28,8 +27,6 @@ local merge = Dictionary.merge
 
 -- Drawing Tools
 local DrawingTools = script.Parent.DrawingTools
-local Pen = require(DrawingTools.Pen)
-local StraightEdge = require(DrawingTools.StraightEdge)
 local Eraser = require(DrawingTools.Eraser)
 
 -- Components
@@ -524,7 +521,7 @@ function App.getDerivedStateFromProps(nextProps, lastState)
 
 	local removals = {}
 
-	for taskId, unverifiedDrawingTask in pairs(lastState.UnverifiedDrawingTasks) do
+	for taskId in pairs(lastState.UnverifiedDrawingTasks) do
 		local verifiedDrawingTask = nextProps.DrawingTasks[taskId]
 
 		if verifiedDrawingTask and verifiedDrawingTask.Finished then

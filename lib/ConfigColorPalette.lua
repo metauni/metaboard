@@ -13,8 +13,12 @@ local function hslToRgb(h, s, l)
 		b = l
 	else
 		local hue2rgb = function(p, q, t)
-			if t < 0 then t += 1 end
-			if t > 1 then t -= 1 end
+			if t < 0 then
+				t += 1
+			end
+			if t > 1 then
+				t -= 1
+			end
 			if t < 1/6 then
 				return p + (q - p) * 6 * t
 			elseif t < 1/2 then
@@ -28,9 +32,9 @@ local function hslToRgb(h, s, l)
 
 		local q = if l < 0.5 then l * (1 + s) else l + s - l * s
 		local p = 2 * l - q
-		r = hue2rgb(p, q, h + 1/3);
-		g = hue2rgb(p, q, h);
-		b = hue2rgb(p, q, h - 1/3);
+		r = hue2rgb(p, q, h + 1/3)
+		g = hue2rgb(p, q, h)
+		b = hue2rgb(p, q, h - 1/3)
 	end
 
 	return r, g, b

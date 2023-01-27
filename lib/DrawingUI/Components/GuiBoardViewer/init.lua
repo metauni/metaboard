@@ -7,8 +7,6 @@
 -- Imports
 local root = script.Parent.Parent.Parent
 local Config = require(root.Config)
-local RunService = game:GetService("RunService")
-local Client = script.Parent.Parent.Parent
 
 -- Imports
 local Roact: Roact = require(root.Parent.Roact)
@@ -85,7 +83,7 @@ function GuiBoardViewer:init()
 	setBindings(self, self.props.CanvasAbsoluteSize, self.props.CanvasAbsolutePosition)
 end
 
-function GuiBoardViewer:willUpdate(nextProps, nextState)
+function GuiBoardViewer:willUpdate(nextProps, _nextState)
 	if nextProps.CanvasAbsoluteSize ~= self.props.CanvasAbsoluteSize
 			or nextProps.CanvasAbsolutePosition ~= self.props.CanvasAbsolutePosition then
 

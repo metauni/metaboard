@@ -5,9 +5,6 @@ return function (target)
 	local Sift: Sift = require(root.Parent.Sift)
 	local e = Roact.createElement
 
-	local DrawingTools = root.DrawingUI.DrawingTools
-	local Pen = require(DrawingTools.Pen)
-
 	local Toolbar = require(script.Parent)
 	local ToolState = require(root.DrawingUI.ToolState)
 

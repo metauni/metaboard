@@ -9,7 +9,6 @@ local root = script.Parent.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
 local e = Roact.createElement
 
-local Config = require(root.Config)
 local Sift = require(root.Parent.Sift)
 local Dictionary = Sift.Dictionary
 

@@ -5,11 +5,7 @@
 -- --]]
 
 -- Services
-local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-local StarterGui = game:GetService("StarterGui")
-local RunService = game:GetService("RunService")
-
 
 -- Imports
 local root = script.Parent

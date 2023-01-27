@@ -12,6 +12,7 @@
 	Note: this will only affect the server's copy of the config file
 --]]
 
+-- selene: allow(unused_variable)
 return function(Config)
 	
 	-- -- Example: Change default persistence datastore (will be ignored when in a Pocket)

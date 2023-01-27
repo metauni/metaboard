@@ -78,7 +78,7 @@ function Erase.Update(drawingTask, board, canvasPos: Vector2)
 	return Erase.EraseTouched(drawingTask, board, canvasPos)
 end
 
-function Erase.Finish(drawingTask, board)
+function Erase.Finish(drawingTask, _board)
 	return drawingTask
 end
 
@@ -134,7 +134,7 @@ function Erase.Undo(drawingTask, board)
 		-- Reapply remaining erase drawing task masks to all affected figures 
 
 		local remaskedFigures = affectedFigures
-		for taskId, otherDrawingTask in pairs(board.DrawingTasks) do
+		for _, otherDrawingTask in pairs(board.DrawingTasks) do
 
 			if otherDrawingTask == drawingTask then
 				continue

@@ -9,7 +9,6 @@ local RunService = game:GetService("RunService")
 
 -- Imports
 local root = script.Parent
-local Config = require(root.Config)
 local Sift = require(root.Parent.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
@@ -22,7 +21,7 @@ return function (self)
 		if #toolQueue > 0 then
 			self:setState(function(state)
 				local stateUpdate = {}
-				for i, action in ipairs(toolQueue) do
+				for _, action in ipairs(toolQueue) do
 					stateUpdate = merge(stateUpdate, action(merge(state, stateUpdate)))
 				end
 

@@ -40,7 +40,6 @@ end
 
 function CanvasIO:render()
 
-	local cursorPositionBinding = self.props.CursorPositionBinding
 	local setCursorPixelPosition = self.props.SetCursorPixelPosition
 
 	return e("TextButton", {

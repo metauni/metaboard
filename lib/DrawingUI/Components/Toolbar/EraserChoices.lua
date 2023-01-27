@@ -24,7 +24,6 @@ function ThicknessButton:render()
 	local deselectedIcon = self.props.DeselectedIcon
 	local onClick = self.props.OnClick
 	local position = self.props.Position
-	local size = self.props.Size
 
 	local hovering = self.state.Hovering
 

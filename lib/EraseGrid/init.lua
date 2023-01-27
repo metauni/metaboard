@@ -56,7 +56,7 @@ function EraseGrid:SubtractMask(figureId: string, mask: Figure.AnyMask)
 		end
 
 	else
-		assert(figure.Type == "Line")
+		assert(figure.Type == "Line", "Unknown figure type: "..tostring(figure.Type))
 
 		local shapeId = figureId
 		self.ShapeGrid:RemoveShape(pairTypeAndShape("Line", shapeId))
@@ -135,7 +135,7 @@ function EraseGrid:QueryCircle(centre: Vector2, radius: Vector2, callback: (stri
 			end
 
 		else
-			assert(figureType == "Line")
+			assert(figureType == "Line", "Unknown figure type: "..tostring(figureType))
 
 			local figureId = shapeId
 

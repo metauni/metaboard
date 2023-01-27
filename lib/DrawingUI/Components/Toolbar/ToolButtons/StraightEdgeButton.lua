@@ -27,7 +27,6 @@ function StraightEdgeButton:render()
 	local selected = self.props.Selected
 	local hovering = self.state.Hovering
 
-	local baseSize = selected and UDim2.fromOffset(48,48) or UDim2.fromOffset(40,40)
 	local position = UDim2.fromScale(0.5, 0.5) + (selected and UDim2.fromOffset(0,0) or UDim2.new())
 
 	local icon = e("ImageLabel", {

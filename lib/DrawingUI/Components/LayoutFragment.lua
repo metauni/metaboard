@@ -7,7 +7,6 @@
 -- Imports
 local root = script.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
-local e = Roact.createElement
 
 --[[
 	Converts this:

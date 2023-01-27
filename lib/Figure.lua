@@ -8,7 +8,6 @@
 
 -- Imports
 local root = script.Parent
-local Config = require(root.Config)
 local Collision = require(root.Collision)
 local Sift = require(root.Parent.Sift)
 local Dictionary = Sift.Dictionary
