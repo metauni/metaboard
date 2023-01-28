@@ -55,7 +55,7 @@ function Board.new(boardArgs): Board
 		DrawingTasks = {},
 		Figures = {},
 		NextFigureZIndex = 0,
-	}, Board)
+	}, Board) :: Board
 
 	--[[
 		:Add() RBXSignalConnections, Instances and destroyer functions to this
@@ -141,6 +141,10 @@ function Board.new(boardArgs): Board
 	
 	self._destructor:Add(self._instance:GetPropertyChangedSignal("CFrame"):Connect(function()
 		self.SurfaceCFrame = cframe()
+		self.SurfaceChangedSignal:Fire()
+	end))
+	
+	self._destructor:Add(self._instance.AncestryChanged:Connect(function()
 		self.SurfaceChangedSignal:Fire()
 	end))
 
