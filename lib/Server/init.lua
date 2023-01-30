@@ -14,6 +14,7 @@ local Config = require(root.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
 local Persistence = require(root.Persistence)
+local GoodSignal = require(root.Parent.GoodSignal)
 local Promise = require(root.Parent.Promise)
 local Sift = require(root.Parent.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
@@ -24,7 +25,8 @@ local indicateInvalidBoard = require(script.indicateInvalidBoard)
 local Server = {
 
 	Boards = {},
-	_changedSinceStore = {}
+	_changedSinceStore = {},
+	BoardAdded = GoodSignal.new(),
 }
 Server.__index = Server
 
@@ -54,12 +56,101 @@ function Server:promiseDataStore()
 end
 
 function Server:Start()
+
+	local function onRemoved(instance)
+		
+		local board = self.Boards[instance]
+		if board then
+			board:Destroy()
+		end
+
+		self.Boards[instance] = nil
+	end
 	
 	local function bindInstanceAsync(instance: Part)
 		if not instance:IsDescendantOf(workspace) and not instance:IsDescendantOf(ReplicatedStorage) then
-			return
+			onRemoved(instance)
 		end
-		self.Boards[instance] = self:GetBoardAsync(instance)
+
+		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part"..tostring(instance:GetFullName()))
+
+		local persistIdValue = instance:FindFirstChild("PersistId")
+		local persistId = persistIdValue and persistIdValue.Value
+	
+		local board = BoardServer.new(instance)
+	
+		-- Indicate that the board has been setup enough for clients to do their setup
+		-- and request the board data.
+		instance:SetAttribute("BoardServerInitialised", true)
+	
+		local handleBoardDataRequest = function(player)
+			
+			board.Watchers[player] = true
+	
+			return {
+				
+				Figures = board.Figures,
+				DrawingTasks = board.DrawingTasks,
+				PlayerHistories = board.PlayerHistories,
+				NextFigureZIndex = board.NextFigureZIndex,
+				EraseGrid = nil,
+				ClearCount = nil
+			}
+		end
+	
+		if not persistId then
+	
+			board:ConnectRemotes(nil)
+			board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
+	
+		else
+	
+			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
+	
+			self:promiseDataStore()
+				:andThen(function(datastore: DataStore)
+					
+					local success, result = Persistence.Restore(datastore, boardKey, board)
+					if success then
+						return result, datastore
+					else
+						return result
+					end
+				end)
+				:andThen(function(data, datastore: DataStore)
+	
+					board:LoadData({
+						Figures = data.Figures,
+						DrawingTasks = {},
+						PlayerHistories = {},
+						NextFigureZIndex = data.NextFigureZIndex,
+						EraseGrid = data.EraseGrid,
+						ClearCount = data.ClearCount,
+					})
+		
+					board.DataChangedSignal:Connect(function()
+						self._changedSinceStore[persistId] = board
+					end)
+		
+					local beforeClear = function()
+						task.spawn(function()
+							board.ClearCount += 1
+							local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
+							Persistence.StoreWhenBudget(datastore, historyKey, board)
+						end)
+					end
+		
+					board:ConnectRemotes(beforeClear)
+					board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
+		
+					-- For external code to access
+					self.Boards[instance] = board
+					self.BoardAdded:Fire(board)
+				end)
+				:catch(function(msg)
+					indicateInvalidBoard(board, msg)
+				end)
+		end
 	end
 	
 	for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
@@ -67,6 +158,7 @@ function Server:Start()
 	end
 	
 	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
+	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(onRemoved)
 	
 	if Config.Persistence.ReadOnly then
 	
@@ -124,99 +216,18 @@ function Server:Start()
 		:catch(function(msg)
 			warn("[metaboard] Failed to initialise Persistence: "..tostring(msg))
 		end)
-
 	end
-
 end
 
-function Server:GetBoardAsync(instance: Part)
+function Server:GetBoard(instance: Part)
+	return self.Boards[instance]
+end
 
+function Server:WaitForBoard(instance: Part)
 	if self.Boards[instance] then
 		return self.Boards[instance]
 	end
-	
-	assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part"..tostring(instance:GetFullName()))
-
-	local persistIdValue = instance:FindFirstChild("PersistId")
-	local persistId = persistIdValue and persistIdValue.Value
-
-	local board = BoardServer.new(instance)
-
-	-- Indicate that the board has been setup enough for clients to do their setup
-	-- and request the board data.
-	instance:SetAttribute("BoardServerInitialised", true)
-
-	local handleBoardDataRequest = function(player)
-		
-		board.Watchers[player] = true
-
-		return {
-			
-			Figures = board.Figures,
-			DrawingTasks = board.DrawingTasks,
-			PlayerHistories = board.PlayerHistories,
-			NextFigureZIndex = board.NextFigureZIndex,
-			EraseGrid = nil,
-			ClearCount = nil
-		}
-	end
-
-	if not persistId then
-
-		board:ConnectRemotes(nil)
-		board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
-
-	else
-
-		local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-
-		self:promiseDataStore()
-			:andThen(function(datastore: DataStore)
-				
-				local success, result = Persistence.Restore(datastore, boardKey, board)
-				if success then
-					return result, datastore
-				else
-					return result
-				end
-			end)
-			:andThen(function(data, datastore: DataStore)
-
-				board:LoadData({
-					Figures = data.Figures,
-					DrawingTasks = {},
-					PlayerHistories = {},
-					NextFigureZIndex = data.NextFigureZIndex,
-					EraseGrid = data.EraseGrid,
-					ClearCount = data.ClearCount,
-				})
-	
-				board.DataChangedSignal:Connect(function()
-					self._changedSinceStore[persistId] = board
-				end)
-	
-				local beforeClear = function()
-					task.spawn(function()
-						board.ClearCount += 1
-						local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
-						Persistence.StoreWhenBudget(datastore, historyKey, board)
-					end)
-				end
-	
-				board:ConnectRemotes(beforeClear)
-				board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
-	
-			end)
-			:catch(function(msg)
-				indicateInvalidBoard(board, msg)
-			end)
-			:await()
-	end
-
-	-- For external code to access
-	self.Boards[instance] = board
-
-	return board
+	return self.BoardAdded:Wait()
 end
 
 return Server

@@ -20,6 +20,7 @@ local SurfaceCanvas = require(script.SurfaceCanvas)
 local DrawingUI = require(root.DrawingUI)
 local BoardButton = require(script.BoardButton)
 local VRInput = require(script.VRInput)
+local GoodSignal = require(root.Parent.GoodSignal)
 
 -- Constants
 local LINE_LOAD_FRAME_BUDGET = 128
@@ -30,6 +31,8 @@ local Client = {
 	BoardButtons = {},
 	OpenedBoard = nil,
 	VRInputs = {},
+
+	BoardAdded = GoodSignal.new(),
 
 	_canvasLoadingQueue = {},
 }
@@ -275,6 +278,8 @@ function Client:Start()
 
 			self.OpenedBoard = board
 		end)
+
+		self.BoardAdded:Fire(board)
 	end
 	
 	-- Bind regular metaboards
@@ -286,6 +291,17 @@ function Client:Start()
 	
 	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
 	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(onRemoved)
+end
+
+function Client:GetBoard(instance: Part)
+	return self.Boards[instance]
+end
+
+function Client:WaitForBoard(instance: Part)
+	if self.Boards[instance] then
+		return self.Boards[instance]
+	end
+	return self.BoardAdded:Wait()
 end
 
 return Client
