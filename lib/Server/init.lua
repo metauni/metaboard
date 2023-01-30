@@ -227,7 +227,12 @@ function Server:WaitForBoard(instance: Part)
 	if self.Boards[instance] then
 		return self.Boards[instance]
 	end
-	return self.BoardAdded:Wait()
+	while true do
+		local board = self.BoardAdded:Wait()
+		if board._instance == instance then
+			return board
+		end
+	end
 end
 
 return Server
