@@ -70,6 +70,7 @@ function Server:Start()
 	local function bindInstanceAsync(instance: Part)
 		if not instance:IsDescendantOf(workspace) and not instance:IsDescendantOf(ReplicatedStorage) then
 			onRemoved(instance)
+			return
 		end
 
 		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part"..tostring(instance:GetFullName()))
