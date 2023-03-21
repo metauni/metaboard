@@ -103,7 +103,10 @@ function Server:Start()
 	
 			board:ConnectRemotes(nil)
 			board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
-	
+			
+			-- For external code to access
+			self.Boards[instance] = board
+			self.BoardAdded:Fire(board)
 		else
 	
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
