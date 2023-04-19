@@ -44,13 +44,15 @@ rojo build --output metaboard-vX.X.X.rbxmx release.project.json
 ```
 
 ## Source Code Overview
+> WARNING: Information below here is outdated. The file paths are broken
+> and some things about metaboard have changed, e.g. using Feather for figure
+> rendering instead of Roact.
 
 > What is init.lua?
 This is a Rojo concept. When a folder contains such a named file, that folder will become a ModuleScript with its contents,
 and the children of the folder will be the children of the ModuleScript.
 Similarly for `init.client.lua` (parent folder becomes a `LocalScript`) and `init.server.lua` and (parent folder becomes a `Script`).
 
-> WARNING: file paths are outtdated.
 
 - [Board](src/common/Board.lua), [BoardServer](src/server/BoardServer.lua), [BoardClient](src/client/BoardClient/init.lua)
 	- The board class and the two derived classes for the client and server.
