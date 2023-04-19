@@ -36,7 +36,11 @@ function Server:promiseDataStore()
 
 		-- TODO: this fails to distinguish between places in Studio.
 		-- See (PrivateServerKey appearance delay #14 issue)
-		local Pocket = ReplicatedStorage.Pocket
+
+		local Pocket = ReplicatedStorage:FindFirstChild("Pocket")
+		if not Pocket then
+			resolve(DataStoreService:GetDataStore(Config.Persistence.DataStoreName))
+		end
 	
 		if game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0 then
 	
@@ -73,7 +77,10 @@ function Server:Start()
 			return
 		end
 
-		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part"..tostring(instance:GetFullName()))
+		if instance:IsA("Model") then
+			error(`[metaboard] Model {instance:GetFullName()} tagged as metaboard. Must tag PrimaryPart instead.`)
+		end
+		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part: "..tostring(instance:GetFullName()))
 
 		local persistIdValue = instance:FindFirstChild("PersistId")
 		local persistId = persistIdValue and persistIdValue.Value

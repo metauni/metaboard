@@ -8,17 +8,46 @@ Multiplayer drawing boards for sharing knowledge in Roblox.
 
 There are two components to install: the metaboard backend code, and a metaboard model to draw on.
 
-<!-- ### From Roblox - WARNING: NOT UP TO DATE
-You can find [metaboard](https://www.roblox.com/library/8573087394/metaboard) in Roblox Studio by searching "metaboard" in the Toolbox.
-Double-click it to insert it (it will appear under `Workspace`) and then move it to `ServerScriptService`. This contains the Scripts,
-LocalScripts and Guis for handling all metaboard interaction, which are automatically
-distributed when you start your Roblox game.
-You will need to manually update this file if you want the newest release. -->
-
 ### From Github Releases
-Download the [latest release](https://github.com/metauni/metaboard/releases/latest) (look for `metaboard-v*.rbxm`). In Roblox Studio, right click on `ServerScriptService`, click `Insert from File` and insert the `metaboard-v*.rbxm` file. This contains the Scripts,
-LocalScripts and Guis for handling all metaboard interaction and DataStore persistence.
+Download the [latest release](https://github.com/metauni/metaboard/releases/latest) (look for `metaboard-v*.rbxm`). In Roblox Studio, right click on `ServerScriptService`, click `Insert from File` and insert the `metaboard-v*.rbxm` file.
+This is a startup script that puts the metaboard ModuleScript in ReplicatedStorage, and then gets the server and clients to call `metaboard.Client:Start()` and the server to call `metaboard.Server:Start()`.
 You will need to manually update this file if you want the newest release.
+
+### With Wally
+
+Add metaboard as a dependency of your project in your wally.toml file
+```bash
+# wally.toml
+
+[dependencies]
+metaboard = "metauni/metaboard@X.X.X" # Replace with current version number
+```
+
+Install it
+```bash
+wally install
+```
+
+### With Rojo
+Clone/download the repository, and ensure you have [Rojo](https://rojo.space) and [Wally](https://wally.run) installed (you can install them with `aftman install` if you have [Aftman](https://github.com/LPGhatguy/aftman))
+
+Install the dependencies (see )
+```bash
+wally install
+```
+
+To build the latest release (as a startup script),
+```bash
+rojo build release.project.json -o metaboard.rbxm
+```
+
+To build metaboard as a ModuleScript (no startup logic)
+```bash
+rojo build test.project.json -o metaboard.rbxm
+```
+
+Note: the `default.project.json` is for Wally. On its own it will not build
+metaboard with its package dependencies.
 
 ## Adding boards to your game
 
@@ -34,23 +63,22 @@ Don't be afraid to resize and stretch these boards as you please!
 
 ## Board Structure
 
-A metaboard can be either a `Part` or a `Model` with a `PrimaryPart` (the latter is recommended).
-To turn a `Part`/`Model` into a metaboard, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
-plugin to give it the tag `"metaboard"`. Then add any of the following optional
-values as children.
+To turn a `Part` into a metaboard, use the [Tag Editor](https://devforum.roblox.com/t/tag-editor-plugin/101465)
+plugin to give it the tag "metaboard".
+If your board is a `Model`, make the drawing surface the PrimaryPart, and tag the PrimaryPart as "metaboard".
+A StringValue called "Face" parented to the `Part` (not the Model) will define which face
+of the part is used as the drawing surface.
 
 | Object      | Name        | Value | Description |
 | ----------- | ----------- | ----------- | ----- |
 | StringValue | Face        | `String` (one of "Front" (default), "Back", "Left", "Right", "Top", "Bottom") | The surface of the part that should be used as the board |
 
-If the metaboard is a `Model`, the `PrimaryPart` should be set to the part which defines the drawing surface of the model (make sure the right `Face : StringValue` is configured).
-
-For more customised positioning of the board, make an invisible part for the board and size/position it on your model however you like (you should tag the parent model as the metaboard, not the invisible part, and remember to set the invisible part as the `PrimaryPart`).
+For more customised positioning of the board, make an invisible part for the board and size/position it on your model however you like.
 
 ## Custom Configuration
 
-All of the configuration values used in metaboard are stored in a ModuleScript at `metaboard -> metaboardCommon -> Config`. There are cases where you may want to
-use different config values on a per-place basis. Instead of modifying the `Config` script, you can copy the ModuleScript called `metaboardPlaceConfig` from `metaboard` to `ReplicatedStorage`. This ModuleScript returns a function which takes the config table as its argument and modifies the keys (no return value). All scripts that import the original Config file will receive the table with these edits applied (but only if `metaboardPlaceConfig` is a child of `ReplicatedStorage`).
+All of the configuration values used in metaboard are stored in a ModuleScript at `lib -> Config`. There are cases where you may want to
+use different config values on a per-place basis. Instead of modifying the `Config` script, you can copy the ModuleScript called `metaboardPlaceConfig` from `lib` to `ReplicatedStorage`. This ModuleScript returns a function which takes the config table as its argument and modifies the keys (no return value). All scripts that import the original Config file will receive the table with these edits applied (but only if `metaboardPlaceConfig` is a child of `ReplicatedStorage`).
 
 You can keep this same config file around when you update the metaboard package.
 
@@ -78,4 +106,4 @@ Since persistent boards use the Roblox DataStore API there are several limitatio
 
 metaboard uses the MPL-2.0 License. See [LICENSE](./LICENSE).
 
-External packages used in metaboard can be found under [packages](./packages/), and license information for those packages in [packages/LICENSES.md](packages/LICENSES.md).
+External packages used in metaboard can be found in [wally.toml](./wally.toml), and license information for those packages in [PACKAGE-LICENSES.md](./PACKAGE-LICENSES.md).

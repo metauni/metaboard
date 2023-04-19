@@ -1,0 +1,33 @@
+{
+  "name": "metaboardStartup",
+  "tree": {
+    "$className": "Script",
+    "$properties": {
+      "Source": "local metaboard = script.metaboard\nmetaboard.Parent = game:GetService(\"ReplicatedStorage\")\nscript.BoardController.Parent = game:GetService(\"StarterPlayer\").StarterPlayerScripts\nrequire(metaboard).Server:Start()"
+    },
+
+    "metaboard": {
+      "$path": "Packages",
+      "$className": "ModuleScript",
+  
+      "$properties": {
+        "Source": "return require(script.lib)"
+      },
+      "lib": {
+        "$path": "lib",
+  
+        "Assets": {
+          "$path": "assets/Assets.lua"
+        }
+      }
+    },
+
+    "BoardController": {
+      "$className": "LocalScript",
+      "$properties": {
+        "Source": "require(game:GetService(\"ReplicatedStorage\"):WaitForChild(\"metaboard\")).Client:Start()"
+      }
+    }
+    
+  }
+}
