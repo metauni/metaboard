@@ -29,13 +29,13 @@ wally install
 ```
 
 Call the startup methods from the client and server
-```
+```lua
 local metaboard = require(path.to.metaboard)
 
-# From Server
+-- From Server
 metaboard.Server:Start()
 
-# From Client
+-- From Client
 metaboard.Client:Start()
 ```
 
