@@ -1,9 +1,9 @@
 [package]
 name = "metauni/metaboard"
-version = "1.4.0"
+version = "1.4.0-rc.1"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
-include = ["lib", "lib/*", "default.project.json", "wally.lock", "wally.toml"]
+include = ["lib", "lib/*", "assets/Assets.lua", "default.project.json", "wally.lock", "wally.toml"]
 
 [dependencies]
 Feather = "blinkybool/feather@0.1.0"
