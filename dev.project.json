@@ -1,0 +1,14 @@
+{
+  "name": "metaboard-dev",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      
+      "metaboardStartup": {
+        "$path": "release.project.json"
+      }
+    }
+  }
+}

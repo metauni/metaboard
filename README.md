@@ -28,10 +28,21 @@ Install it
 wally install
 ```
 
+Call the startup methods from the client and server
+```
+local metaboard = require(path.to.metaboard)
+
+# From Server
+metaboard.Server:Start()
+
+# From Client
+metaboard.Client:Start()
+```
+
 ### With Rojo
 Clone/download the repository, and ensure you have [Rojo](https://rojo.space) and [Wally](https://wally.run) installed (you can install them with `aftman install` if you have [Aftman](https://github.com/LPGhatguy/aftman))
 
-Install the dependencies (see )
+Install the dependencies (see [License](#license))
 ```bash
 wally install
 ```
@@ -41,9 +52,14 @@ To build the latest release (as a startup script),
 rojo build release.project.json -o metaboard.rbxm
 ```
 
+To sync the latest release into Roblox Studio (at ServerScriptService > metaboardStartup)
+```bash
+rojo serve dev.project.json
+```
+
 To build metaboard as a ModuleScript (no startup logic)
 ```bash
-rojo build test.project.json -o metaboard.rbxm
+rojo build module.project.json -o metaboard.rbxm
 ```
 
 Note: the `default.project.json` is for Wally. On its own it will not build
