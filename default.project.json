@@ -1,32 +1,10 @@
 {
-	"name": "metaboard",
-	"tree": {
-		"$className": "DataModel",
+  "name": "testpackage",
+  "tree": {
+    "$path": "lib",
 
-		"ServerScriptService": {
-			"$ignoreUnknownInstances": true,
-			"$className": "ServerScriptService",
-			"metaboard": {
-				"$path": "src/server",
-		
-				"metaboardCommon": {
-					"$path": "src/common",
-
-					"Packages": {
-						"$path": "packages"
-					},
-
-					"Assets": {
-						"$path": "assets/Assets.lua"
-					}
-				},
-		
-				"metaboardPlayer" : {
-					"$path": "src/client"
-				}
-		
-			}
-		}
-
-	}
+    "Assets": {
+      "$path": "assets/Assets.lua"
+    }
+  }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "testpackage",
+  "tree": {
+    "$path": "Packages",
+    "$className": "ModuleScript",
+
+    "$properties": {
+      "Source": "return require(script.lib)"
+    },
+
+    "lib": {
+      "$path": "lib",
+
+      "Assets": {
+        "$path": "assets/Assets.lua"
+      }
+    }
+  }
+}
