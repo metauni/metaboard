@@ -168,7 +168,7 @@ Config.PersonalBoard = {
 	-- 	WhiteBoardMini: "8545133318"
 	-- 	BlackBoardMini: "8545118621"
 	AssetId = "8545118621",
-	Enabled = true,
+	Enabled = false,
 	-- Position of where the board will spawn relative to the HumanoidRootPart
 	-- Increase y-value for larger boards
 	TorsoOffset = Vector3.new(0,2,-5),

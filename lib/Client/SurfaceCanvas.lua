@@ -13,6 +13,7 @@ local Sift = require(root.Parent.Sift)
 local Feather = require(root.Parent.Feather)
 local DrawingTask = require(root.DrawingTask)
 local PartCanvas = require(root.PartCanvas)
+local DynamicMeshCanvas = require(root.DynamicMeshCanvas)
 
 local SurfaceCanvas = {}
 SurfaceCanvas.__index = SurfaceCanvas
@@ -44,14 +45,17 @@ function SurfaceCanvas.new(board)
 		self:render()
 	end))
 
-	self:_initLoadingStack()
-	if #self.LoadingStack > 0 then
-		self.Loading = true
-		self:_setTransparency()
-	else
-		self.Loading = false
-		self:_setActive()
-	end
+	-- self:_initLoadingStack()
+	-- if #self.LoadingStack > 0 then
+	-- 	self.Loading = true
+	-- 	self:_setTransparency()
+	-- else
+	-- 	self.Loading = false
+	-- 	self:_setActive()
+	-- end
+
+	self.Loading = false
+	self:render()
 
 	return self
 end
@@ -93,7 +97,7 @@ function SurfaceCanvas:_initLoadingStack()
 	self.LoadedFigures = {}
 end
 
-function SurfaceCanvas:LoadMore(lineBudget)
+function SurfaceCanvas:LoaDynamicMeshCanvasore(lineBudget)
 
 	if self.Loading and #self.LoadingStack > 0 then
 			
@@ -164,60 +168,63 @@ end
 
 function SurfaceCanvas:render()
 
-	local figures, figureMaskBundles
+	-- local figures, figureMaskBundles
 
-	if self.Loading then
+	-- if self.Loading then
 		
-		figures = self.LoadedFigures
-		figureMaskBundles = {}
-	else
+	-- 	figures = self.LoadedFigures
+	-- 	figureMaskBundles = {}
+	-- else
 
-		self:_trimUnverified()
+	-- 	self:_trimUnverified()
 
-		local drawingTasks = Sift.Dictionary.merge(self.Board.DrawingTasks, self.UnverifiedDrawingTasks)
+	-- 	local drawingTasks = Sift.Dictionary.merge(self.Board.DrawingTasks, self.UnverifiedDrawingTasks)
 		
-		figures = table.clone(self.Board.Figures)
-		figureMaskBundles = {}
+	-- 	figures = table.clone(self.Board.Figures)
+	-- 	figureMaskBundles = {}
 
-		-- Apply all of the drawingTasks to the figures,
-		-- then all of the unverified ones on top.
+	-- 	-- Apply all of the drawingTasks to the figures,
+	-- 	-- then all of the unverified ones on top.
 
-		for _, family in {drawingTasks, self.UnverifiedDrawingTasks} do
+	-- 	for _, family in {drawingTasks, self.UnverifiedDrawingTasks} do
 
-			for taskId, drawingTask in pairs(family) do
+	-- 		for taskId, drawingTask in pairs(family) do
 				
-				if drawingTask.Type == "Erase" then
+	-- 			if drawingTask.Type == "Erase" then
 	
-					local figureIdToFigureMask = DrawingTask.Render(drawingTask)
+	-- 				local figureIdToFigureMask = DrawingTask.Render(drawingTask)
 					
-					for figureId, figureMask in pairs(figureIdToFigureMask) do
-						local bundle = figureMaskBundles[figureId] or {}
-						bundle[taskId] = figureMask
-						figureMaskBundles[figureId] = bundle
-					end
-				else
-					figures[taskId] = DrawingTask.Render(drawingTask)
-				end
-			end
-		end
-	end
+	-- 				for figureId, figureMask in pairs(figureIdToFigureMask) do
+	-- 					local bundle = figureMaskBundles[figureId] or {}
+	-- 					bundle[taskId] = figureMask
+	-- 					figureMaskBundles[figureId] = bundle
+	-- 				end
+	-- 			else
+	-- 				figures[taskId] = DrawingTask.Render(drawingTask)
+	-- 			end
+	-- 		end
+	-- 	end
+	-- end
 
-	local element = Feather.createElement(PartCanvas, {
+	-- local element = Feather.createElement(PartCanvas, {
 
-		Figures = figures,
-		FigureMaskBundles = figureMaskBundles,
+	-- 	Figures = figures,
+	-- 	FigureMaskBundles = figureMaskBundles,
 
-		CanvasSize = self.Board.SurfaceSize,
-		CanvasCFrame = self.Board.SurfaceCFrame,
-	})
+	-- 	CanvasSize = self.Board.SurfaceSize,
+	-- 	CanvasCFrame = self.Board.SurfaceCFrame,
+	-- })
 
-	if self.CanvasTree then
-		Feather.update(self.CanvasTree, element)
+	-- if self.CanvasTree then
+	-- 	Feather.update(self.CanvasTree, element)
 
-		self.CanvasTree.root.result[1].Parent = self:_getContainer()
-	else
-		self.CanvasTree = Feather.mount(element, self:_getContainer(), self.Board:FullName())
-	end
+	-- 	self.CanvasTree.root.result[1].Parent = self:_getContainer()
+	-- else
+	-- 	self.CanvasTree = Feather.mount(element, self:_getContainer(), self.Board:FullName())
+	-- end
+
+	local canvas = DynamicMeshCanvas.new(self.Board):CanvasModelAsync()
+	canvas.Parent = workspace
 end
 
 return SurfaceCanvas

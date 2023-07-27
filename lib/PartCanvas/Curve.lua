@@ -31,6 +31,10 @@ local partInitProps = {
 	CanQuery = false, -- Does not take part in e.g. GetPartsInPart
 }
 
+local zBlockMesh = e("BlockMesh", {
+	Scale = Vector3.new(1,1,0),
+})
+
 local function circle(props)
 
 	local point, color, width, zIndex, canvasSize, canvasCFrame = unpack(props)
@@ -59,6 +63,7 @@ local function circle(props)
 		Color = color,
 
 		[Feather.HostInitProps] = partInitProps,
+		-- [Feather.Children] = {xBlockMesh}
 	})
 end
 
@@ -103,7 +108,8 @@ local function line(props)
 		
 		Color = color,
 
-		[Feather.Children] = (roundedP0 or roundedP1) and {firstCircle, secondCircle} or nil,
+		-- [Feather.Children] = (roundedP0 or roundedP1) and {firstCircle, secondCircle} or nil,
+		[Feather.Children] = (roundedP0 or roundedP1) and {firstCircle, secondCircle, zBlockMesh} or {zBlockMesh},
 
 		[Feather.HostInitProps] = partInitProps,
 	})
