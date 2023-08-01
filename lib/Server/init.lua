@@ -158,8 +158,8 @@ function Server:Start()
 					self.Boards[instance] = board
 					self.BoardAdded:Fire(board)
 				end)
-				:catch(function(msg)
-					indicateInvalidBoard(board, msg)
+				:catch(function(err)
+					indicateInvalidBoard(board, tostring(err))
 				end)
 		end
 	end
