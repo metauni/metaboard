@@ -37,7 +37,7 @@ function Server:promiseDataStore()
 		-- TODO: this fails to distinguish between places in Studio.
 		-- See (PrivateServerKey appearance delay #14 issue)
 
-		local Pocket = ReplicatedStorage:FindFirstChild("Pocket")
+		local Pocket = ReplicatedStorage:FindFirstChild("OS"):FindFirstChild("Pocket")
 		if not Pocket then
 			resolve(DataStoreService:GetDataStore(Config.Persistence.DataStoreName))
 		end
