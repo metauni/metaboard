@@ -282,14 +282,61 @@ function Client:Start()
 		self.BoardAdded:Fire(board)
 	end
 	
-	-- Bind regular metaboards
+	-- Bind regular metaboards with streaming radius (or based on chosen board Ancestor)
+
+	local boardAncestorValue = ReplicatedStorage:FindFirstChild("BoardAncestor")
+	local ATTACHED_RADIUS = 64
+	local ROAMING_STREAM_IN_RADIUS = 128
+	local ROAMING_STREAM_OUT_RADIUS = 256
 	
-	for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-		
-		task.spawn(bindInstanceAsync, instance)
+	if typeof(boardAncestorValue) == "Instance" and boardAncestorValue:IsA("ObjectValue") then
+		task.spawn(function()
+			while true do
+				task.wait(2)
+	
+				local character = Players.LocalPlayer.Character
+				if not character or not character.PrimaryPart then
+					return
+				end
+				for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+					if boardAncestorValue.Value then
+						if instance:IsDescendantOf(boardAncestorValue.Value) then
+							if not self.Boards[instance] then
+								task.spawn(bindInstanceAsync, instance)
+							end
+						--selene:allow(if_same_then_else)
+						elseif (instance.Position - character:GetPivot().Position).Magnitude < ATTACHED_RADIUS then
+							if not self.Boards[instance] then
+								task.spawn(bindInstanceAsync, instance)
+							end
+						else
+							if self.Boards[instance] then
+								task.spawn(onRemoved, instance)
+							end
+						end
+					else -- Just stream based on radius
+						if self.Boards[instance] and (instance.Position - character:GetPivot().Position).Magnitude >= ROAMING_STREAM_OUT_RADIUS then
+							task.spawn(onRemoved, instance)
+						elseif not self.Boards[instance] and (instance.Position - character:GetPivot().Position).Magnitude < ROAMING_STREAM_IN_RADIUS then
+							task.spawn(bindInstanceAsync, instance)
+						end
+						
+					end
+				end
+			end
+		end)
+
+	else
+		if boardAncestorValue ~= nil then
+			warn("Bad BoardAncestor ObjectValue")
+		end
+		CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
+
+		for _, instance in CollectionService:GetTagged(Config.BoardTag) do
+			task.spawn(bindInstanceAsync, instance)
+		end
 	end
-	
-	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
+
 	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(onRemoved)
 end
 
