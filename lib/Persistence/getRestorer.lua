@@ -128,7 +128,7 @@ local fetchers = {
 			end
 
 			local figures = {}
-			local eraseGrid = EraseGrid.new(board:AspectRatio())
+			local eraseGrid = EraseGrid.new(board:GetAspectRatio())
 
 			for _, curveData in ipairs(serialisedCurves) do
 
@@ -294,7 +294,7 @@ local fetchers = {
 			local startTime = os.clock()
 
 			local figures = {}
-			local eraseGrid = EraseGrid.new(board:AspectRatio())
+			local eraseGrid = EraseGrid.new(board:GetAspectRatio())
 
 			for _, chunk in ipairs(chunks) do
 

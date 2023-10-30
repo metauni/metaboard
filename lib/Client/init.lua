@@ -15,40 +15,111 @@ local VRService = game:GetService("VRService")
 local root = script.Parent
 local Config = require(root.Config)
 local BoardClient = require(script.BoardClient)
+local Feather = require(root.Parent.Feather)
+local BoardState = require(root.BoardState)
+local Binder = require(root.Util.Binder)
+local ValueObject = require(root.Util.ValueObject)
 local Sift = require(root.Parent.Sift)
 local SurfaceCanvas = require(script.SurfaceCanvas)
 local DrawingUI = require(root.DrawingUI)
-local BoardButton = require(script.BoardButton)
 local VRInput = require(script.VRInput)
-local GoodSignal = require(root.Parent.GoodSignal)
+
+local Remotes = root.Remotes
 
 -- Constants
-local LINE_LOAD_FRAME_BUDGET = 128
+local LINE_LOAD_FRAME_BUDGET = 512
+local LINE_DESTROY_FRAME_BUDGET = 512
 
 local Client = {
-	Boards = {},
-	SurfaceCanvases = {},
-	BoardButtons = {},
-	OpenedBoard = nil,
 	VRInputs = {},
-
-	BoardAdded = GoodSignal.new(),
 
 	_canvasLoadingQueue = {},
 }
 Client.__index = Client
 
 
-function Client:Start()
-	
-	-- VR Chalk
+function Client:Init()
+	self.OpenedBoardPart = ValueObject.new(nil)
 
-	if VRService.VREnabled then
-		task.spawn(function()
-			local chalk = ReplicatedStorage.Chalk:Clone()
-			chalk.Parent = Players.LocalPlayer:WaitForChild("Backpack")
-		end)
+	self.BoardClientBinder = Binder.new("BoardClient", function(part: Part)
+		local board = BoardClient.new(part)
+		local data = board.Remotes.GetBoardData:InvokeServer()
+		debug.profilebegin("[metaboard] Deserialise state")
+		board.State = BoardState.deserialise(data)
+		debug.profileend()
+		board:ConnectRemotes()
+		return board
+	end)
+	self.SurfaceCanvasBinder = Binder.new("SurfaceCanvas", SurfaceCanvas, self)
+	self.BoardClientBinder:Init()
+	self.SurfaceCanvasBinder:Init()
+end
+
+function Client:OpenBoard(part: Part)
+
+	local board = self.BoardClientBinder:Get(part)
+	if not board then
+		return
 	end
+
+	DrawingUI(board, "Gui", function()
+		-- This function is called when the Drawing UI is closed
+		self.OpenedBoardPart.Value = nil
+	end)
+
+	self.OpenedBoardPart.Value = part
+end
+
+function Client:Start()
+	self.BoardClientBinder:Start()
+	self.SurfaceCanvasBinder:Start()
+
+	self._surrenderedCanvasTrees = {}
+	self.SurfaceCanvasBinder:GetClassRemovingSignal():Connect(function(surfaceCanvas)
+		local canvasTree = surfaceCanvas:SurrenderCanvasTree()
+		if canvasTree then
+			table.insert(self._surrenderedCanvasTrees, canvasTree)
+		end
+	end)
+
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			local boardAncestorValue = ReplicatedStorage:FindFirstChild("BoardAncestor")
+			local boardAncestor = boardAncestorValue and boardAncestorValue.Value or nil
+			
+			local character = Players.LocalPlayer.Character
+			if not character or not character.PrimaryPart then
+				continue
+			end
+			
+			for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
+
+				if boardAncestor then
+					if 
+						instance:IsDescendantOf(boardAncestor)
+						or (instance.Position - character:GetPivot().Position).Magnitude < Config.AttachedRadius
+					then
+						if not instance:HasTag(self.BoardClientBinder:GetTag()) then
+							Remotes.RequestBoardInit:FireServer(instance)
+						end
+						self.SurfaceCanvasBinder:BindClient(instance)
+					else
+						self.SurfaceCanvasBinder:UnbindClient(instance)
+					end
+				else -- Just stream based on radius
+					if (instance.Position - character:GetPivot().Position).Magnitude < Config.RoamingStreamingInRadius then
+						if not instance:HasTag(self.BoardClientBinder:GetTag()) then
+							Remotes.RequestBoardInit:FireServer(instance)
+						end
+						self.SurfaceCanvasBinder:BindClient(instance)
+					elseif (instance.Position - character:GetPivot().Position).Magnitude >= Config.RoamingStreamingOutRadius then
+						self.SurfaceCanvasBinder:UnbindClient(instance)
+					end
+				end
+			end
+		end
+	end)
 
 	-- Sort all the boards by proximity to the character every 0.5 seconds
 	-- TODO: Holy smokes batman is this not optimised. We need a voronoi diagram and/or a heap.
@@ -63,15 +134,8 @@ function Client:Start()
 				task.wait(0.5)
 				continue
 			end
-
-			local loading = Sift.Dictionary.filter(self.SurfaceCanvases, function(surfaceCanvas, instance)
-
-				local isLoading = instance and instance:IsDescendantOf(workspace) and surfaceCanvas.Loading
-
-				return isLoading
-			end)
-		
 			local characterPos = character:GetPivot().Position
+		
 			self._canvasLoadingQueue = {}
 
 			-- Sort the loading canvases by distance and store them in self._canvasLoadingQueue
@@ -81,14 +145,16 @@ function Client:Start()
 				while true do
 					local minSoFar = math.huge
 					local nearestCanvas = nil
-					for _, surfaceCanvas in loading do
-						if nearestSet[surfaceCanvas] then
+					for surfaceCanvas in self.SurfaceCanvasBinder:GetAllSet() do
+						if 
+							not surfaceCanvas:GetPart():IsDescendantOf(workspace)
+							or not surfaceCanvas.Loading.Value
+							or nearestSet[surfaceCanvas]
+						then
 							continue
 						end
 
-						local board = surfaceCanvas.Board
-
-						local distance = (board.SurfaceCFrame.Position - characterPos).Magnitude
+						local distance = (surfaceCanvas.SurfaceCFrame.Value.Position - characterPos).Magnitude
 						if distance < minSoFar then
 							nearestCanvas = surfaceCanvas
 							minSoFar = distance
@@ -108,27 +174,83 @@ function Client:Start()
 		end
 	end)
 
-	-- Constantly connect VRInput objects to whatever boards are "inRange"
+	-- Load Surface Canvases gradually, prioritised by proximity and visibility
+	RunService.Heartbeat:Connect(function()
 
+		-- Slowly destroy all surrendered canvas trees
+		local destroyed = 0
+		while destroyed < LINE_DESTROY_FRAME_BUDGET and #self._surrenderedCanvasTrees > 0 do
+			local canvasTree = self._surrenderedCanvasTrees[1]
+			if Feather.destructionFinished(canvasTree) then
+				table.remove(self._surrenderedCanvasTrees, 1)
+			else
+				destroyed += Feather.slowDestroy(canvasTree, LINE_DESTROY_FRAME_BUDGET - destroyed)
+			end
+		end
+
+		local closestLoading
+		local closestInFOV
+		local closestVisible
+		
+		for _, surfaceCanvas in ipairs(self._canvasLoadingQueue) do
+			
+			if surfaceCanvas.Loading.Value then
+				closestLoading = closestLoading or surfaceCanvas
+
+				local boardPos = surfaceCanvas.SurfaceCFrame.Value.Position
+				local _, inFOV = workspace.CurrentCamera:WorldToViewportPoint(boardPos)
+				
+				if inFOV then
+					closestInFOV = closestInFOV or surfaceCanvas
+
+					if surfaceCanvas.SurfaceCFrame.Value.LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) < 0 then
+						closestVisible = closestVisible or surfaceCanvas
+						break
+					end
+				end
+			end
+		end
+
+		local canvasToLoad = closestVisible or closestInFOV or closestLoading
+		if canvasToLoad then
+			debug.profilebegin("LoadMore")
+			canvasToLoad:LoadMore(LINE_LOAD_FRAME_BUDGET)
+			debug.profileend()
+		end
+	end)
+
+	
 	if VRService.VREnabled then
+		warn("VR drawing support broken for now ")
+		--[[
+		task.spawn(function()
+			local chalk = ReplicatedStorage.Chalk:Clone()
+			chalk.Parent = Players.LocalPlayer:WaitForChild("Backpack")
+		end)
+		
+		-- Constantly connect VRInput objects to whatever boards are "inRange"
 
 		local function inRange(board)
 
-			if not board or not board._instance:IsDescendantOf(workspace) then
+			if not board or not board:GetPart():IsDescendantOf(workspace) then
 				return false
 			end
 
-			local boardLookVector = board.SurfaceCFrame.LookVector
-			local boardRightVector = board.SurfaceCFrame.RightVector
+			local size = board.SurfaceSize.Value
+			local cframe = board.SurfaceCFrame.Value
+
+			local boardLookVector = cframe.LookVector
+			local boardRightVector = cframe.RightVector
 
 			local character = Players.LocalPlayer.Character
 			if character then
-				local characterVector = character:GetPivot().Position - board.SurfaceCFrame.Position
+				local characterVector = character:GetPivot().Position - cframe.Position
 				local normalDistance = boardLookVector:Dot(characterVector)
 
 				local strafeDistance = boardRightVector:Dot(characterVector)
-				return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= board.SurfaceSize.X/2 + 5
+				return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= size.X/2 + 5
 			end
+			return false
 		end
 			
 
@@ -171,189 +293,16 @@ function Client:Start()
 				task.wait(1)
 			end
 		end)
+		--]]
 	end
-
-	-- Load Surface Canvases gradually, prioritised by proximity and visibility
-	RunService.Heartbeat:Connect(function()
-
-		local closestLoading
-		local closestInFOV
-		local closestVisible
-		
-		for _, surfaceCanvas in ipairs(self._canvasLoadingQueue) do
-
-			local board = surfaceCanvas.Board
-			
-			if surfaceCanvas.Loading then
-				closestLoading = closestLoading or surfaceCanvas
-
-				local boardPos = board.SurfaceCFrame.Position
-				local _, inFOV = workspace.CurrentCamera:WorldToViewportPoint(boardPos)
-				
-				if inFOV then
-					closestInFOV = closestInFOV or surfaceCanvas
-
-					if board.SurfaceCFrame.LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) < 0 then
-						closestVisible = closestVisible or surfaceCanvas
-						break
-					end
-				end
-			end
-		end
-
-		local canvasToLoad = closestVisible or closestInFOV or closestLoading
-		if canvasToLoad then
-			canvasToLoad:LoadMore(LINE_LOAD_FRAME_BUDGET)
-		end
-	end)
-
-	--------------------------------------------------------------------------------
-	
-	local function onRemoved(instance)
-		
-		local boardButton = self.BoardButtons[instance]
-		local surfaceCanvas = self.SurfaceCanvases[instance]
-		local board = self.Boards[instance]
-		
-		if boardButton then
-			boardButton:Destroy()
-		end
-		if surfaceCanvas then
-			surfaceCanvas:Destroy()
-		end
-		if board then
-			board:Destroy()
-		end
-
-		self.BoardButtons[instance] = nil
-		self.SurfaceCanvases[instance] = nil
-		self.Boards[instance] = nil
-	end
-
-	local function bindInstanceAsync(instance: Part)
-
-		if not instance:IsDescendantOf(workspace) and not instance:IsDescendantOf(ReplicatedStorage) then
-			onRemoved(instance)
-			return
-		end
-
-		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part")
-	
-		-- Ignore if already seen this board
-		if self.Boards[instance] then
-			return
-		end
-	
-		if not instance:GetAttribute("BoardServerInitialised") then
-			
-			instance:GetAttributeChangedSignal("BoardServerInitialised"):Wait()
-		end
-	
-		local board = BoardClient.new(instance)
-		
-		local data = board.Remotes.GetBoardData:InvokeServer()
-		
-		board:LoadData(data)
-		
-		board:ConnectRemotes()
-	
-		self.Boards[instance] = board
-		self.SurfaceCanvases[instance] = SurfaceCanvas.new(board)
-		self.BoardButtons[instance] = BoardButton.new(board, self.OpenedBoard == nil, function()
-			
-			-- This is the default function called when the boardButton is clicked.
-			-- Can be temporarily overwritten by setting boardButton.OnClick
-
-			for _, boardButton in self.BoardButtons do
-				boardButton:SetActive(false)
-			end
-			
-			DrawingUI(board, "Gui", function()
-				-- This function is called when the Drawing UI is closed
-				self.OpenedBoard = nil
-				for _, boardButton in self.BoardButtons do
-					boardButton:SetActive(true)
-				end
-			end)
-
-			self.OpenedBoard = board
-		end)
-
-		self.BoardAdded:Fire(board)
-	end
-	
-	-- Bind regular metaboards with streaming radius (or based on chosen board Ancestor)
-
-	local boardAncestorValue = ReplicatedStorage:FindFirstChild("BoardAncestor")
-	local ATTACHED_RADIUS = 64
-	local ROAMING_STREAM_IN_RADIUS = 128
-	local ROAMING_STREAM_OUT_RADIUS = 256
-	
-	if typeof(boardAncestorValue) == "Instance" and boardAncestorValue:IsA("ObjectValue") then
-		task.spawn(function()
-			while true do
-				task.wait(2)
-	
-				local character = Players.LocalPlayer.Character
-				if not character or not character.PrimaryPart then
-					return
-				end
-				for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-					if boardAncestorValue.Value then
-						if instance:IsDescendantOf(boardAncestorValue.Value) then
-							if not self.Boards[instance] then
-								task.spawn(bindInstanceAsync, instance)
-							end
-						--selene:allow(if_same_then_else)
-						elseif (instance.Position - character:GetPivot().Position).Magnitude < ATTACHED_RADIUS then
-							if not self.Boards[instance] then
-								task.spawn(bindInstanceAsync, instance)
-							end
-						else
-							if self.Boards[instance] then
-								task.spawn(onRemoved, instance)
-							end
-						end
-					else -- Just stream based on radius
-						if self.Boards[instance] and (instance.Position - character:GetPivot().Position).Magnitude >= ROAMING_STREAM_OUT_RADIUS then
-							task.spawn(onRemoved, instance)
-						elseif not self.Boards[instance] and (instance.Position - character:GetPivot().Position).Magnitude < ROAMING_STREAM_IN_RADIUS then
-							task.spawn(bindInstanceAsync, instance)
-						end
-						
-					end
-				end
-			end
-		end)
-
-	else
-		if boardAncestorValue ~= nil then
-			warn("Bad BoardAncestor ObjectValue")
-		end
-		CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
-
-		for _, instance in CollectionService:GetTagged(Config.BoardTag) do
-			task.spawn(bindInstanceAsync, instance)
-		end
-	end
-
-	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(onRemoved)
 end
 
-function Client:GetBoard(instance: Part)
-	return self.Boards[instance]
+function Client:GetBoard(part: Part)
+	return self.BoardClientBinder:Get(part)
 end
 
-function Client:WaitForBoard(instance: Part)
-	if self.Boards[instance] then
-		return self.Boards[instance]
-	end
-	while true do
-		local board = self.BoardAdded:Wait()
-		if board._instance == instance then
-			return board
-		end
-	end
+function Client:WaitForBoard(part: Part)
+	return self.BoardClientBinder:Promise(part):Wait()
 end
 
 return Client

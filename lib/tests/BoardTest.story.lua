@@ -75,14 +75,14 @@ return function()
 	end
 
 	function actions.undo()
-		local history = board.PlayerHistories[state.AuthorId]
+		local history = board.State.PlayerHistories[state.AuthorId]
 		if history and history:CountPast() > 0 then
 			board:ProcessUndo(state.AuthorId)
 		end
 	end
 	
 	function actions.redo()
-		local history = board.PlayerHistories[state.AuthorId]
+		local history = board.State.PlayerHistories[state.AuthorId]
 		if history and history:CountFuture() > 0 then
 			board:ProcessRedo(state.AuthorId)
 		end

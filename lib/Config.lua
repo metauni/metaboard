@@ -13,6 +13,10 @@ local Config = {
 	GenerateUUID = function() return HttpService:GenerateGUID(false) end,
 
 	Debug = false,
+
+	AttachedRadius = 64,
+	RoamingStreamingInRadius = 256,
+	RoamingStreamingOutRadius = 256,
 }
 
 Config.Persistence = {

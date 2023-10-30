@@ -12,7 +12,7 @@ for _, module in ipairs(script:GetChildren()) do
 	DrawingTaskDictionary[module.Name] = require(module)
 end
 
-return {
+local DrawingTask = {
 
 	Render = function(drawingTask)
 		return DrawingTaskDictionary[drawingTask.Type].Render(drawingTask)
@@ -43,3 +43,10 @@ return {
 	end,
 
 }
+
+export type DrawingTask = {
+	Type: string,
+	Id: string,
+}
+
+return DrawingTask

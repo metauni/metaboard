@@ -5,6 +5,8 @@
 -- --]]
 
 local CollectionService = game:GetService("CollectionService")
+local GuiService = game:GetService("GuiService")
+local INSET = GuiService:GetGuiInset()
 
 -- Imports
 local root = script.Parent.Parent.Parent.Parent
@@ -34,7 +36,7 @@ local function boardToCameraCFrame(boardHeight, viewportAbsoluteSize, targetAbso
 	local zDistance = (boardHeight/2 / canvasButtonHeightScale) / tanHalfFOV
 	local studsPerPixel = boardHeight / targetAbsoluteSize.Y
 
-	local canvasCentre = targetAbsolutePosition + Vector2.new(0,36) + targetAbsoluteSize / 2
+	local canvasCentre = targetAbsolutePosition + INSET + targetAbsoluteSize / 2
 	local vpfCentre = viewportAbsoluteSize / 2
 	local canvasCentreOffset = canvasCentre - vpfCentre
 
@@ -52,7 +54,7 @@ end
 function BoardViewport:didMount()
 
 	-- If the board is inside a model, clone the model
-	local instance: Part = self.props.Board._instance
+	local instance: Part = self.props.Board:GetPart()
 	local wholeBoard = instance
 	if instance.Parent:IsA("Model") and instance.Parent.PrimaryPart == instance then
 		wholeBoard = instance.Parent
@@ -78,7 +80,7 @@ end
 function BoardViewport:render()
 
 	local toCamCFrame = boardToCameraCFrame(
-		self.props.Board.SurfaceSize.Y,
+		self.props.SurfaceSize.Y,
 		workspace.CurrentCamera.ViewportSize,
 		self.props.TargetAbsolutePosition,
 		self.props.TargetAbsoluteSize,
@@ -88,7 +90,7 @@ function BoardViewport:render()
 	local cam = e("Camera", {
 
 		FieldOfView = self.props.FieldOfView,
-		CFrame = self.props.Board.SurfaceCFrame * toCamCFrame,
+		CFrame = self.props.SurfaceCFrame * toCamCFrame,
 
 		[Roact.Ref] = self.CamRef,
 	})

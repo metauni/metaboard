@@ -437,7 +437,7 @@ function App:render()
 
 		CanvasAbsolutePosition = self.state.CanvasAbsolutePosition,
 		CanvasAbsoluteSize = self.state.CanvasAbsoluteSize,
-		AspectRatio = self.props.Board:AspectRatio(),
+		AspectRatio = self.props.Board.State.AspectRatio,
 		Margin = toolState.EquippedTool ~= Eraser and cursorWidth or 0,
 
 		CursorPositionBinding = self.ToolPosBinding,

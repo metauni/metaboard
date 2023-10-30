@@ -4,6 +4,9 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
+local GuiService = game:GetService("GuiService")
+local INSET = GuiService:GetGuiInset()
+
 -- Imports
 local root = script.Parent.Parent.Parent
 local Config = require(root.Config)
@@ -14,6 +17,7 @@ local e = Roact.createElement
 
 -- Components
 local BoardViewport = require(script.BoardViewport)
+local BoardUtils = require(script.Parent.Parent.Parent.BoardUtils)
 
 --[[
 	Board viewer consisting of:
@@ -67,7 +71,7 @@ local function setBindings(self, absoluteSize, absolutePosition)
 		local factor = pixelsToStuds(camProps.ViewportSize, camProps.FieldOfView, zDistance)
 
 		local viewportCentre = camProps.ViewportSize / 2
-		local canvasCentre = absolutePosition + absoluteSize / 2 + Vector2.new(0, 36)
+		local canvasCentre = absolutePosition + absoluteSize / 2 + INSET
 		local pixelShift = canvasCentre - viewportCentre
 
 		local x = pixelShift.X * factor
@@ -141,6 +145,8 @@ function GuiBoardViewer:render()
 	-- Display a cloned instance of an empty board in a viewport frame.
 	local boardViewport = e(BoardViewport, {
 
+		SurfaceCFrame = BoardUtils.getSurfaceCFrameFromPart(self.props.Board:GetPart()),
+		SurfaceSize = BoardUtils.getSurfaceSizeFromPart(self.props.Board:GetPart()),
 		TargetAbsolutePosition = self.props.CanvasAbsolutePosition,
 		TargetAbsoluteSize = self.props.CanvasAbsoluteSize,
 		Board = self.props.Board,

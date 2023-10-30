@@ -28,7 +28,7 @@ function toolDown(self, state, canvasPos)
 	
 	self.props.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
 
-	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.props.Board, canvasPos)
+	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.props.Board.State, canvasPos)
 
 	return {
 
@@ -50,7 +50,7 @@ function toolMoved(self, state, canvasPos)
 
 	self.props.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
 
-	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.props.Board, canvasPos)
+	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.props.Board.State, canvasPos)
 
 	return {
 

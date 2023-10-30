@@ -83,7 +83,7 @@ Note that the positions of the start of the past and the end of the future
 can be calculated from _next, _ahead, _behind, using modular arithmetic.
 --]]
 
-function History.new(capacity: number, itemToString)
+function History.new(capacity: number, itemToString:((any) -> string)?)
 	return setmetatable({
 		_capacity = capacity,
 		_next = 1,
@@ -94,12 +94,15 @@ function History.new(capacity: number, itemToString)
 	}, History)
 end
 
+export type History = typeof(History.new(1))
+
 -- We use the wrap function so that modular arithmetic can be more naturally
 -- done with respect to indexing-at-one, i.e. wrap ranges from 1 to capacity.
 local function wrap(n: number, capacity: number)
 	return ((n-1) % capacity) + 1
 end
 
+-- Update the value at the "MostRecent" location in the history
 function History:SetMostRecent(item: any)
 	self._table[wrap(self._next - 1, self._capacity)] = item
 end

@@ -4,6 +4,9 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
+local GuiService = game:GetService("GuiService")
+local INSET = GuiService:GetGuiInset()
+
 -- Imports
 local root = script.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
@@ -21,7 +24,7 @@ local CanvasIO = Roact.PureComponent:extend("CanvasIO")
 --]]
 local function toCanvasPoint(self, x: number, y: number): Vector2
 	
-	return Vector2.new(x - self.props.CanvasAbsolutePosition.X, y - (self.props.CanvasAbsolutePosition.Y + 36)) / self.props.CanvasAbsoluteSize.Y
+	return Vector2.new(x - self.props.CanvasAbsolutePosition.X, y - (self.props.CanvasAbsolutePosition.Y + INSET.Y)) / self.props.CanvasAbsoluteSize.Y
 end
 
 --[[
@@ -49,7 +52,7 @@ function CanvasIO:render()
 		BackgroundTransparency = 1,
 
 		AnchorPoint = self.props.AnchorPoint,
-		Position = UDim2.fromOffset(self.props.CanvasAbsolutePosition.X + self.props.Margin/2, self.props.CanvasAbsolutePosition.Y + self.props.Margin/2 + 36),
+		Position = UDim2.fromOffset(self.props.CanvasAbsolutePosition.X + self.props.Margin/2, self.props.CanvasAbsolutePosition.Y + self.props.Margin/2 + INSET.Y),
 		Size = UDim2.fromOffset(self.props.CanvasAbsoluteSize.X - self.props.Margin, self.props.CanvasAbsoluteSize.Y - self.props.Margin),
 
 		--[[
@@ -85,7 +88,7 @@ function CanvasIO:render()
 			-- Set the new active input object
 			self._activeInputObject = inputObject
 
-			local x, y = inputObject.Position.X, inputObject.Position.Y + 36
+			local x, y = inputObject.Position.X, inputObject.Position.Y + INSET.Y
 
 			setCursorPixelPosition(x,y)
 
@@ -104,7 +107,7 @@ function CanvasIO:render()
 				end
 			end
 
-			local x, y = inputObject.Position.X, inputObject.Position.Y + 36
+			local x, y = inputObject.Position.X, inputObject.Position.Y + INSET.Y
 
 			if withinCanvas(self, x, y) then
 

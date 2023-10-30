@@ -4,68 +4,127 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
--- Import
+local RunService = game:GetService("RunService")
+
 local root = script.Parent.Parent
-local Board = require(root.Board)
+local BoardState = require(root.BoardState)
+local BaseObject = require(root.Util.BaseObject)
+-- local ValueObject = require(root.Util.ValueObject)
+local GoodSignal = require(root.Util.GoodSignal)
 local BoardRemotes = require(root.BoardRemotes)
+local Sift = require(root.Parent.Sift)
 
 --[[
 	The client-side version of a board.
 --]]
-local BoardClient = setmetatable({}, Board)
+local BoardClient = setmetatable({}, BaseObject)
 BoardClient.__index = BoardClient
+BoardClient.ClassName = "BoardClient"
 
-function BoardClient.new(instance: Model | Part)
+export type BoardClient = {
+	-- These are all reactive ValueObjects
+	Remotes: BoardRemotes.BoardRemotes,
+	State: BoardState.BoardState,
+	StateChanged: { Connect:(() -> ()) -> { Disconnect: () -> ()} },
+	-- SurfaceSize: { Value: Vector2 },
+	-- SurfaceCFrame: { Value: CFrame },
+
+	ClientState: { DrawingTasks: BoardState.DrawingTaskDict },
+} & typeof(BoardClient)
+
+function BoardClient.new(part: Part) : BoardClient
+	local self = setmetatable(BaseObject.new(part), BoardClient)
 
 	-- These may not replicate immediately
-	local boardRemotes = BoardRemotes.WaitForRemotes(instance)
+	self.Remotes = BoardRemotes.WaitForRemotes(part)
 
-	local self = setmetatable(Board.new({
+	self.State = nil
+	self.ClientState = {
+		DrawingTasks = {},
+	}
+	-- Fires at most once per-frame
+	self.StateChanged = self._maid:Add(GoodSignal.new())
+
+	-- self.SurfaceSize = self._maid:Add(ValueObject.new(BoardState.getSurfaceSizeFromPart(self._obj), "Vector2"))
+	-- self.SurfaceCFrame = self._maid:Add(ValueObject.new(BoardState.getSurfaceCFrameFromPart(self._obj), "CFrame"))
+
+	-- self._maid:GiveTask(self._obj:GetPropertyChangedSignal("Size"):Connect(function()
+	-- 	self.SurfaceSize.Value = BoardState.getSurfaceSizeFromPart(self._obj)
+	-- end))
 	
-		Instance = instance,
-		BoardRemotes = boardRemotes,
-	}), BoardClient)
-	
+	-- self._maid:GiveTask(self._obj:GetPropertyChangedSignal("CFrame"):Connect(function()
+	-- 	self.SurfaceCFrame.Value = BoardState.getSurfaceCFrameFromPart(self._obj)
+	-- end))
+
 	return self
 end
 
-function BoardClient:ConnectRemotes()
+function BoardClient:GetPart()
+	return self._obj
+end
 
-	local connections = {}
-
-	--[[
-		Connect remote event callbacks to respond to init/update/finish's of a drawing task,
-		as well as undo, redo, clear events.
-		The order these remote events are received is the globally agreed order.
+--[[
+	Connect remote event callbacks to respond to init/update/finish's of a drawing task,
+	as well as undo, redo, clear events.
+	The order these remote events are received is the globally agreed order.
 	--]]
+function BoardClient:ConnectRemotes()
+	
+	local tasks = {}
+	-- This first cleans up the old list of connections if there was one
+	-- then remembers these tasks in the maid
+	self._maid._remoteTasks = tasks
+	
+	-- Remotes trip this flag so we can defer updates to the end of the frame
+	local stateChangedThisFrame = false
 
-	-- Turn a method into a function with self as first argument
-	local function fix(method)
-
-		return function (...)
-		
-			method(self, ...)
+	local function checkUpdate()
+		if stateChangedThisFrame then
+			self.StateChanged:Fire()
+			-- Does ordering matter here? Is it possible that the state changes again?
+			stateChangedThisFrame = false
 		end
 	end
 
-	table.insert(connections, self.Remotes.InitDrawingTask.OnClientEvent:Connect(fix(self.ProcessInitDrawingTask)))
-	table.insert(connections, self.Remotes.UpdateDrawingTask.OnClientEvent:Connect(fix(self.ProcessUpdateDrawingTask)))
-	table.insert(connections, self.Remotes.FinishDrawingTask.OnClientEvent:Connect(fix(self.ProcessFinishDrawingTask)))
-	table.insert(connections, self.Remotes.Undo.OnClientEvent:Connect(fix(self.ProcessUndo)))
-	table.insert(connections, self.Remotes.Redo.OnClientEvent:Connect(fix(self.ProcessRedo)))
-	table.insert(connections, self.Remotes.Clear.OnClientEvent:Connect(fix(self.ProcessClear)))
+	-- Check once per frame, and once on cleanup in case of race.
+	table.insert(tasks, RunService.RenderStepped:Connect(checkUpdate))
+	table.insert(tasks, checkUpdate)
 
-	table.insert(connections, self.Remotes.SetData.OnClientEvent:Connect(function(data)
-
-		self:LoadData(data)
-		self:DataChanged()
+	for _, actionName in {
+		"InitDrawingTask",
+		"UpdateDrawingTask",
+		"FinishDrawingTask",
+		"Undo",
+		"Redo",
+		"Clear",
+	}
+	do
+		local remote = self.Remotes[actionName]
+		table.insert(tasks, remote.OnClientEvent:Connect(function(...)
+			BoardState[actionName](self.State, ...)
+			if actionName == "FinishDrawingTask" then
+				self:_trimClientState()
+			end
+			stateChangedThisFrame = true
+		end))
+	end
+	
+	table.insert(tasks, self.Remotes.SetData.OnClientEvent:Connect(function(data)
+		self.State = BoardState.deserialise(data)
+		self:_trimClientState()
+		stateChangedThisFrame = true
 	end))
+end
 
-	self._destructor:Add(function()
-		
-		for _, connection in ipairs(connections) do
-			connection:Disconnect()
-		end
+function BoardClient:RenderFiguresWithClientState(): (BoardState.FigureDict, BoardState.FigureMaskDict)
+	-- TODO: cache result
+	return BoardState.render(self.State, self.ClientState)
+end
+
+function BoardClient:_trimClientState()
+	self.ClientState.DrawingTasks = Sift.Dictionary.filter(self.ClientState.DrawingTasks, function(_, taskId)
+		local verifiedDrawingTask = self.State.DrawingTasks[taskId]
+		return not (verifiedDrawingTask and verifiedDrawingTask.Finished)
 	end)
 end
 

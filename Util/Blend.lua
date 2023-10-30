@@ -1,0 +1,1201 @@
+--[=[
+	ADAPTED FROM NEVERMORE
+		- Uses adapted libraries
+
+	Changelog
+	- 23/10/23
+		- Merged BlendDefaultProps into this file (Elttob license in README)
+
+	Declarative UI system inspired by Fusion.
+	@class Blend
+]=]
+
+local AccelTween = require(script.Parent.AccelTween)
+local Brio = require(script.Parent.Brio)
+local Maid = require(script.Parent.Maid)
+local Promise = require(script.Parent.Promise)
+local Rx = require(script.Parent.Rx)
+local Rxi = require(script.Parent.Rxi)
+local Spring = require(script.Parent.Spring)
+local StepUtils = require(script.Parent.StepUtils)
+local ValueObject = require(script.Parent.ValueObject)
+
+--[[
+	Stores 'sensible default' properties to be applied to instances created by
+	the New function.
+	See README for license (credit Elttob)
+]]
+
+local BlendDefaultProps = {
+	ScreenGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling"
+	},
+
+	BillboardGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling"
+	},
+
+	SurfaceGui = {
+		ResetOnSpawn = false,
+		ZIndexBehavior = "Sibling",
+
+		SizingMode = "PixelsPerStud",
+		PixelsPerStud = 50
+	},
+
+	Frame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	ScrollingFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		ScrollBarImageColor3 = Color3.new(0, 0, 0)
+	},
+
+	TextLabel = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	TextButton = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		AutoButtonColor = false,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	TextBox = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		ClearTextOnFocus = false,
+
+		Font = "SourceSans",
+		Text = "",
+		TextColor3 = Color3.new(0, 0, 0),
+		TextSize = 14
+	},
+
+	ImageLabel = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	ImageButton = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+
+		AutoButtonColor = false
+	},
+
+	ViewportFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	VideoFrame = {
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0
+	},
+
+	UIListLayout = {
+		SortOrder = Enum.SortOrder.LayoutOrder;
+	},
+}
+
+local Blend = {}
+
+--[=[
+	Creates a new function which will return an observable that, given the props
+	in question, will construct a new instance and assign all props. This is the
+	equivalent of a pipe-able Rx command.
+
+	```lua
+	local render = Blend.New "ScreenGui" {
+		Parent = game.Players.LocalPlayer.PlayerGui;
+
+		Blend.New "Frame" {
+			Size = UDim2.new(1, 0, 1, 0);
+			BackgroundTransparency = 0.5;
+		};
+	};
+
+	maid:GiveTask(render:Subscribe(function(gui)
+		print(gui)
+	end))
+	```
+
+	@param className string
+	@return (props: { [string]: any; }) -> Observable<Instance>
+]=]
+function Blend.New(className)
+	assert(type(className) == "string", "Bad className")
+
+	local defaults = BlendDefaultProps[className]
+
+	return function(props)
+		return Rx.observable(function(sub)
+			local instance = Instance.new(className)
+
+			if defaults then
+				for key, value in pairs(defaults) do
+					instance[key] = value
+				end
+			end
+
+			local maid = Blend.mount(instance, props)
+			maid:GiveTask(instance)
+
+			sub:Fire(instance)
+
+			return maid
+		end)
+	end
+end
+
+--[=[
+	Creates a new Blend State which is actually just a ValueObject underneath.
+
+	@param defaultValue T
+	@param checkType string | nil
+	@return ValueObject<T>
+]=]
+function Blend.State(defaultValue, checkType)
+	return ValueObject.new(defaultValue, checkType)
+end
+
+--[=[
+	Throttles the update to the end of the defer lane. Can help optimize scenarios when
+	Compute() can trigger multiple times per a frame.
+
+	Generally not needed.
+
+	@param observable Observable<T>
+	@return Observable<T>
+]=]
+function Blend.Throttled(observable)
+	return observable:Pipe({
+		Rx.throttleDefer();
+	})
+end
+
+--[=[
+	Shares this observables state/computation with all down-stream observables. This can be useful
+	when a very expensive computation was done and needs to be shared.
+
+	Generally not needed.
+
+	@param observable Observable<T>
+	@return Observable<T>
+]=]
+function Blend.Shared(observable)
+	return observable:Pipe({
+		Rx.cache();
+	})
+end
+
+function Blend.Dynamic(...)
+	return Blend.Computed(...)
+		:Pipe({
+			-- This switch map is relatively expensive, so we don't do this for defaul computed
+			-- and instead force the user to switch to another promise
+			Rx.switchMap(function(promise, ...)
+				if Promise.isPromise(promise) then
+					return Rx.fromPromise(promise)
+				elseif Rx.isObservable(promise) then
+					return promise
+				else
+					return Rx.of(promise, ...)
+				end
+			end)
+		})
+end
+
+--[=[
+	Takes a list of variables and uses them to compute an observable that
+	will combine into any value. These variables can be any value, and if they
+	can be converted into an Observable, they will be, which will be used to compute
+	the value.
+
+	```lua
+	local verbState = Blend.State("hi")
+	local nameState = Blend.State("alice")
+
+	local computed = Blend.Computed(verbState, nameState, function(verb, name)
+		return verb .. " " .. name
+	end)
+
+	maid:GiveTask(computed:Subscribe(function(sentence)
+		print(sentence)
+	end)) --> "hi alice"
+
+	nameState.Value = "bob" --> "hi bob"
+	verbState.Value = "bye" --> "bye bob"
+	nameState.Value = "alice" --> "bye alice"
+	```
+
+	@param ... A series of convertable states, followed by a function at the end.
+	@return Observable<T>
+]=]
+function Blend.Computed(...)
+	local values = {...}
+	local n = select("#", ...)
+	local compute = values[n]
+
+	assert(type(compute) == "function", "Bad compute")
+
+	local args = {}
+	for i=1, n - 1 do
+		local observable = Blend.toPropertyObservable(values[i])
+		if observable then
+			args[i] = observable
+		else
+			args[i] = Rx.of(values[i])
+		end
+	end
+
+	if #args == 0 then
+		-- static value?
+		return Rx.observable(function(sub)
+			sub:Fire(compute())
+		end)
+	elseif #args == 1 then
+		return Rx.map(compute)(args[1])
+	else
+		return Rx.combineLatest(args)
+			:Pipe({
+				Rx.map(function(result)
+					return compute(unpack(result, 1, n - 1))
+				end);
+			})
+	end
+end
+
+--[=[
+	Short hand to register a propertyEvent changing
+
+	```lua
+	Blend.mount(workspace, {
+		[Blend.OnChange "Name"] = function(name)
+			print(name)
+		end;
+	}) --> Immediately will print "Workspace"
+
+	workspace.Name = "Hello" --> Prints "Hello"
+	```
+
+	@param propertyName string
+	@return (instance: Instance) -> Observable
+]=]
+function Blend.OnChange(propertyName)
+	assert(type(propertyName) == "string", "Bad propertyName")
+
+	return function(instance)
+		return Rxi.propertyOf(instance, propertyName)
+	end
+end
+
+--[=[
+	Short hand to register an event from the instance
+
+	```lua
+		Blend.mount(workspace, {
+			[Blend.OnEvent "ChildAdded"] = function(child)
+				print("Child added", child)
+			end;
+		})
+
+		local folder = Instance.new("Folder")
+		folder.Name = "Hi"
+		folder.Parent = workspace --> prints "Child added Hi"
+	```
+
+	@param eventName string
+	@return (instance: Instance) -> Observable
+]=]
+function Blend.OnEvent(eventName)
+	assert(type(eventName) == "string", "Bad eventName")
+
+	return function(instance)
+		return Rx.fromSignal(instance[eventName])
+	end
+end
+
+--[=[
+	Uses the constructor to attach a class or resource to the actual object
+	for the lifetime of the subscription of that object.
+
+	```lua
+	return Blend.New "Frame" {
+		Parent = variables.Parent;
+		[Blend.Attached(function(parent)
+			local maid = Maid.new()
+
+			print("Got", parent)
+
+			maid:GiveTask(function()
+				print("Dead!")
+			end)
+
+			return maid
+		end)] = true;
+	}
+	```
+
+	@param constructor T
+	@return (parent: Instance) -> Observable<T>
+]=]
+function Blend.Attached(constructor)
+	return function(parent)
+		return Rx.observable(function(sub)
+			local maid = Maid.new()
+
+			local resource = constructor(parent)
+
+			-- Will do nothing if not a task
+			maid:GiveTask(resource)
+
+			sub:Fire(resource)
+
+			return maid
+		end)
+	end;
+end
+
+--[=[
+	Similiar to Fusion's ComputedPairs, where the changes are cached, and the lifetime limited.
+	@param source Observable<T> | any
+	@param compute (key: any, value: any, innerMaid: Maid) -> Instance | Observable<Instance>
+	@return Observable<Brio<Instance>>
+]=]
+function Blend.ComputedPairs(source, compute)
+	local sourceObservable = Blend.toPropertyObservable(source) or Rx.of(source)
+
+	return Rx.observable(function(sub)
+		local cache = {}
+		local topMaid = Maid.new()
+
+		local maidForKeys = Maid.new()
+		topMaid:GiveTask(maidForKeys)
+
+		topMaid:GiveTask(sourceObservable:Subscribe(function(newValue)
+			-- It's gotta be a table
+			assert(type(newValue) == "table", "Bad value emitted from source")
+
+			local excluded = {}
+			for key, _ in pairs(cache) do
+				excluded[key] = true
+			end
+
+			for key, value in pairs(newValue) do
+				excluded[key] = nil
+
+				if cache[key] ~= value then
+					local innerMaid = Maid.new()
+					local result = compute(key, value, innerMaid)
+
+					local brio = Brio.new(result)
+					innerMaid:GiveTask(brio)
+
+					sub:Fire(brio)
+
+					maidForKeys[key] = innerMaid
+					cache[key] = value
+				end
+			end
+
+			for key, _ in pairs(excluded) do
+				maidForKeys[key] = nil
+				cache[key] = nil
+			end
+		end), sub:GetFailComplete())
+
+		return topMaid
+	end)
+end
+
+--[=[
+	Like Blend.Spring, but for AccelTween
+
+	@param source any -- Source observable (or convertable)
+	@param acceleration any -- Source acceleration (or convertable)
+	@return Observable
+]=]
+function Blend.AccelTween(source, acceleration)
+	local sourceObservable = Blend.toPropertyObservable(source) or Rx.of(source)
+	local accelerationObservable = Blend.toNumberObservable(acceleration)
+
+	local function createAccelTween(maid, initialValue)
+		local accelTween = AccelTween.new()
+
+		if initialValue then
+			accelTween.p = initialValue
+			accelTween.t = initialValue
+			accelTween.v = 0
+		end
+
+		if accelerationObservable then
+			maid:GiveTask(accelerationObservable:Subscribe(function(value)
+				assert(type(value) == "number", "Bad value")
+				accelTween.a = value
+			end))
+		end
+
+		return accelTween
+	end
+
+	-- TODO: Centralize and cache
+	return Rx.observable(function(sub)
+		local accelTween
+		local maid = Maid.new()
+
+		local startAnimate, stopAnimate = StepUtils.bindToRenderStep(function()
+			sub:Fire(accelTween.p)
+			return accelTween.rtime > 0
+		end)
+
+		maid:GiveTask(stopAnimate)
+		maid:GiveTask(sourceObservable:Subscribe(function(value)
+			accelTween = accelTween or createAccelTween(maid, value)
+			accelTween.t = value
+			startAnimate()
+		end))
+
+		return maid
+	end)
+end
+
+--[=[
+	Converts this arbitrary value into an observable that will initialize a spring
+	and interpolate it between values upon subscription.
+
+	```lua
+	local percentVisible = Blend.State(0)
+	local visibleSpring = Blend.Spring(percentVisible, 30)
+	local transparency = Blend.Computed(visibleSpring, function(percent)
+		return 1 - percent
+	end);
+
+	Blend.mount(frame, {
+		BackgroundTransparency = visibleSpring;
+	})
+	```
+
+	@param source any
+	@param speed any
+	@param damper any
+	@return Observable?
+]=]
+function Blend.Spring(source, speed, damper)
+	local sourceObservable = Blend.toPropertyObservable(source) or Rx.of(source)
+	local speedObservable = Blend.toNumberObservable(speed)
+	local damperObservable = Blend.toNumberObservable(damper)
+
+	local function createSpring(maid, initialValue)
+		local spring = Spring.new(initialValue)
+
+		if speedObservable then
+			maid:GiveTask(speedObservable:Subscribe(function(value)
+				assert(type(value) == "number", "Bad value")
+				spring.Speed = value
+			end))
+		end
+
+		if damperObservable then
+			maid:GiveTask(damperObservable:Subscribe(function(value)
+				assert(type(value) == "number", "Bad value")
+
+				spring.Damper = value
+			end))
+		end
+
+		return spring
+	end
+
+	-- TODO: Centralize and cache
+	return Rx.observable(function(sub)
+		local spring
+		local maid = Maid.new()
+
+		local startAnimate, stopAnimate = StepUtils.bindToRenderStep(function()
+			local animating, position = spring:Animating()
+			sub:Fire(Spring.fromLinearIfNeeded(position))
+			return animating
+		end)
+
+		maid:GiveTask(stopAnimate)
+		maid:GiveTask(sourceObservable:Subscribe(function(value)
+			if value then
+				local linearValue = Spring.toLinearIfNeeded(value)
+				spring = spring or createSpring(maid, linearValue)
+				spring.t = Spring.toLinearIfNeeded(value)
+				startAnimate()
+			else
+				warn("Got nil value from emitted source")
+			end
+		end))
+
+		return maid
+	end)
+end
+
+--[=[
+	Converts this arbitrary value into an observable suitable for use in properties.
+
+	@param value any
+	@return Observable?
+]=]
+function Blend.toPropertyObservable(value)
+	if Rx.isObservable(value) then
+		return value
+	elseif typeof(value) == "Instance" then
+		-- IntValue, ObjectValue, et cetera
+		if value:IsA("ValueBase") then
+			return Rxi.propertyOf(value, "Value")
+		end
+	elseif type(value) == "table" then
+		if ValueObject.isValueObject(value) then
+			return value:Observe()
+		elseif Promise.isPromise(value) then
+			return Rx.fromPromise(value)
+		elseif value.Observe then
+			return value:Observe()
+		end
+	end
+
+	return nil
+end
+
+--[=[
+	Converts this arbitrary value into an observable that emits numbers.
+
+	@param value number | any
+	@return Observable<number>?
+]=]
+function Blend.toNumberObservable(value)
+	if type(value) == "number" then
+		return Rx.of(value)
+	else
+		return Blend.toPropertyObservable(value)
+	end
+end
+
+--[=[
+	Converts this arbitrary value into an observable that can be used to emit events.
+
+	@param value any
+	@return Observable?
+]=]
+function Blend.toEventObservable(value)
+	if Rx.isObservable(value) then
+		return value
+	elseif typeof(value) == "RBXScriptSignal" or typeof(value) == "table" and value.Connect then
+		return Rx.fromSignal(value)
+	else
+		return nil
+	end
+end
+
+--[=[
+	Converts this arbitrary value into an event handler, which can used in Rx.Observable:Subscribe()
+
+	@param value any
+	@return function?
+]=]
+function Blend.toEventHandler(value)
+	if type(value) == "function" then
+		return value
+	elseif typeof(value) == "Instance" then
+		-- IntValue, ObjectValue, et cetera
+		if value:IsA("ValueBase") then
+			return function(result)
+				-- Trust me, it has a .Value
+				(value :: any).Value = result
+			end
+		end
+	elseif type(value) == "table" then
+		if ValueObject.isValueObject(value) then
+			return function(result)
+				value.Value = result
+			end
+		elseif value.Fire then
+			return function(...)
+				value:Fire(...)
+			end
+		end
+	end
+
+	return nil
+end
+
+--[=[
+	Mounts children to the parent and returns an object which will cleanup and delete
+	all children when removed.
+
+	Note that this effectively recursively mounts children and their values, which is
+	the heart of the reactive tree.
+
+	```lua
+	Blend.New "ScreenGui" {
+		Parent = game.Players.LocalPlayer.PlayerGui;
+		[Blend.Children] = {
+			Blend.New "Frame" {
+				Size = UDim2.new(1, 0, 1, 0);
+				BackgroundTransparency = 0.5;
+			};
+		};
+	};
+	```
+
+	Note since 6.14 you don't need to be explicit about [Blend.Children]. Any number-based
+	index in the mounting process will be automatically inferred as children to mount.
+
+	```lua
+	Blend.New "ScreenGui" {
+		Parent = game.Players.LocalPlayer.PlayerGui;
+
+		Blend.New "Frame" {
+			Size = UDim2.new(1, 0, 1, 0);
+			BackgroundTransparency = 0.5;
+		};
+	};
+	```
+
+	Rules:
+
+	* `{ Instance }` - Tables of instances are all parented to the parent
+	* Brio<Instance> will last for the lifetime of the brio
+	* Brio<Observable<Instance>> will last for the lifetime of the brio
+		* Brio<Signal<Instance>> will also act as above
+		* Brio<Promise<Instance>> will also act as above
+		* Brio<{ Instance } will also act as above
+	* Observable<Instance> will parent to the parent
+		* Signal<Instance> will act as Observable<Instance>
+		* ValueObject<Instance> will act as an Observable<Instance>
+		* Promise<Instance> will act as an Observable<Instance>
+	*  will parent all instances to the parent
+	* Observables may emit non-observables (in form of Computed/Dynamic)
+		* Observable<Brio<Instance>> will last for the lifetime of the brio, and parent the instance.
+		* Observable<Observable<Instance>> occurs when computed returns a value.
+	* ValueObject<Instance> will switch to the current value
+	* function - Will be invoked as `func(parent)` and then the standard scheme will be applied
+
+	Cleanup:
+	* Instances will be cleaned up on unsubscribe
+
+	@param parent Instance
+	@param value any
+	@return Observable
+]=]
+function Blend.Children(parent, value)
+	assert(typeof(parent) == "Instance", "Bad parent")
+
+	local observe = Blend._observeChildren(value, parent)
+
+	if observe then
+		return observe:Pipe({
+			Rx.tap(function(child)
+				child.Parent = parent;
+			end);
+		})
+	else
+		return Rx.empty
+	end
+end
+
+--[=[
+	Mounts Blend objects into an existing instance.
+
+	:::tip
+	Normally specifying ClassName as a property breaks mounting, since you
+	can't write to ClassName. However, if you specify ClassName here, it will only
+	listen to changes on children with that class name.
+	:::
+
+	If multiple instances are named the same thing, then this will
+	bind to both.
+
+	:::tip
+	This explicitly listens for any children underneath the mounted
+	instance with the name passed in here. This is fine for small amounts
+	of instances, like in most Gui hierarchies. However, it will be way less
+	performance friendly for large class hierarchies.
+	:::
+
+	```lua
+	maid:GiveTask(Blend.mount(frame, {
+		Size = UDim2.new(0.5, 0, 0.5, 0);
+
+		Blend.Find "MyUIScaleName" {
+			Scale = 2;
+		};
+	}))
+	```
+
+	@param name string
+	@return function
+]=]
+function Blend.Find(name)
+	assert(type(name) == "string", "Bad name")
+
+	return function(props)
+		assert(type(props) == "table", "Bad props")
+
+		local mountProps = props
+		local className
+		if props.ClassName then
+			className = props.ClassName
+			mountProps = table.clone(props)
+			mountProps.ClassName = nil
+		else
+			className = "Instance"
+		end
+
+		return function(parent)
+			return Rxi.childrenOfNameBrio(parent, className, name):Pipe({
+				Rx.flatMap(function(brio)
+					if brio:IsDead() then
+						return
+					end
+
+					local maid = brio:ToMaid()
+					local instance = brio:GetValue()
+					maid:GiveTask(Blend.mount(instance, mountProps))
+
+					-- Dead after mounting? Clean up...
+					-- Probably caused by name change.
+					if brio:IsDead() then
+						maid:DoCleaning()
+					end
+
+					-- Avoid emitting anything else so we don't get cleaned up
+					return Rx.empty
+				end);
+			})
+		end
+	end
+end
+
+--[=[
+	An event emitter that emits the instance that was actually created. This is
+	useful for a variety of things.
+
+	Using this to track an instance
+
+	```lua
+	local currentCamera = Blend.State()
+
+	return Blend.New "ViewportFrame" {
+		CurrentCamera = currentCamera;
+		[Blend.Children] = {
+			self._current;
+			Blend.New "Camera" {
+				[Blend.Instance] = currentCamera;
+			};
+		};
+	};
+	```
+
+	Note that since 6.14 you should also be able to just use the reification scheme of
+	[Blend.Children] implicitly in [Blend.mount] to get somewhat equivalent behavior.
+
+	```lua
+	Blend.mount(frame, {
+		-- Array indexed methods get treated as children-constructors, which get the parent
+		-- in them;
+
+		function(parent)
+			print("Got parent!", parent)
+		end;
+	})
+	```
+
+	You can also use this to execute code against an instance.
+
+	```lua
+	return Blend.New "Frame" {
+		[Blend.Instance] = function(frame)
+			print("We got a new frame!")
+		end;
+	};
+	```
+
+	Note that if you subscribe twice to the resulting observable, the internal function
+	will execute twice.
+
+	@param parent Instance
+	@return Observable<Instance>
+]=]
+function Blend.Instance(parent)
+	return Rx.observable(function(sub)
+		sub:Fire(parent)
+	end)
+end
+
+--[=[
+	Ensures the computed version of a value is limited by lifetime instead
+	of multiple. Used in conjunction with [Blend.Children] and [Blend.Computed].
+
+	:::warning
+	In general, cosntructing new instances like this is a bad idea, so it's recommended against it.
+	:::
+
+	```lua
+	local render = Blend.New "ScreenGui" {
+		Parent = game.Players.LocalPlayer.PlayerGui;
+		[Blend.Children] = {
+			Blend.Single(Blend.Computed(percentVisible, function()
+				-- you generally would not want to do this anyway because this reconstructs a new frame
+				-- every frame.
+
+				Blend.New "Frame" {
+					Size = UDim2.new(1, 0, 1, 0);
+					BackgroundTransparency = 0.5;
+				};
+			end)
+		};
+	};
+
+	maid:GiveTask(render:Subscribe(function(gui)
+		print(gui)
+	end))
+	```
+
+	@function Single
+	@param Observable<Instance | Brio<Instance>>
+	@return Observable<Brio<Instance>>
+	@within Blend
+]=]
+function Blend.Single(observable)
+	return Rx.observable(function(sub)
+		local maid = Maid.new()
+
+		maid:GiveTask(observable:Subscribe(function(result)
+			if Brio.isBrio(result) then
+				local copy = result:Clone()
+				maid._current = copy
+				sub:Fire(copy)
+			elseif result then
+				local current = Brio.new(result)
+				maid._current = current
+				sub:Fire(current)
+			else
+				maid._current = nil
+			end
+		end))
+
+		return maid
+	end)
+end
+
+--[=[
+	Observes children and ensures that the value is cleaned up
+	afterwards.
+	@param value any
+	@param parent Instance
+	@return Observable<Instance>
+]=]
+function Blend._observeChildren(value, parent)
+	if typeof(value) == "Instance" then
+		-- Should be uncommon
+		return Rx.observable(function(sub)
+			sub:Fire(value)
+			-- don't complete, as this would clean everything up
+			return value
+		end)
+	end
+
+	if type(value) == "function" then
+		value = Blend._observeChildren(value(parent), parent)
+	end
+
+	if ValueObject.isValueObject(value) then
+		return Rx.observable(function(sub)
+			local maid = Maid.new()
+
+			-- Switch instead of emitting every value.
+			local function update()
+				local result = value.Value
+				if typeof(result) == "Instance" then
+					maid._current = result
+					sub:Fire(result)
+					return
+				end
+
+				local observe = Blend._observeChildren(result, parent)
+				if observe then
+					maid._current = nil
+
+					local doCleanup = false
+					local cleanup
+					cleanup = observe:Subscribe(function(inst)
+						sub:Fire(inst)
+					end, function(...)
+						sub:Fail(...)
+					end, function()
+						-- incase of immediate execution
+						doCleanup = true
+
+						-- Do not pass complete through to the end
+						if maid._current == cleanup then
+							maid._current = nil
+						end
+					end)
+
+					-- TODO: Complete when valueobject cleans up
+
+					if doCleanup then
+						if cleanup then
+							Maid.cleanTask(cleanup)
+						end
+					else
+						maid._current = cleanup
+					end
+
+					return
+				end
+
+				maid._current = nil
+			end
+			maid:GiveTask(value.Changed:Connect(update))
+			update()
+
+			return maid
+		end)
+	end
+
+	if Brio.isBrio(value) then
+		return Rx.observable(function(sub)
+			if value:IsDead() then
+				return nil
+			end
+
+			local result = value:GetValue()
+			if typeof(result) == "Instance" then
+				local maid = value:ToMaid()
+				maid:GiveTask(result)
+				sub:Fire(result)
+
+				return maid
+			end
+
+			local observe = Blend._observeChildren(result, parent)
+			if observe then
+				local maid = value:ToMaid()
+
+				-- Subscription is for lifetime of brio, so we do
+				-- not need to specifically add these results to the maid, and
+				-- risk memory leak of the maid with a lot of items in it.
+				maid:GiveTask(observe:Subscribe(function(inst)
+					sub:Fire(inst)
+				end, function(...)
+					sub:Fail(...)
+				end, function()
+					-- completion should not result more than maid cleaning up
+					maid:DoCleaning()
+				end))
+
+				return maid
+			end
+
+			warn(("Unknown type in brio %q"):format(typeof(result)))
+			return nil
+		end)
+	end
+
+	-- Handle like observable
+	if Promise.isPromise(value) then
+		value = Rx.fromPromise(value)
+	end
+
+	-- Handle like observable
+	if typeof(value) == "table" and value.Connect or typeof(value) == "RBXScriptSignal" then
+		value = Rx.fromSignal(value)
+	end
+
+	if Rx.isObservable(value) then
+		return Rx.observable(function(sub)
+			local maid = Maid.new()
+
+			maid:GiveTask(value:Subscribe(function(result)
+				if typeof(result) == "Instance" then
+					-- lifetime of subscription
+					maid:GiveTask(result)
+					sub:Fire(result)
+					return
+				end
+
+				local observe = Blend._observeChildren(result, parent)
+
+				if observe then
+					local innerMaid = Maid.new()
+
+					-- Note: I think this still memory leaks
+					innerMaid:GiveTask(observe:Subscribe(function(inst)
+						sub:Fire(inst)
+					end, function(...)
+						innerMaid:DoCleaning()
+						sub:Fail(...)
+					end, function()
+						innerMaid:DoCleaning()
+					end))
+
+					innerMaid:GiveTask(function()
+						maid[innerMaid] = nil
+					end)
+					maid[innerMaid] = innerMaid
+				else
+					warn(("Failed to convert %q into children"):format(tostring(result)))
+				end
+			end, function(...)
+				sub:Fire(...)
+			end, function()
+				-- Drop completion, other inner components may have completed.
+			end))
+
+			return maid
+		end)
+	end
+
+	if type(value) == "table" and not getmetatable(value) then
+		local observables = {}
+		for key, item in pairs(value) do
+			local observe = Blend._observeChildren(item, parent)
+			if observe then
+				table.insert(observables, observe)
+			else
+				warn(("Failed to convert [%s] %q into children"):format(tostring(key), tostring(item)))
+			end
+		end
+
+		if next(observables) then
+			return Rx.merge(observables)
+		else
+			return nil
+		end
+	end
+
+	return nil
+end
+
+--[=[
+	Mounts the instance to the props. This handles mounting children, and events.
+
+	The contract is that the props table is turned into observables. Note the following.
+
+	* Keys of strings are turned into properties
+		* If this can be turned into an observable, it will be used to subscribe to this event
+		* Otherwise, we assign directly
+	* Keys of functions are invoked on the instance in question
+		* `(instance, value) -> Observable
+		* If this returns an observable (or can be turned into one), we subscribe the event immediately
+	* Keys of numbers (array components) are treated as implicit children
+	* If the key is [Blend.Children] then we invoke mountChildren on it.
+
+	```lua
+	maid:GiveTask(Blend.mount(frame, {
+		BackgroundTransparency = 1;
+
+		-- All items named InventoryItem
+		Blend.Find "InventoryItem" {
+
+			-- Apply the following properties
+			Blend.New "UIScale" {
+				Scale = 0.5;
+			};
+		};
+	}))
+	```
+
+	@param instance Instance
+	@param props table
+	@return Maid
+]=]
+function Blend.mount(instance, props)
+	assert(typeof(instance) == "Instance", "Bad instance")
+
+	local maid = Maid.new()
+
+	local parent = nil
+	local dependentObservables = {}
+
+	for key, value in pairs(props) do
+		if type(key) == "string" then
+			if key == "Parent" then
+				parent = value
+			else
+				local observable = Blend.toPropertyObservable(value)
+				if observable then
+					maid:GiveTask(observable:Subscribe(function(result)
+						task.spawn(function()
+							instance[key] = result
+						end)
+					end))
+				else
+					task.spawn(function()
+						instance[key] = value
+					end)
+				end
+			end
+		elseif type(key) == "function" then
+			local observable = Blend.toEventObservable(key(instance, value))
+
+			if Rx.isObservable(observable) then
+				table.insert(dependentObservables, {observable, value})
+			else
+				warn(("Unable to apply event listener %q"):format(tostring(key)))
+			end
+		elseif type(key) == "number" then
+			-- Treat this as an implicit children contract
+			-- Thus, we don't need an explicit [Blend.Children] call.
+			table.insert(dependentObservables, { Blend.Children(instance, value), value })
+		else
+			warn(("Unable to apply property %q"):format(tostring(key)))
+		end
+	end
+
+	-- Subscribe dependentObservables (which includes adding children)
+	for _, event in pairs(dependentObservables) do
+		maid:GiveTask(event[1]:Subscribe(Blend.toEventHandler(event[2])))
+	end
+
+	if parent then
+		local observable = Blend.toPropertyObservable(parent)
+		if observable then
+			maid:GiveTask(observable:Subscribe(function(result)
+				instance.Parent = result
+			end))
+		else
+			instance.Parent = parent
+		end
+	end
+
+	return maid
+end
+
+
+return Blend

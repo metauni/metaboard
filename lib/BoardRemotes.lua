@@ -36,9 +36,21 @@ local remoteFunctionNames = {
 	"GetBoardData",
 }
 
+export type BoardRemotes = {
+	InitDrawingTask: RemoteEvent,
+	UpdateDrawingTask: RemoteEvent,
+	FinishDrawingTask: RemoteEvent,
+	Undo: RemoteEvent,
+	Redo: RemoteEvent,
+	Clear: RemoteEvent,
+	SetData: RemoteEvent,
+
+	GetBoardData: RemoteFunction,
+} & typeof(BoardRemotes)
+
 -- The remote events needed for a board (parented to the board instance)
 -- This should be created by the server and waited for by the clients
-function BoardRemotes.new(instance : Model | Part)
+function BoardRemotes.new(instance : Part): BoardRemotes
 	local remotesFolder = Instance.new("Folder")
 	remotesFolder.Name = "metaboardRemotes"
 	local self = setmetatable({}, BoardRemotes)
@@ -55,7 +67,7 @@ function BoardRemotes.new(instance : Model | Part)
 	return self
 end
 
-function BoardRemotes.WaitForRemotes(instance: Model | Part)
+function BoardRemotes.WaitForRemotes(instance: Part): BoardRemotes
 
 	local remotesFolder = instance:WaitForChild("metaboardRemotes")
 

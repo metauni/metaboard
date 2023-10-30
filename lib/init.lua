@@ -10,7 +10,7 @@ return {
 	PartCanvas = require(script.PartCanvas),
 	FrameCanvas = require(script.FrameCanvas),
 	Config = require(script.Config),
-	Board = require(script.Board),
+	BoardState = require(script.BoardState),
 	Persistence = require(script.Persistence),
 	Figure = require(script.Figure),
 	Server = require(script.Server),

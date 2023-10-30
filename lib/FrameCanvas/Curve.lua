@@ -4,6 +4,9 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
+local GuiService = game:GetService("GuiService")
+local INSET = GuiService:GetGuiInset()
+
 -- Imports
 local root = script.Parent.Parent
 local Feather = require(root.Parent.Feather)
@@ -27,7 +30,7 @@ local function rectangle(props)
 	local rotation = math.deg(math.atan2((p0 - p1).Y, (p0 - p1).X))
 
 	local x = centre.X * CanvasAbsoluteSize.Y + canvasAbsolutePosition.X
-	local y = centre.Y * CanvasAbsoluteSize.Y + canvasAbsolutePosition.Y + 36 -- TODO: Remove 36 without guiinset? 
+	local y = centre.Y * CanvasAbsoluteSize.Y + canvasAbsolutePosition.Y + INSET.Y
 
 	return e("Frame", {
 

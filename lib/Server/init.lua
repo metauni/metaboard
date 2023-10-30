@@ -10,25 +10,102 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local root = script.Parent
+local Remotes = root.Remotes
 local Config = require(root.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
+local Maid = require(script.Parent.Util.Maid)
 local Persistence = require(root.Persistence)
-local GoodSignal = require(root.Parent.GoodSignal)
-local Promise = require(root.Parent.Promise)
+local Binder = require(root.Util.Binder)
+local Rxi = require(root.Util.Rxi)
+-- local GoodSignal = require(root.Parent.GoodSignal)
+local Promise = require(root.Util.Promise)
 local Sift = require(root.Parent.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 
--- Helper Functions
-local indicateInvalidBoard = require(script.indicateInvalidBoard)
-
 local Server = {
 
-	Boards = {},
 	_changedSinceStore = {},
-	BoardAdded = GoodSignal.new(),
 }
 Server.__index = Server
+
+function Server:Init()
+	self.BoardServerBinder = Binder.new("BoardServer", function(part: Part)
+		return self:_bindBoardServer(part)
+	end)
+	self.BoardServerBinder:Init()
+end
+
+function Server:Start()
+
+	local promise = self:promiseDataStore()
+		:Then(function(datastore: DataStore)
+			self.Datastore = datastore
+			if Config.Persistence.ReadOnly then
+				warn("[metaboard] Persistence is in ReadOnly mode, no changes will be saved.")
+			else
+				self:_startAutoSaver()
+			end
+		end)
+		:Catch(function(msg)
+			error(`[metaboard] Failed to initialise datastore: {msg}`)
+		end)
+
+	task.delay(10, function()
+		if promise:IsPending() then
+			warn("[metaboard] Infinite yield possible for datastore")
+		end
+	end)
+
+	--[[
+		1. Clients request things tagged as "metaboard" when they are close to them
+			(and they don't have a local board setup yet)
+		2. Server binds board as "BoardServer" object and loads data from datastore
+		3. Once ready, Server tags board as "BoardClient"
+		4. Client binds local board behaviour to this tag.
+	]]
+	Remotes.RequestBoardInit.OnServerEvent:Connect(function(_player: Player, part: Part)
+		local board = self.BoardServerBinder:Bind(part)
+		-- This will do nothing unless there's a datastore
+		if board and self.Datastore and not board:IsLoadPending() then
+			board:LoadFromDataStore(self.Datastore)
+		end
+	end)
+
+	self.BoardServerBinder:Start()
+end
+
+function Server:_bindBoardServer(part: Part)
+
+	local board = BoardServer.new(part)
+	local persistId = board:GetPersistId()
+	
+	self._boardMaid = self._boardMaid or Maid.new()
+	local cleanup = {}
+	self._boardMaid[part] = cleanup
+
+	table.insert(cleanup, board.Loaded.Changed:Connect(function(isLoaded: boolean)
+		if isLoaded then
+			board:ConnectRemotes()
+			board:GetPart():AddTag("BoardClient")
+		else -- Don't expect this to happen. Loaded is only changed to true
+			board:GetPart():RemoveTag("BoardClient")
+		end
+	end))
+
+	if persistId then
+		table.insert(cleanup, board.StateChanged:Connect(function()
+			self._changedSinceStore[persistId] = board
+		end))
+		table.insert(cleanup, board.BeforeClearSignal:Connect(function()
+			board.State.ClearCount = (board.State.ClearCount or 0) + 1
+			local historyKey = Config.Persistence.BoardKeyToHistoryKey(self.Datastore, board.State.ClearCount)
+			Persistence.StoreWhenBudget(self.DataStore, historyKey, board)
+		end))
+	end
+
+	return board
+end
 
 function Server:promiseDataStore()
 
@@ -59,175 +136,47 @@ function Server:promiseDataStore()
 	end)
 end
 
-function Server:Start()
-
-	local function onRemoved(instance)
-		
-		local board = self.Boards[instance]
-		if board then
-			board:Destroy()
-		end
-
-		self.Boards[instance] = nil
-	end
+function Server:_startAutoSaver()
+	game:BindToClose(function()
 	
-	local function bindInstanceAsync(instance: Part)
-		if not instance:IsDescendantOf(workspace) and not instance:IsDescendantOf(ReplicatedStorage) then
-			onRemoved(instance)
-			return
-		end
-
-		if instance:IsA("Model") then
-			error(`[metaboard] Model {instance:GetFullName()} tagged as metaboard. Must tag PrimaryPart instead.`)
-		end
-		assert(instance:IsA("Part"), "[metaboard] Tagged instance must be a Part: "..tostring(instance:GetFullName()))
-
-		local persistIdValue = instance:FindFirstChild("PersistId")
-		local persistId = persistIdValue and persistIdValue.Value
-	
-		local board = BoardServer.new(instance)
-	
-		-- Indicate that the board has been setup enough for clients to do their setup
-		-- and request the board data.
-		instance:SetAttribute("BoardServerInitialised", true)
-	
-		local handleBoardDataRequest = function(player)
+		if next(self._changedSinceStore) then
 			
-			board.Watchers[player] = true
-	
-			return {
-				
-				Figures = board.Figures,
-				DrawingTasks = board.DrawingTasks,
-				PlayerHistories = board.PlayerHistories,
-				NextFigureZIndex = board.NextFigureZIndex,
-				EraseGrid = nil,
-				ClearCount = nil
-			}
+			print(
+				string.format(
+					"[metaboard] Storing %d boards on-close. SetIncrementAsync budget is %s.",
+					Dictionary.count(self._changedSinceStore),
+					DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
+				)
+			)
 		end
 	
-		if not persistId then
-	
-			board:ConnectRemotes(nil)
-			board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
-			
-			-- For external code to access
-			self.Boards[instance] = board
-			self.BoardAdded:Fire(board)
-		else
+		for persistId, board in pairs(self._changedSinceStore) do
 	
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-	
-			self:promiseDataStore()
-				:andThen(function(datastore: DataStore)
-					
-					local success, result = Persistence.Restore(datastore, boardKey, board)
-					if success then
-						return result, datastore
-					else
-						return result
-					end
-				end)
-				:andThen(function(data, datastore: DataStore)
-	
-					board:LoadData({
-						Figures = data.Figures,
-						DrawingTasks = {},
-						PlayerHistories = {},
-						NextFigureZIndex = data.NextFigureZIndex,
-						EraseGrid = data.EraseGrid,
-						ClearCount = data.ClearCount,
-					})
-		
-					board.DataChangedSignal:Connect(function()
-						self._changedSinceStore[persistId] = board
-					end)
-		
-					local beforeClear = function()
-						task.spawn(function()
-							board.ClearCount += 1
-							local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.ClearCount)
-							Persistence.StoreWhenBudget(datastore, historyKey, board)
-						end)
-					end
-		
-					board:ConnectRemotes(beforeClear)
-					board.Remotes.GetBoardData.OnServerInvoke = handleBoardDataRequest
-		
-					-- For external code to access
-					self.Boards[instance] = board
-					self.BoardAdded:Fire(board)
-				end)
-				:catch(function(err)
-					indicateInvalidBoard(board, tostring(err))
-				end)
+			Persistence.StoreNow(self.Datastore, boardKey, board)
 		end
-	end
 	
-	for _, instance in ipairs(CollectionService:GetTagged(Config.BoardTag)) do
-		task.spawn(bindInstanceAsync, instance)
-	end
+		self._changedSinceStore = {}
+	end)
 	
-	CollectionService:GetInstanceAddedSignal(Config.BoardTag):Connect(bindInstanceAsync)
-	CollectionService:GetInstanceRemovedSignal(Config.BoardTag):Connect(onRemoved)
+	task.spawn(function()
+		while true do
 	
-	if Config.Persistence.ReadOnly then
+			task.wait(Config.Persistence.AutoSaveInterval)
 	
-		warn("[metaboard] Persistence is in ReadOnly mode, no changes will be saved.")
-	else
-
-
-		Promise.retryWithDelay(function()
-			return self:promiseDataStore()
-				:andThen(function(datastore: DataStore)
-					
-					-- Once all boards are restored, trigger auto-saving
-					game:BindToClose(function()
-				
-						if next(self._changedSinceStore) then
-							
-							print(
-								string.format(
-									"[metaboard] Storing %d boards on-close. SetIncrementAsync budget is %s.",
-									Dictionary.count(self._changedSinceStore),
-									DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
-								)
-							)
-						end
-				
-						for persistId, board in pairs(self._changedSinceStore) do
-				
-							local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-							Persistence.StoreNow(datastore, boardKey, board)
-						end
-				
-						self._changedSinceStore = {}
-					end)
-				
-					task.spawn(function()
-						while true do
-				
-							task.wait(Config.Persistence.AutoSaveInterval)
-				
-							if next(self._changedSinceStore) then
-								print(("[BoardService] Storing %d boards"):format(Dictionary.count(self._changedSinceStore)))
-							end
-				
-							for persistId, board in pairs(self._changedSinceStore) do
-				
-								local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-								task.spawn(Persistence.StoreWhenBudget, datastore, boardKey, board)
-							end
-				
-							self._changedSinceStore = {}
-						end
-					end)
-				end)
-		end, 3, 1) -- retry 5 times, 10 second delay
-		:catch(function(msg)
-			warn("[metaboard] Failed to initialise Persistence: "..tostring(msg))
-		end)
-	end
+			if next(self._changedSinceStore) then
+				print(("[BoardService] Storing %d boards"):format(Dictionary.count(self._changedSinceStore)))
+			end
+	
+			for persistId, board in pairs(self._changedSinceStore) do
+	
+				local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
+				task.spawn(Persistence.StoreWhenBudget, self.Datastore, boardKey, board)
+			end
+	
+			self._changedSinceStore = {}
+		end
+	end)
 end
 
 function Server:GetBoard(instance: Part)
@@ -240,7 +189,7 @@ function Server:WaitForBoard(instance: Part)
 	end
 	while true do
 		local board = self.BoardAdded:Wait()
-		if board._instance == instance then
+		if board:GetPart() == instance then
 			return board
 		end
 	end

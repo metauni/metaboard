@@ -4,92 +4,44 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
--- Imports
-local Destructor = require(script.Parent.Parent.Destructor)
+local root = script.Parent.Parent
+local Rx = require(script.Parent.Parent.Util.Rx)
+local Blend = require(root.Util.Blend)
 
-local BoardButton = {}
-BoardButton.__index = BoardButton
+return function(props)
 
-function BoardButton.new(board, active, defaultOnClick)
-	
-	local self = setmetatable({
-		
-		Board = board,
-		_destructor = Destructor.new(),
-		DefaultOnClick = defaultOnClick,
-		_active = active,
-	}, BoardButton)
+	return Blend.New "Part" {
+		Name = "BoardButton",
+		Archivable = false, -- Prevent copying
+		Transparency = 1,
+		CanQuery = true,
+		Anchored = true,
+		CanCollide = false,
+		CastShadow = false,
 
-	self._destructor:Add(board.SurfaceChangedSignal:Connect(function()
-		self:render()
-	end))
+		CFrame = props.SurfaceCFrame,
+		Size = Blend.Computed(props.SurfaceSize, function(surfaceSize: Vector2)
+			return Vector3.new(surfaceSize.X, surfaceSize.Y, 3)
+		end),
 
-	self:render()
+		Blend.New "ClickDetector" {
+			MaxActivationDistance = Blend.Computed(props.Active, function(active)
+				return active and math.huge or 0
+			end)
+		},
 
-	return self
+		Blend.New "SurfaceGui" {
+			[Blend.Instance] = function(surfaceGui)
+				surfaceGui.Adornee = surfaceGui.Parent
+			end,
+			
+			Blend.New "TextButton" {
+				BackgroundTransparency = 1,
+				Position = UDim2.fromScale(0,0),
+				Size = UDim2.fromScale(1,1),
+				
+				[Blend.OnEvent "Activated"] = props.OnClick,
+			}
+		}
+	}
 end
-
-function BoardButton:Destroy()
-	self._destructor:Destroy()
-end
-
-function BoardButton:SetActive(active)
-	self._active = active
-	self:render()
-end
-
-function BoardButton:render()
-
-	local buttonPart = self._buttonPart
-
-	if not self._buttonPart then
-		
-		buttonPart = Instance.new("Part")
-		self._destructor:Add(buttonPart)
-
-		buttonPart.Archivable = false -- Prevent copying
-		buttonPart.Name = "BoardButton"
-		buttonPart.Transparency = 1
-		buttonPart.CanQuery = true
-		buttonPart.Anchored = true
-		buttonPart.CanCollide = false
-		buttonPart.CastShadow = false
-
-		local clickDetector = Instance.new("ClickDetector") 
-		clickDetector.Name = "ClickDetector"
-		clickDetector.Parent = buttonPart
-
-		local surfaceGui = Instance.new("SurfaceGui")
-		surfaceGui.Adornee = buttonPart
-		surfaceGui.Parent = buttonPart
-
-		local textButton = Instance.new("TextButton")
-		textButton.Text = ""
-		textButton.BackgroundTransparency = 1
-		textButton.Position = UDim2.fromScale(0,0)
-		textButton.Size = UDim2.fromScale(1,1)
-		textButton.Parent = surfaceGui
-
-		self._destructor:Add(textButton.Activated:Connect(function()
-			if not self._active then
-				return
-			elseif self.OnClick then
-				self.OnClick()
-			elseif self.DefaultOnClick then
-				self.DefaultOnClick()
-			end
-		end))
-	end
-
-	buttonPart.CFrame = self.Board.SurfaceCFrame
-	buttonPart.Size = Vector3.new(self.Board.SurfaceSize.X, self.Board.SurfaceSize.Y, 0.5)
-	buttonPart.ClickDetector.MaxActivationDistance = self._active and math.huge or 0
-
-	buttonPart.Parent = self.Board._instance
-
-	if not self._buttonPart then
-		self._buttonPart = buttonPart
-	end
-end
-
-return BoardButton

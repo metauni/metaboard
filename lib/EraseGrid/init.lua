@@ -25,6 +25,8 @@ function EraseGrid.new(aspectRatio: number)
 	}, EraseGrid)
 end
 
+export type EraseGrid = typeof(EraseGrid.new(1))
+
 local function pairer(sep)
 	return function (a, b)
 		return a..sep..b

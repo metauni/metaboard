@@ -4,6 +4,8 @@
 -- file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -- --]]
 
+local GuiService = game:GetService("GuiService")
+
 -- Imports
 local root = script.Parent.Parent.Parent
 local Roact: Roact = require(root.Parent.Roact)
@@ -11,6 +13,8 @@ local e = Roact.createElement
 local Config = require(root.Config)
 local Sift = require(root.Parent.Sift)
 local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+
+local INSET = GuiService:GetGuiInset()
 
 --[[
 	Shows a visualisation of the erase grid with numbers in each cell that
@@ -20,8 +24,8 @@ local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
 --]]
 return function(props)
 
-	local eraseGrid = props.Board.EraseGrid
-	local gridWidth =  math.ceil(props.Board:AspectRatio() / Config.Canvas.DefaultEraseGridPixelSize)
+	local eraseGrid = props.Board.State.EraseGrid
+	local gridWidth =  math.ceil(props.Board.State.AspectRatio / Config.Canvas.DefaultEraseGridPixelSize)
 	local gridHeight =  math.ceil(1 / Config.Canvas.DefaultEraseGridPixelSize)
 
 	local cells = {}
@@ -57,7 +61,7 @@ return function(props)
 
 		Size = UDim2.fromOffset(props.CanvasAbsoluteSize.Y, props.CanvasAbsoluteSize.Y),
 
-		Position = UDim2.fromOffset(props.CanvasAbsolutePosition.X, props.CanvasAbsolutePosition.Y + 36),
+		Position = UDim2.fromOffset(props.CanvasAbsolutePosition.X, props.CanvasAbsolutePosition.Y + INSET.Y),
 
 		BackgroundTransparency = 1,
 

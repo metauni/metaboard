@@ -30,22 +30,22 @@ return function(board, boardViewMode, onClose)
 
 	local makeApp = function()
 
-		local localPlayerHistory = board.PlayerHistories[tostring(Players.LocalPlayer.UserId)]
+		local localPlayerHistory = board.State.PlayerHistories[tostring(Players.LocalPlayer.UserId)]
 
 		return e(App, {
 
 			BoardViewMode = boardViewMode,
 
 			Board = board,
-			AspectRatio = board:AspectRatio(),
+			AspectRatio = board.State.AspectRatio,
 
 			OnClose = function()
 				destroy()
 			end,
 
-			Figures = board.Figures,
-			DrawingTasks = board.DrawingTasks,
-			NextFigureZIndex = board.NextFigureZIndex,
+			Figures = board.State.Figures,
+			DrawingTasks = board.State.DrawingTasks,
+			NextFigureZIndex = board.State.NextFigureZIndex,
 
 			CanUndo = localPlayerHistory and localPlayerHistory:CountPast() > 0,
 			CanRedo = localPlayerHistory and localPlayerHistory:CountFuture() > 0,
@@ -53,9 +53,9 @@ return function(board, boardViewMode, onClose)
 		})
 	end
 
-	handle = Roact.mount(makeApp(), Players.LocalPlayer.PlayerGui, "DrawingUI-"..board:FullName())
+	handle = Roact.mount(makeApp(), Players.LocalPlayer.PlayerGui, "DrawingUI-"..board:GetPart():GetFullName())
 
-	dataUpdateConnection = board.DataChangedSignal:Connect(function()
+	dataUpdateConnection = board.StateChanged:Connect(function()
 		Roact.update(handle, makeApp())
 	end)
 

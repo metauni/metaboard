@@ -74,7 +74,7 @@ local function store(dataStore, boardKey, board, ignoreBudget)
 	
 	local clearCount = board.ClearCount
 	local nextFigureZIndex = board.NextFigureZIndex
-	local aspectRatio = board:AspectRatio()
+	local aspectRatio = board:GetAspectRatio()
 	-- Commit all of the drawing task changes (like masks) to the figures
 	local figures = board:CommitAllDrawingTasks()
 
@@ -257,7 +257,7 @@ local function processRestorers()
 			local success, result = coroutine.resume(restorer, Config.Persistence.RestoreTimePerFrame)
 
 			if not success then
-				local message = ("[metaboard] Restore failed for key %s for board %s, \n	%s"):format(boardKey, board:FullName(), result)
+				local message = ("[metaboard] Restore failed for key %s for board %s, \n	%s"):format(boardKey, board:GetPart():GetFullName(), result)
 				warn(message)
 
 				coroutine.resume(receiver, false, message)
@@ -288,7 +288,7 @@ local function restore(dataStore, boardKey, board)
 
 	if RestoreContext[boardKey] then
 		local context = RestoreContext[boardKey]
-		local message = ("[metaboard] %s has the same PersistId (%s) as %s. Ignoring."):format(board:FullName(), boardKey, context.Board:FullName())
+		local message = ("[metaboard] %s has the same PersistId (%s) as %s. Ignoring."):format(board:GetPart():GetFullName(), boardKey, context.Board:GetPart():GetFullName())
 		warn(message)
 		return false, message
 	end
@@ -323,7 +323,7 @@ local function restore(dataStore, boardKey, board)
 
 			Figures = {},
 			NextFigureZIndex = 0,
-			EraseGrid = EraseGrid.new(board:AspectRatio()),
+			EraseGrid = EraseGrid.new(board:GetAspectRatio()),
 			ClearCount = 0,
 
 		}

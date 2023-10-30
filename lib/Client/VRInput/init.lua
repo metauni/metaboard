@@ -50,27 +50,27 @@ function VRInput.new(board, surfaceCanvas)
 end
 
 function VRInput:_distanceToBoard(pos)
-	local boardLookVector = self.Board.SurfaceCFrame.LookVector
-	local vector = pos - self.Board.SurfaceCFrame.Position
+	local boardLookVector = self.Board.SurfaceCFrame.Value.LookVector
+	local vector = pos - self.Board.SurfaceCFrame.Value.Position
 	local normalDistance = boardLookVector:Dot(vector)
 	return normalDistance
 end
 
 function VRInput:_inRange(pos)
-	local boardRightVector = self.Board.SurfaceCFrame.RightVector
-	local vector = pos - self.Board.SurfaceCFrame.Position
+	local boardRightVector = self.Board.SurfaceCFrame.Value.RightVector
+	local vector = pos - self.Board.SurfaceCFrame.Value.Position
 	local strafeDistance = boardRightVector:Dot(vector)
 	
 	local normalDistance = self:_distanceToBoard(pos)
 	
 	return (- 5 * self.PenActiveDistance <= normalDistance) and (normalDistance <= self.PenActiveDistance)
-	and math.abs(strafeDistance) <= self.Board.SurfaceSize.X/2 + 5
+	and math.abs(strafeDistance) <= self.Board.SurfaceSize.Value.X/2 + 5
 end
 
 function VRInput:_toScalar(position)
-	local projPos = self.Board.SurfaceCFrame:ToObjectSpace(CFrame.new(position))
-	local sizeX = self.Board.SurfaceSize.X
-	local sizeY = self.Board.SurfaceSize.Y
+	local projPos = self.Board.SurfaceCFrame.Value:ToObjectSpace(CFrame.new(position))
+	local sizeX = self.Board.SurfaceSize.Value.X
+	local sizeY = self.Board.SurfaceSize.Value.Y
 	local relX = (-projPos.X + 0.5*sizeX)/sizeY
 	local relY = (-projPos.Y + 0.5*sizeY)/sizeY
 	return Vector2.new(relX,relY)
@@ -89,7 +89,7 @@ function VRInput:_toolDown(penPos)
 
 	self.Board.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
 
-	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.Board, canvasPos)
+	local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.Board.State, canvasPos)
 
 	self.ToolHeld = true
 
@@ -107,7 +107,7 @@ function VRInput:_toolMoved(penPos)
 
 	self.Board.Remotes.UpdateDrawingTask:FireServer(canvasPos)
 
-	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.Board, canvasPos)
+	local updatedDrawingTask = DrawingTask.Update(drawingTask, self.Board.State, canvasPos)
 
 	self.SurfaceCanvas.UnverifiedDrawingTasks[updatedDrawingTask.Id] = updatedDrawingTask
 end
