@@ -136,12 +136,11 @@ function BoardState.linesForBudget(state)
 	return count
 end
 
-function BoardState.render(state: BoardState, clientState: BoardState?): (FigureDict, FigureMaskDict)
+function BoardState.combineWithClientState(state: BoardState, clientState: BoardState)
+	return Sift.Dictionary.set(state, "DrawingTasks", Sift.Dictionary.merge(state.DrawingTasks, clientState.DrawingTasks))
+end
 
-	local drawingTasks = state.DrawingTasks
-	if clientState then
-		drawingTasks = Sift.Dictionary.merge(state.DrawingTasks, clientState.DrawingTasks)
-	end
+function BoardState.render(state: BoardState): (FigureDict, FigureMaskDict)
 	
 	local figures = table.clone(state.Figures)
 	local figureMaskBundles = {}
@@ -149,7 +148,7 @@ function BoardState.render(state: BoardState, clientState: BoardState?): (Figure
 	-- Apply all of the drawingTasks to the figures,
 	-- then all of the unverified ones on top.
 
-	for taskId, drawingTask in drawingTasks do
+	for taskId, drawingTask in state.DrawingTasks do
 		
 		if drawingTask.Type == "Erase" then
 

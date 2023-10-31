@@ -7,6 +7,7 @@
 local RunService = game:GetService("RunService")
 
 local root = script.Parent.Parent
+local Rx = require(script.Parent.Parent.Util.Rx)
 local BoardState = require(root.BoardState)
 local BaseObject = require(root.Util.BaseObject)
 -- local ValueObject = require(root.Util.ValueObject)
@@ -116,9 +117,19 @@ function BoardClient:ConnectRemotes()
 	end))
 end
 
-function BoardClient:RenderFiguresWithClientState(): (BoardState.FigureDict, BoardState.FigureMaskDict)
-	-- TODO: cache result
-	return BoardState.render(self.State, self.ClientState)
+function BoardClient:GetCombinedState(): BoardState.BoardState
+	return BoardState.combineWithClientState(self.State, self.ClientState)
+end
+
+function BoardClient:ObserveCombinedState()
+	self._combined = self._combined or Rx.fromSignal(self.StateChanged):Pipe {
+		Rx.map(function()
+			return self:GetCombinedState()
+		end),
+		Rx.share(),
+	}
+
+	return self._combined
 end
 
 function BoardClient:_trimClientState()

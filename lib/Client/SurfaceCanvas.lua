@@ -14,6 +14,9 @@ local Blend = require(root.Util.Blend)
 local Sift = require(root.Parent.Sift)
 local BoardUtils = require(root.BoardUtils)
 local BoardButton = require(script.Parent.BoardButton)
+local BoardState = require(script.Parent.Parent.BoardState)
+local Rx = require(root.Util.Rx)
+local Rxi = require(root.Util.Rxi)
 local Feather = require(root.Parent.Feather)
 local PartCanvas = require(root.PartCanvas)
 
@@ -34,6 +37,32 @@ function SurfaceCanvas.new(part: Part, service)
 		self._obj:SetAttribute("Loading", isLoading)
 	end))
 
+	-- Will be slow-destroyed as rootParent of self.CanvasTree if surrendered
+	self._model = Instance.new("Model")
+	self._maid:GiveTask(function()
+		if self._model then
+			-- This means SurfaceCanvas was destroyed before the canvas tree was surrendered
+			self._model:Destroy()
+			self._model = nil
+		end
+	end)
+	self._maid:GiveTask(Blend.mount(self._model, {
+		Name = "SurfaceCanvas",
+		Parent = Rx.fromSignal(self._obj.AncestryChanged):Pipe {
+			Rx.map(function()
+				return self._obj:IsDescendantOf(workspace)
+			end),
+			Rx.defaultsTo(self._obj:IsDescendantOf(workspace)),
+			Rx.map(function(inWorkspace: boolean)
+				if inWorkspace then
+					return self:_getWorkspaceContainer()
+				else
+					return nil
+				end
+			end)
+		},
+	}))
+
 	self._maid:GiveTask(function()
 		if self.CanvasTree then
 			Feather.unmount(self.CanvasTree)
@@ -42,8 +71,8 @@ function SurfaceCanvas.new(part: Part, service)
 
 	self._maid:GiveTask(
 		BoardButton {
-			Active = Blend.Computed(service.OpenedBoardPart, function(openedBoardPart: Part)
-				return openedBoardPart == nil
+			Active = Blend.Computed(service.OpenedBoardPart, self.Loading, function(openedBoardPart: Part, isLoading: boolean)
+				return not isLoading and openedBoardPart == nil
 			end),
 			SurfaceCFrame = self.SurfaceCFrame,
 			SurfaceSize = self.SurfaceSize,
@@ -55,15 +84,8 @@ function SurfaceCanvas.new(part: Part, service)
 		end)
 	)
 
-	self._maid:GiveTask(self._obj.AncestryChanged:Connect(function()
-		if self.CanvasTree then
-			self.CanvasTree.root.result[1].Parent = self:_getContainer()
-		end
-	end))
-
 	self._maid:GiveTask(service.BoardClientBinder:Observe(self._obj):Subscribe(function(board)
 		if not board then
-			self._board = nil
 			self._maid.board = nil
 			if self.CanvasTree then
 				Feather.unmount(self.CanvasTree)
@@ -79,12 +101,14 @@ function SurfaceCanvas.new(part: Part, service)
 			self.Loading.Changed:Connect(function(isLoading: boolean)
 				self:_setLoadingVisual(board, isLoading)
 				if not isLoading then
-					self:renderFromBoard(board)
+					self._figures, self._figureMaskBundles = BoardState.render(board:GetCombinedState())
+					self:render()
 				end
 			end),
-			board.StateChanged:Connect(function()
+			board:ObserveCombinedState():Subscribe(function(state)
 				if not self.Loading.Value then
-					self:renderFromBoard(board)
+					self._figures, self._figureMaskBundles = BoardState.render(state)
+					self:render()
 				end
 			end),
 			self.SurfaceSize.Changed:Connect(function()
@@ -96,7 +120,7 @@ function SurfaceCanvas.new(part: Part, service)
 				if not self.Loading.Value then
 					self:render()
 				end
-			end),
+			end)
 		}
 
 		self:_init(board)
@@ -117,32 +141,20 @@ function SurfaceCanvas:_init(board)
 		return entry1[2].ZIndex > entry2[2].ZIndex
 	end)
 
-	if #self.LoadingStack > 0 then
-		self.Loading.Value = true
-	else
+	if #self.LoadingStack == 0 then
 		self.Loading.Value = false
+		self._figures, self._figureMaskBundles = BoardState.render(board:GetCombinedState())
+	else
+		self.Loading.Value = true
 	end
 end
 
-function SurfaceCanvas:_getContainer()
-
-	local container
-	if self:GetPart():IsDescendantOf(workspace) then
-		
-		container = workspace:FindFirstChild("ClientManagedCanvases")
-		if not container then
-			container = Instance.new("Folder")
-			container.Name = "ClientManagedCanvases"
-			container.Parent = workspace
-		end
-	else
-		
-		container = ReplicatedStorage:FindFirstChild("ClientCanvasStorage")
-		if not container then
-			container = Instance.new("Folder")
-			container.Name = "ClientCanvasStorage"
-			container.Parent = ReplicatedStorage
-		end
+function SurfaceCanvas:_getWorkspaceContainer()
+	local container = workspace:FindFirstChild("ClientManagedCanvases")
+	if not container then
+		container = Instance.new("Folder")
+		container.Name = "ClientManagedCanvases"
+		container.Parent = workspace
 	end
 	return container
 end
@@ -154,7 +166,7 @@ function SurfaceCanvas:LoadMore(lineBudget)
 		lineBudget -= rendered
 	end
 
-	if lineBudget <= 0 then
+	if lineBudget <= 0 or (self.CanvasTree and Feather.numLazyInstances(self.CanvasTree) > 0) then
 		return
 	end
 
@@ -192,7 +204,7 @@ function SurfaceCanvas:LoadMore(lineBudget)
 		if #self.LoadingStack == 0 then
 			self.Loading.Value = false
 		end
-	else
+	elseif self.CanvasTree and Feather.numLazyInstances(self.CanvasTree) <= 0 then
 		self.Loading.Value = false
 	end
 
@@ -213,6 +225,10 @@ end
 
 function SurfaceCanvas:render()
 
+	if self.CanvasTree and Feather.numLazyInstances(self.CanvasTree) > 0 then
+		return
+	end
+
 	local element = Feather.createElement(PartCanvas, {
 
 		Figures = self._figures,
@@ -229,18 +245,14 @@ function SurfaceCanvas:render()
 			Feather.update(self.CanvasTree, element)
 		end
 	else
-		self.CanvasTree = Feather.lazyMount(element, self:_getContainer(), "SurfaceCanvas")
+		self.CanvasTree = Feather.mount(element, self._model, "Figures")
 	end
-end
-
-function SurfaceCanvas:renderFromBoard(board)
-	self._figures, self._figureMaskBundles = board:RenderFiguresWithClientState()
-	self:render()
 end
 
 function SurfaceCanvas:SurrenderCanvasTree(): Feather.FeatherTreePartiallyDestroyed?
 	if self.CanvasTree then
-		local tree = Feather.surrender(self.CanvasTree)
+		local tree = Feather.surrender(self.CanvasTree, true)
+		self._model = nil
 		self.CanvasTree = nil
 		return tree
 	end

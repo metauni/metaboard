@@ -38,19 +38,21 @@ local Client = {
 Client.__index = Client
 
 
+Client.BoardClientBinder = Binder.new("BoardClient", function(part: Part)
+	local board = BoardClient.new(part)
+	local data = board.Remotes.GetBoardData:InvokeServer()
+	debug.profilebegin("[metaboard] Deserialise state")
+	board.State = BoardState.deserialise(data)
+	debug.profileend()
+	board:ConnectRemotes()
+	return board
+end)
+Client.SurfaceCanvasBinder = Binder.new("SurfaceCanvas", SurfaceCanvas, Client)
+
+
 function Client:Init()
 	self.OpenedBoardPart = ValueObject.new(nil)
 
-	self.BoardClientBinder = Binder.new("BoardClient", function(part: Part)
-		local board = BoardClient.new(part)
-		local data = board.Remotes.GetBoardData:InvokeServer()
-		debug.profilebegin("[metaboard] Deserialise state")
-		board.State = BoardState.deserialise(data)
-		debug.profileend()
-		board:ConnectRemotes()
-		return board
-	end)
-	self.SurfaceCanvasBinder = Binder.new("SurfaceCanvas", SurfaceCanvas, self)
 	self.BoardClientBinder:Init()
 	self.SurfaceCanvasBinder:Init()
 end
@@ -100,19 +102,21 @@ function Client:Start()
 						instance:IsDescendantOf(boardAncestor)
 						or (instance.Position - character:GetPivot().Position).Magnitude < Config.AttachedRadius
 					then
-						if not instance:HasTag(self.BoardClientBinder:GetTag()) then
+						if instance:HasTag(self.BoardClientBinder:GetTag()) then
+							self.SurfaceCanvasBinder:BindClient(instance)
+						else
 							Remotes.RequestBoardInit:FireServer(instance)
 						end
-						self.SurfaceCanvasBinder:BindClient(instance)
 					else
 						self.SurfaceCanvasBinder:UnbindClient(instance)
 					end
 				else -- Just stream based on radius
 					if (instance.Position - character:GetPivot().Position).Magnitude < Config.RoamingStreamingInRadius then
-						if not instance:HasTag(self.BoardClientBinder:GetTag()) then
+						if instance:HasTag(self.BoardClientBinder:GetTag()) then
+							self.SurfaceCanvasBinder:BindClient(instance)
+						else
 							Remotes.RequestBoardInit:FireServer(instance)
 						end
-						self.SurfaceCanvasBinder:BindClient(instance)
 					elseif (instance.Position - character:GetPivot().Position).Magnitude >= Config.RoamingStreamingOutRadius then
 						self.SurfaceCanvasBinder:UnbindClient(instance)
 					end

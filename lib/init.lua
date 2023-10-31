@@ -11,6 +11,7 @@ return {
 	FrameCanvas = require(script.FrameCanvas),
 	Config = require(script.Config),
 	BoardState = require(script.BoardState),
+	BoardUtils = require(script.BoardUtils),
 	Persistence = require(script.Persistence),
 	Figure = require(script.Figure),
 	Server = require(script.Server),
