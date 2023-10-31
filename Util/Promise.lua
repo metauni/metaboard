@@ -1,13 +1,15 @@
 --[=[
 	Adapted from: https://github.com/Quenty/NevermoreEngine/blob/db100f3212928f52ba47be089e6bc2f3d3e05f75/src/promise/src/Shared/Promise.lua
 
-	Promises, but without error handling as this screws with stack traces, using Roblox signals
+	Promises, but without error handling as this screws with stack traces.
 	See: https://promisesaplus.com/
 
 	Changelog:
-		23/10/23
-			- Initial adaptation
-			- Replaced BindableEvent usage with GoodSignal
+	- 31/10/23
+		- Added .ClassName based typing
+	- 23/10/23
+		- Initial adaptation
+		- Replaced BindableEvent usage with GoodSignal
 
 
 	@class Promise
@@ -32,7 +34,7 @@ Promise.__index = Promise
 	@return boolean
 ]=]
 function Promise.isPromise(value)
-	return type(value) == "table" and value.ClassName == "Promise"
+	return getmetatable(value) == Promise or getmetatable(value) and getmetatable(value).ClassName == Promise.ClassName
 end
 
 --[=[

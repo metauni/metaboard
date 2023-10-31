@@ -1,4 +1,9 @@
 --[=[
+
+	Changelog
+	- 31/10/23
+		- Added .ClassName based typing for compatibility with duplicate Util libraries
+
 	@class SpringObject
 ]=]
 
@@ -59,8 +64,8 @@ end
 	@param value any
 	@return boolean
 ]=]
-function SpringObject.isSpringObject(value)
-	return type(value) == "table" and getmetatable(value) == SpringObject
+function SpringObject.isSpringObject(v)
+	return getmetatable(v) == SpringObject or getmetatable(v) and getmetatable(v).ClassName == SpringObject.ClassName
 end
 
 --[=[

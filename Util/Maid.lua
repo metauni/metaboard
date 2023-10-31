@@ -68,8 +68,8 @@ end
 	@param value any
 	@return boolean
 ]=]
-function Maid.isMaid(value)
-	return type(value) == "table" and value.ClassName == "Maid"
+function Maid.isMaid(v)
+	return getmetatable(v) == Maid or getmetatable(v) and getmetatable(v).ClassName == Maid.ClassName
 end
 
 --[=[

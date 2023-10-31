@@ -76,7 +76,7 @@ Brio.__index = Brio
 	@return boolean
 ]=]
 function Brio.isBrio(value)
-	return type(value) == "table" and value.ClassName == "Brio"
+	return getmetatable(value) == Brio or getmetatable(value) and getmetatable(value).ClassName == Brio.ClassName
 end
 
 --[=[

@@ -1,4 +1,9 @@
 --[=[
+
+	Changelog
+	- 31/10/23
+		- Added .ClassName based typing for compatibility with duplicate Util libraries
+
 	To work like value objects in Roblox and track a single item,
 	with `.Changed` events
 	@class ValueObject
@@ -71,8 +76,8 @@ end
 	@param value any
 	@return boolean
 ]=]
-function ValueObject.isValueObject(value)
-	return type(value) == "table" and getmetatable(value) == ValueObject
+function ValueObject.isValueObject(v)
+	return getmetatable(v) == ValueObject or getmetatable(v) and getmetatable(v).ClassName == ValueObject.ClassName
 end
 
 function ValueObject:_toMountableObservable(value)

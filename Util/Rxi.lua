@@ -1,14 +1,3 @@
---[[
-	Rx utils instances and general DataModel interfacing
-
-	Changelog
-	- 24/10/23
-		- Added taggedBrio
-]]
-
-local CollectionService = game:GetService("CollectionService")
-local Players = game:GetService("Players")
-
 local Maid = require(script.Parent.Maid)
 local Rx = require(script.Parent.Rx)
 local Brio = require(script.Parent.Brio)
@@ -367,6 +356,13 @@ function export.children()
 	}
 end
 
+--------------------------------------------------------------------------------
+-- metauni ADDITIONS
+--------------------------------------------------------------------------------
+
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
+
 function export.tagged(tag: string): Rx.Observable
 	return Rx.concat({
 		Rx.from(CollectionService:GetTagged(tag)),
@@ -398,31 +394,6 @@ function export.playerLifetime(): Rx.Observable
 			},
 		}
 	}
-end
-
-function export.taggedBrio(tagName: string)
-	assert(type(tagName) == "string", "Bad tagName")
-
-	return Rx.observable(function(sub)
-		local maid = Maid.new()
-
-		local function handleItemAdded(inst)
-			local brio = Brio.new(inst)
-			maid[inst] = brio
-			sub:Fire(brio)
-		end
-
-		maid:GiveTask(CollectionService:GetInstanceAddedSignal(tagName):Connect(handleItemAdded))
-		maid:GiveTask(CollectionService:GetInstanceRemovedSignal(tagName):Connect(function(inst)
-			maid[inst] = nil
-		end))
-
-		for _, inst in pairs(CollectionService:GetTagged(tagName)) do
-			task.spawn(handleItemAdded, inst)
-		end
-
-		return maid
-	end)
 end
 
 --[=[

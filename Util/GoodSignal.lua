@@ -1,3 +1,6 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Signal = require(ReplicatedStorage.Packages.Icon.Signal)
 --------------------------------------------------------------------------------
 --               Batched Yield-Safe Signal Implementation                     --
 -- This is a Signal class which has effectively identical behavior to a       --
@@ -24,6 +27,11 @@
 -- Modifications:                                                             --
 --  - Added Destroy aliases for Connection::Disconnect                        --
 --    and Signal::DisconnectAll.                                              --
+--[[
+	Changelog
+	31/10/23
+		- Added .ClassName and Signal.isSignal (for Blend compatibility)
+]]
 --------------------------------------------------------------------------------
 
 -- The currently idle thread to run the next handler on
@@ -104,6 +112,11 @@ setmetatable(Connection, {
 -- Signal class
 local Signal = {}
 Signal.__index = Signal
+Signal.ClassName = "Signal"
+
+function Signal.isSignal(v)
+	return getmetatable(v) == Signal or getmetatable(v) and getmetatable(v).ClassName == Signal.ClassName
+end
 
 function Signal.new()
 	return setmetatable({

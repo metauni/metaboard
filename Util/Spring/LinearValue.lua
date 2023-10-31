@@ -1,4 +1,10 @@
 --[=[
+	
+	Changelog
+	- 31/10/23
+		- Added .ClassName based typing for compatibility with duplicate Util libraries
+
+
 	Represents a value that can operate in linear space
 
 	@class LinearValue
@@ -27,8 +33,8 @@ end
 	@param value any -- A value to check
 	@return boolean -- True if a linear value, false otherwise
 ]=]
-function LinearValue.isLinear(value)
-	return type(value) == "table" and getmetatable(value) == LinearValue
+function LinearValue.isLinear(v)
+	return getmetatable(v) == LinearValue or getmetatable(v) and getmetatable(v).ClassName == LinearValue.ClassName
 end
 
 --[=[

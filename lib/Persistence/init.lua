@@ -9,6 +9,7 @@ local HttpService = game:GetService("HttpService")
 
 -- Imports
 local root = script.Parent
+local BoardState = require(root.BoardState)
 local Config = require(root.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local Figure = require(root.Figure)
@@ -33,7 +34,7 @@ local function waitForBudget(requestType: Enum.DataStoreRequestType)
 	end
 end
 
-local function store(dataStore, boardKey, board, ignoreBudget)
+local function store(dataStore, boardKey, boardState: BoardState.BoardState, ignoreBudget)
 	--[[
 		At "metaboard<persistId>", we store this table (not json-encoded)
 			{
@@ -72,11 +73,11 @@ local function store(dataStore, boardKey, board, ignoreBudget)
 		board data could change before store is done.
 	--]]
 	
-	local clearCount = board.ClearCount
-	local nextFigureZIndex = board.NextFigureZIndex
-	local aspectRatio = board:GetAspectRatio()
+	local clearCount = boardState.ClearCount
+	local nextFigureZIndex = boardState.NextFigureZIndex
+	local aspectRatio = boardState.AspectRatio
 	-- Commit all of the drawing task changes (like masks) to the figures
-	local figures = board:CommitAllDrawingTasks()
+	local figures = BoardState.commitAllDrawingTasks(boardState.DrawingTasks, boardState.Figures)
 
 	local removals = {}
 
@@ -284,7 +285,7 @@ local function processRestorers()
 	ProcessorCoroutine = nil
 end
 
-local function restore(dataStore, boardKey, board)
+local function restore(dataStore: DataStore, boardKey: string, board)
 
 	if RestoreContext[boardKey] then
 		local context = RestoreContext[boardKey]
@@ -348,11 +349,11 @@ local function restore(dataStore, boardKey, board)
 end
 
 return {
-	StoreWhenBudget = function(dataStore, boardKey, board)
-		return store(dataStore, boardKey, board, false)
+	StoreWhenBudget = function(dataStore: DataStore, boardKey: string, boardState: BoardState.BoardState)
+		return store(dataStore, boardKey, boardState, false)
 	end,
-	StoreNow = function(dataStore, boardKey, board)
-		return store(dataStore, boardKey, board, true)
+	StoreNow = function(dataStore: DataStore, boardKey: string, boardState: BoardState.BoardState)
+		return store(dataStore, boardKey, boardState, true)
 	end,
 	Restore = restore,
 }

@@ -2,6 +2,8 @@
 	Rx library adapted from https://gist.github.com/Anaminus/1f31af4e5280b9333f3f58e13840c670
 
 	Changelog (incomplete)
+	- 31/10/23
+		- Added .ClassName based typing for compatibility with duplicate Util libraries
 	- 23/10/23
 		- Updated to use Nevermore promise library
 		- add Rx.toPromise
@@ -142,9 +144,12 @@ export type Observable = {
 }
 
 local Observable = {__index={}}
+Observable.ClassName = "Observable"
 
 function isObservable(v: any): boolean
+	-- Duck typing yeehaw
 	return getmetatable(v) == Observable
+		or (getmetatable(v) and getmetatable(v).ClassName == Observable.ClassName)
 end
 export.isObservable = isObservable
 

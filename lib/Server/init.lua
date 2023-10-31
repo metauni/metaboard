@@ -100,7 +100,7 @@ function Server:_bindBoardServer(part: Part)
 		table.insert(cleanup, board.BeforeClearSignal:Connect(function()
 			board.State.ClearCount = (board.State.ClearCount or 0) + 1
 			local historyKey = Config.Persistence.BoardKeyToHistoryKey(self.Datastore, board.State.ClearCount)
-			Persistence.StoreWhenBudget(self.DataStore, historyKey, board)
+			Persistence.StoreWhenBudget(self.DataStore, historyKey, board.State)
 		end))
 	end
 
@@ -153,7 +153,7 @@ function Server:_startAutoSaver()
 		for persistId, board in pairs(self._changedSinceStore) do
 	
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-			Persistence.StoreNow(self.Datastore, boardKey, board)
+			Persistence.StoreNow(self.Datastore, boardKey, board.State)
 		end
 	
 		self._changedSinceStore = {}
@@ -171,7 +171,7 @@ function Server:_startAutoSaver()
 			for persistId, board in pairs(self._changedSinceStore) do
 	
 				local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-				task.spawn(Persistence.StoreWhenBudget, self.Datastore, boardKey, board)
+				task.spawn(Persistence.StoreWhenBudget, self.Datastore, boardKey, board.State)
 			end
 	
 			self._changedSinceStore = {}
@@ -180,19 +180,11 @@ function Server:_startAutoSaver()
 end
 
 function Server:GetBoard(instance: Part)
-	return self.Boards[instance]
+	return self.BoardServerBinder:Get(instance)
 end
 
 function Server:WaitForBoard(instance: Part)
-	if self.Boards[instance] then
-		return self.Boards[instance]
-	end
-	while true do
-		local board = self.BoardAdded:Wait()
-		if board:GetPart() == instance then
-			return board
-		end
-	end
+	return self.BoardServerBinder:Promise(instance):Wait()
 end
 
 return Server

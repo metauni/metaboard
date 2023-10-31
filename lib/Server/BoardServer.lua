@@ -257,9 +257,6 @@ function BoardServer:LoadFromDataStore(datastore: DataStore)
 		})
 
 		self.Loaded.Value = true
-		task.defer(function()
-			self.StateChanged:Fire()
-		end)
 	end)
 
 	self._loadPromise:Catch(function(msg)
