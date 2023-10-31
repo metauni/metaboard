@@ -70,7 +70,23 @@ function BoardServer.new(part: Part): BoardServer
 		self:GetPart():RemoveTag("BoardClient")
 	end)
 
+	-- Check once per frame, and once on cleanup in case of race.
+	self._maid:GiveTask(RunService.Heartbeat:Connect(function()
+		self:_checkStateUpdate()
+	end))
+	self._maid:GiveTask(function()
+		self:_checkStateUpdate()
+	end)
+
 	return self
+end
+
+function BoardServer:_checkStateUpdate()
+	if self._stateChangedThisFrame then
+		self.StateChanged:Fire()
+		-- Does ordering matter here? Is it possible that the state changes again?
+		self._stateChangedThisFrame = false
+	end
 end
 
 function BoardServer:GetPersistId(): number?
@@ -86,6 +102,35 @@ end
 
 function BoardServer:GetAspectRatio(): number
 	return BoardUtils.getAspectRatioFromPart(self._obj)
+end
+
+function BoardServer:HandleEvent(eventName: string, authorId: string, ...)
+	if eventName == "InitDrawingTask" then
+		local drawingTask = select(1, ...)
+		drawingTask.Verified = true -- This change is reflected in usage of ... later
+	elseif eventName == "Undo" then
+		local playerHistory = self.State.PlayerHistories[authorId]
+
+		if playerHistory == nil or playerHistory:CountPast() < 1 then
+			-- error("Cannot undo, past empty")
+			-- No error so clients can just attempt undo
+			return
+		end
+	elseif eventName == "Redo" then
+		local playerHistory = self.State.PlayerHistories[authorId]
+
+		if playerHistory == nil or playerHistory:CountFuture() < 1 then
+			-- error("Cannot redo, future empty")
+			-- No error so clients can just attempt redo
+			return
+		end
+	end
+
+	for watcher in pairs(self.Watchers) do
+		self.Remotes[eventName]:FireClient(watcher, authorId, ...)
+	end
+	BoardState[eventName](self.State, authorId, ...)
+	self._stateChangedThisFrame = true
 end
 
 --[[
@@ -105,102 +150,22 @@ function BoardServer:ConnectRemotes()
 	-- then remembers these tasks in the maid
 	self._maid._remoteTasks = tasks
 
-	local stateChangedThisFrame = false
-	local function checkUpdate()
-		if stateChangedThisFrame then
-			self.StateChanged:Fire()
-			-- Does ordering matter here? Is it possible that the state changes again?
-			stateChangedThisFrame = false
-		end
+	for _, eventName in {
+		"InitDrawingTask",
+		"UpdateDrawingTask",
+		"FinishDrawingTask",
+		"Undo",
+		"Redo",
+	}
+	do
+		table.insert(tasks, self.Remotes[eventName].OnServerEvent:Connect(function(player, ...)
+			self:HandleEvent(eventName, tostring(player.UserId), ...)
+		end))
 	end
 
-	-- Check once per frame, and once on cleanup in case of race.
-	table.insert(tasks, RunService.Heartbeat:Connect(checkUpdate))
-	table.insert(tasks, checkUpdate)
-
-	table.insert(tasks, self.Remotes.InitDrawingTask.OnServerEvent:Connect(function(player: Player, drawingTask, canvasPos: Vector2)
-
-		-- Some drawing task behaviours mutate the board (usually EraseGrid)
-		-- but they should only do that when it's verified (w.r.t. server authority about order of events)
-		drawingTask = Dictionary.merge(drawingTask, { Verified = true })
-
-		-- Tell only the clients that have an up-to-date version of this board
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.InitDrawingTask:FireClient(watcher, tostring(player.UserId), drawingTask, canvasPos)
-		end
-
-		BoardState.InitDrawingTask(self.State, tostring(player.UserId), drawingTask, canvasPos)
-		stateChangedThisFrame = true
-	end))
-
-	table.insert(tasks, self.Remotes.UpdateDrawingTask.OnServerEvent:Connect(function(player: Player, canvasPos: Vector2)
-
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.UpdateDrawingTask:FireClient(watcher, tostring(player.UserId), canvasPos)
-		end
-
-		BoardState.UpdateDrawingTask(self.State, tostring(player.UserId), canvasPos)
-		stateChangedThisFrame = true
-	end))
-
-	table.insert(tasks, self.Remotes.FinishDrawingTask.OnServerEvent:Connect(function(player: Player)
-
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.FinishDrawingTask:FireClient(watcher, tostring(player.UserId))
-		end
-
-		BoardState.FinishDrawingTask(self.State, tostring(player.UserId))
-		stateChangedThisFrame = true
-	end))
-
-
-	table.insert(tasks, self.Remotes.Undo.OnServerEvent:Connect(function(player: Player)
-
-		local playerHistory = self.State.PlayerHistories[tostring(player.UserId)]
-
-		if playerHistory == nil or playerHistory:CountPast() < 1 then
-			-- error("Cannot undo, past empty")
-			-- No error so clients can just attempt undo
-			return
-		end
-
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.Undo:FireClient(watcher, tostring(player.UserId))
-		end
-
-		BoardState.Undo(self.State, tostring(player.UserId))
-		stateChangedThisFrame = true
-	end))
-
-	table.insert(tasks, self.Remotes.Redo.OnServerEvent:Connect(function(player: Player)
-
-		local playerHistory = self.State.PlayerHistories[tostring(player.UserId)]
-
-		if playerHistory == nil or playerHistory:CountFuture() < 1 then
-			-- error("Cannot redo, future empty")
-			-- No error so clients can just attempt redo
-			return
-		end
-
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.Redo:FireClient(watcher, tostring(player.UserId))
-		end
-
-		BoardState.Redo(self.State, tostring(player.UserId))
-		stateChangedThisFrame = true
-	end))
-
 	table.insert(tasks, self.Remotes.Clear.OnServerEvent:Connect(function(player: Player)
-
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.Clear:FireClient(watcher, tostring(player.UserId))
-		end
-		
-		-- Behaviour is written externally so that the datastore is accessible
 		self.BeforeClearSignal:Fire()
-
-		BoardState.Clear(self.State)
-		stateChangedThisFrame = true
+		self:HandleEvent("Clear", tostring(player.UserId))
 	end))
 
 	self.Remotes.GetBoardData.OnServerInvoke = function(player: Player)
