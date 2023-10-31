@@ -4,7 +4,7 @@ registry = "test"
 
 [[package]]
 name = "blinkybool/feather"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = []
 
 [[package]]
@@ -19,8 +19,8 @@ dependencies = []
 
 [[package]]
 name = "metauni/metaboard"
-version = "1.4.2"
-dependencies = [["Feather", "blinkybool/feather@0.2.0"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
+version = "1.5.0-rc1"
+dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
 
 [[package]]
 name = "roblox/roact"
