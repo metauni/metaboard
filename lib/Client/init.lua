@@ -27,8 +27,8 @@ local VRInput = require(script.VRInput)
 local Remotes = root.Remotes
 
 -- Constants
-local LINE_LOAD_FRAME_BUDGET = 512
-local LINE_DESTROY_FRAME_BUDGET = 512
+local LINE_LOAD_FRAME_BUDGET = 256
+local LINE_DESTROY_FRAME_BUDGET = 256
 
 local Client = {
 	VRInputs = {},
