@@ -16,4 +16,5 @@ return {
 	Figure = require(script.Figure),
 	Server = require(script.Server),
 	Client = require(script.Client),
+	Remotes = script.Remotes,
 }
