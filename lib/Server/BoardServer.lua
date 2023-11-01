@@ -56,6 +56,9 @@ function BoardServer.new(part: Part): BoardServer
 	-- When set to true, self.State should be set to a valid state
 	self.Loaded = self._maid:Add(ValueObject.new(false, "boolean"))
 
+	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceCFrameFromPart(part)))
+	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceSizeFromPart(part)))
+
 	self._persistId = part:FindFirstChild("PersistId")
 	if self._persistId then
 		assert(typeof(self._persistId) == "Instance", `Bad persistId: {self._persistId}`)
@@ -87,6 +90,14 @@ function BoardServer:_checkStateUpdate()
 		-- Does ordering matter here? Is it possible that the state changes again?
 		self._stateChangedThisFrame = false
 	end
+end
+
+function BoardServer:GetSurfaceCFrame()
+	return self.SurfaceCFrame.Value
+end
+
+function BoardServer:GetSurfaceSize()
+	return self.SurfaceSize.Value
 end
 
 function BoardServer:GetPersistId(): number?

@@ -7,7 +7,9 @@
 local RunService = game:GetService("RunService")
 
 local root = script.Parent.Parent
-local Rx = require(script.Parent.Parent.Util.Rx)
+local BoardUtils = require(root.BoardUtils)
+local Rx = require(root.Util.Rx)
+local ValueObject = require(root.Util.ValueObject)
 local BoardState = require(root.BoardState)
 local BaseObject = require(root.Util.BaseObject)
 -- local ValueObject = require(root.Util.ValueObject)
@@ -27,8 +29,6 @@ export type BoardClient = {
 	Remotes: BoardRemotes.BoardRemotes,
 	State: BoardState.BoardState,
 	StateChanged: { Connect:(() -> ()) -> { Disconnect: () -> ()} },
-	-- SurfaceSize: { Value: Vector2 },
-	-- SurfaceCFrame: { Value: CFrame },
 
 	ClientState: { DrawingTasks: BoardState.DrawingTaskDict },
 } & typeof(BoardClient)
@@ -46,8 +46,8 @@ function BoardClient.new(part: Part) : BoardClient
 	-- Fires at most once per-frame
 	self.StateChanged = self._maid:Add(GoodSignal.new())
 
-	-- self.SurfaceSize = self._maid:Add(ValueObject.new(BoardState.getSurfaceSizeFromPart(self._obj), "Vector2"))
-	-- self.SurfaceCFrame = self._maid:Add(ValueObject.new(BoardState.getSurfaceCFrameFromPart(self._obj), "CFrame"))
+	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceCFrameFromPart(part)))
+	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceSizeFromPart(part)))
 
 	-- self._maid:GiveTask(self._obj:GetPropertyChangedSignal("Size"):Connect(function()
 	-- 	self.SurfaceSize.Value = BoardState.getSurfaceSizeFromPart(self._obj)
@@ -62,6 +62,14 @@ end
 
 function BoardClient:GetPart()
 	return self._obj
+end
+
+function BoardClient:GetSurfaceCFrame()
+	return self.SurfaceCFrame.Value
+end
+
+function BoardClient:GetSurfaceSize()
+	return self.SurfaceSize.Value
 end
 
 --[[
