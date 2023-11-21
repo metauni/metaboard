@@ -1,6 +1,6 @@
 [package]
 name = "metauni/metaboard"
-version = "1.5.1-rc01"
+version = "1.5.1-rc02"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 exclude = ["**"]
