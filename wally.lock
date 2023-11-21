@@ -19,7 +19,7 @@ dependencies = []
 
 [[package]]
 name = "metauni/metaboard"
-version = "1.5.0-rc1"
+version = "1.5.0-rc9"
 dependencies = [["Feather", "blinkybool/feather@0.2.1"], ["Promise", "evaera/promise@4.0.0"], ["Roact", "roblox/roact@1.4.4"], ["Sift", "csqrl/sift@0.0.4"]]
 
 [[package]]
