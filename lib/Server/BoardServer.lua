@@ -289,6 +289,10 @@ function BoardServer:SetState(state: BoardState.BoardState)
 		error("[metaboard] Cannot Set BoardState while loading")
 	end
 
+	-- Preserve the clearCount
+	local clearCount = self.State.ClearCount
+	state.ClearCount = clearCount
+
 	self.BeforeClearSignal:Fire()
 	task.defer(function()
 		self.State = state
