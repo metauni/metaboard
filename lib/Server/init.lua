@@ -40,7 +40,7 @@ function Server:Start()
 
 	local promise = self:promiseDataStore()
 		:Then(function(datastore: DataStore)
-			self.Datastore = datastore
+			self.DataStore = datastore
 			if Config.Persistence.ReadOnly then
 				warn("[metaboard] Persistence is in ReadOnly mode, no changes will be saved.")
 			else
@@ -67,8 +67,8 @@ function Server:Start()
 	Remotes.RequestBoardInit.OnServerEvent:Connect(function(_player: Player, part: Part)
 		local board = self.BoardServerBinder:Bind(part)
 		-- This will do nothing unless there's a datastore
-		if board and self.Datastore and not board:IsLoadPending() then
-			board:LoadFromDataStore(self.Datastore)
+		if board and self.DataStore and not board:IsLoadPending() then
+			board:LoadFromDataStore(self.DataStore)
 		end
 	end)
 
@@ -98,8 +98,9 @@ function Server:_bindBoardServer(part: Part)
 			self._changedSinceStore[persistId] = board
 		end))
 		table.insert(cleanup, board.BeforeClearSignal:Connect(function()
+			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 			board.State.ClearCount = (board.State.ClearCount or 0) + 1
-			local historyKey = Config.Persistence.BoardKeyToHistoryKey(self.Datastore, board.State.ClearCount)
+			local historyKey = Config.Persistence.BoardKeyToHistoryKey(boardKey, board.State.ClearCount)
 			Persistence.StoreWhenBudget(self.DataStore, historyKey, board.State)
 		end))
 	end
@@ -153,7 +154,7 @@ function Server:_startAutoSaver()
 		for persistId, board in pairs(self._changedSinceStore) do
 	
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-			Persistence.StoreNow(self.Datastore, boardKey, board.State)
+			Persistence.StoreNow(self.DataStore, boardKey, board.State)
 		end
 	
 		self._changedSinceStore = {}
@@ -171,7 +172,7 @@ function Server:_startAutoSaver()
 			for persistId, board in pairs(self._changedSinceStore) do
 	
 				local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
-				task.spawn(Persistence.StoreWhenBudget, self.Datastore, boardKey, board.State)
+				task.spawn(Persistence.StoreWhenBudget, self.DataStore, boardKey, board.State)
 			end
 	
 			self._changedSinceStore = {}
