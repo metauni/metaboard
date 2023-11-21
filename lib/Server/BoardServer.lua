@@ -293,14 +293,14 @@ function BoardServer:SetState(state: BoardState.BoardState)
 	local clearCount = self.State.ClearCount
 	state.ClearCount = clearCount
 
-	self.BeforeClearSignal:Fire()
-	task.defer(function()
-		self.State = state
-		self.StateChanged:Fire()
-		for watcher in pairs(self.Watchers) do
-			self.Remotes.SetData:FireClient(watcher, state)
-		end
-	end)
+	if next(self.State.Figures) or next(self.State.DrawingTasks) then
+		self.BeforeClearSignal:Fire()
+	end
+	self.State = state
+	self.StateChanged:Fire()
+	for watcher in pairs(self.Watchers) do
+		self.Remotes.SetData:FireClient(watcher, state)
+	end
 end
 
 
