@@ -284,5 +284,20 @@ function BoardServer:_indicateInvalidBoard(message)
 	}))
 end
 
+function BoardServer:SetState(state: BoardState.BoardState)
+	if self:IsLoadPending() or not self.Loaded.Value then
+		error("[metaboard] Cannot Set BoardState while loading")
+	end
+
+	self.BeforeClearSignal:Fire()
+	task.defer(function()
+		self.State = state
+		self.StateChanged:Fire()
+		for watcher in pairs(self.Watchers) do
+			self.Remotes.SetData:FireClient(watcher, state)
+		end
+	end)
+end
+
 
 return BoardServer
