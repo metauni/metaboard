@@ -1,3 +1,10 @@
+--[[
+	Changelog
+
+	14/11/23
+	- Added playerOfUserId
+]]
+
 local Maid = require(script.Parent.Maid)
 local Rx = require(script.Parent.Rx)
 local Brio = require(script.Parent.Brio)
@@ -372,6 +379,26 @@ end
 
 function export.untagged(tag: string): Rx.Observable
 	return Rx.fromSignal(CollectionService:GetInstanceRemovedSignal(tag))
+end
+
+function export.playerOfUserId(userId: number)
+	assert(typeof(userId) == "number", "Bad userId")
+	return Rx.observable(function(sub)
+		local cleanup = {}
+		sub:Fire(Players:GetPlayerByUserId(userId))
+		table.insert(cleanup, Players.PlayerAdded:Connect(function(player: Player)
+			if player.UserId == userId then
+				sub:Fire(player)
+			end
+		end))
+		table.insert(cleanup, Players.PlayerRemoving:Connect(function(player: Player)
+			if player.UserId == userId then
+				sub:Fire(nil)
+			end
+		end))
+
+		return cleanup
+	end)
 end
 
 function export.playerLifetime(): Rx.Observable

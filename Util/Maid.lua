@@ -4,6 +4,9 @@
 	
 	Changelog
 
+	14/11/23
+	- Added Maid.Wrap
+
 	17/10/23
 	- Added types
 	- Added Maid.cleanTask for cleaning a single task
@@ -308,5 +311,23 @@ end
 	@within Maid
 ]=]
 Maid.Destroy = Maid.DoCleaning
+
+--[[
+	Turns a Maid or MaidTask into a function that cleans it up.
+	Usage:
+	```lua
+		local maid = Maid.new()
+		local cleanup = maid:Wrap()
+		cleanup() --> maid is cleaned
+
+		local thread = Instance.
+		Maid.Wrap()
+	```
+]]
+function Maid.Wrap(maidOrTask)
+	return function()
+		Maid.cleanTask(maidOrTask)
+	end
+end
 
 return Maid

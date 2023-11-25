@@ -1,6 +1,8 @@
 --[=[
 
 	Changelog
+	- 20/11/23
+		- Added types
 	- 31/10/23
 		- Added .ClassName based typing for compatibility with duplicate Util libraries
 
@@ -17,6 +19,15 @@ local Brio = require(script.Parent.Brio)
 
 local EMPTY_FUNCTION = function() end
 
+export type ValueObject<T> = {
+	Value: T,
+	Observe: (self: ValueObject<T>) -> Rx.Observable,
+	ObserveBrio: (self: ValueObject<T>) -> Rx.Observable,
+	Mount: (self: ValueObject<T>) -> Maid.Task,
+	SetValue: (self: ValueObject<T>, value: T, ... any) -> (),
+	Destroy: (self: ValueObject<T>) -> (),
+}
+
 local ValueObject = {}
 ValueObject.ClassName = "ValueObject"
 
@@ -26,7 +37,7 @@ ValueObject.ClassName = "ValueObject"
 	@param checkType string | nil
 	@return ValueObject
 ]=]
-function ValueObject.new(baseValue, checkType)
+function ValueObject.new<T>(baseValue: T, checkType: string?): ValueObject<T>
 	local self = {
 		_value = baseValue;
 		_checkType = checkType;
@@ -45,7 +56,7 @@ function ValueObject.new(baseValue, checkType)
 	self.Changed = GoodSignal.new() -- :Fire(newValue, oldValue, maid, ...)
 	self._maid:GiveTask(self.Changed)
 
-	return setmetatable(self, ValueObject)
+	return setmetatable(self :: any, ValueObject)
 end
 
 
@@ -63,8 +74,8 @@ end
 	@param observable Observable<T>
 	@return ValueObject<T>
 ]=]
-function ValueObject.fromObservable(observable)
-	local result = ValueObject.new()
+function ValueObject.fromObservable<T>(observable): ValueObject<T>
+	local result = ValueObject.new(nil)
 
 	result:Mount(observable)
 
