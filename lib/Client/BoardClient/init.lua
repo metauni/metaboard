@@ -7,6 +7,7 @@
 local RunService = game:GetService("RunService")
 
 local root = script.Parent.Parent
+local DrawingTask = require(script.Parent.Parent.DrawingTask)
 local BoardUtils = require(root.BoardUtils)
 local Rx = require(root.Util.Rx)
 local ValueObject = require(root.Util.ValueObject)
@@ -64,11 +65,11 @@ function BoardClient:GetPart()
 	return self._obj
 end
 
-function BoardClient:GetSurfaceCFrame()
+function BoardClient:GetSurfaceCFrame(): CFrame
 	return self.SurfaceCFrame.Value
 end
 
-function BoardClient:GetSurfaceSize()
+function BoardClient:GetSurfaceSize(): Vector2
 	return self.SurfaceSize.Value
 end
 
@@ -123,6 +124,42 @@ function BoardClient:ConnectRemotes()
 		self:_trimClientState()
 		stateChangedThisFrame = true
 	end))
+end
+
+function BoardClient:HandleLocalDrawingTaskEvent(event: string, taskId: string, ...)
+	if event == "InitDrawingTask" then
+		local drawingTask, canvasPos = select(1, ...)
+		assert(drawingTask.Id == taskId, "Bad taskId match")
+
+		local initialisedDrawingTask = DrawingTask.Init(drawingTask, self.State, canvasPos)
+		self.ClientState.DrawingTasks[taskId] = initialisedDrawingTask
+
+		self.Remotes.InitDrawingTask:FireServer(drawingTask, canvasPos)
+	elseif event == "UpdateDrawingTask" then
+		local canvasPos = select(1, ...)
+		local drawingTask = self.ClientState.DrawingTasks[taskId]
+		if not drawingTask then
+			error(`No drawingTask with taskId {taskId}`)
+		end
+
+		local updatedDrawingTask = DrawingTask.Update(drawingTask, self.Board.State, canvasPos)
+		self.ClientState.DrawingTasks[updatedDrawingTask] = updatedDrawingTask
+		self.Remotes.UpdateDrawingTask:FireServer(canvasPos)
+	elseif event == "FinishDrawingTask" then
+		local drawingTask = self.ClientState.DrawingTasks[self.CurrentUnverifiedDrawingTaskId]
+		if not drawingTask then
+			error(`No drawingTask with taskId {taskId}`)
+		end
+
+		local finishedDrawingTask = Sift.Dictionary.set(DrawingTask.Finish(drawingTask, self.Board.State), "Finished", true)
+		self.ClientState.DrawingTasks[taskId] = finishedDrawingTask
+		
+		self.Board.Remotes.FinishDrawingTask:FireServer()
+	else
+		error(`Event {event} not recognised`)
+	end
+
+	self.StateChanged:Fire()
 end
 
 function BoardClient:GetCombinedState(): BoardState.BoardState
