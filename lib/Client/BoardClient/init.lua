@@ -47,16 +47,8 @@ function BoardClient.new(part: Part) : BoardClient
 	-- Fires at most once per-frame
 	self.StateChanged = self._maid:Add(GoodSignal.new())
 
-	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceCFrameFromPart(part)))
-	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceSizeFromPart(part)))
-
-	-- self._maid:GiveTask(self._obj:GetPropertyChangedSignal("Size"):Connect(function()
-	-- 	self.SurfaceSize.Value = BoardState.getSurfaceSizeFromPart(self._obj)
-	-- end))
-	
-	-- self._maid:GiveTask(self._obj:GetPropertyChangedSignal("CFrame"):Connect(function()
-	-- 	self.SurfaceCFrame.Value = BoardState.getSurfaceCFrameFromPart(self._obj)
-	-- end))
+	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.observeSurfaceCFrame(part)))
+	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.observeSurfaceSize(part)))
 
 	return self
 end
@@ -71,6 +63,11 @@ end
 
 function BoardClient:GetSurfaceSize(): Vector2
 	return self.SurfaceSize.Value
+end
+
+function BoardClient:GetAspectRatio(): number
+	local surfaceSize = self.SurfaceSize.Value
+	return surfaceSize.X / surfaceSize.Y
 end
 
 --[[
@@ -142,19 +139,19 @@ function BoardClient:HandleLocalDrawingTaskEvent(event: string, taskId: string, 
 			error(`No drawingTask with taskId {taskId}`)
 		end
 
-		local updatedDrawingTask = DrawingTask.Update(drawingTask, self.Board.State, canvasPos)
-		self.ClientState.DrawingTasks[updatedDrawingTask] = updatedDrawingTask
+		local updatedDrawingTask = DrawingTask.Update(drawingTask, self.State, canvasPos)
+		self.ClientState.DrawingTasks[taskId] = updatedDrawingTask
 		self.Remotes.UpdateDrawingTask:FireServer(canvasPos)
 	elseif event == "FinishDrawingTask" then
-		local drawingTask = self.ClientState.DrawingTasks[self.CurrentUnverifiedDrawingTaskId]
+		local drawingTask = self.ClientState.DrawingTasks[taskId]
 		if not drawingTask then
 			error(`No drawingTask with taskId {taskId}`)
 		end
 
-		local finishedDrawingTask = Sift.Dictionary.set(DrawingTask.Finish(drawingTask, self.Board.State), "Finished", true)
+		local finishedDrawingTask = Sift.Dictionary.set(DrawingTask.Finish(drawingTask, self.State), "Finished", true)
 		self.ClientState.DrawingTasks[taskId] = finishedDrawingTask
 		
-		self.Board.Remotes.FinishDrawingTask:FireServer()
+		self.Remotes.FinishDrawingTask:FireServer()
 	else
 		error(`Event {event} not recognised`)
 	end

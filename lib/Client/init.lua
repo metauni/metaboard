@@ -21,6 +21,7 @@ local Binder = require(root.Util.Binder)
 local ValueObject = require(root.Util.ValueObject)
 local Sift = require(root.Parent.Sift)
 local SurfaceCanvas = require(script.SurfaceCanvas)
+local VRDrawingController = require(script.VRDrawingController)
 local DrawingUI = require(root.DrawingUI)
 local VRInput = require(script.VRInput)
 
@@ -223,81 +224,8 @@ function Client:Start()
 		end
 	end)
 
-	
 	if VRService.VREnabled then
-		warn("VR drawing support broken for now ")
-		--[[
-		task.spawn(function()
-			local chalk = ReplicatedStorage.Chalk:Clone()
-			chalk.Parent = Players.LocalPlayer:WaitForChild("Backpack")
-		end)
-		
-		-- Constantly connect VRInput objects to whatever boards are "inRange"
-
-		local function inRange(board)
-
-			if not board or not board:GetPart():IsDescendantOf(workspace) then
-				return false
-			end
-
-			local size = board.SurfaceSize.Value
-			local cframe = board.SurfaceCFrame.Value
-
-			local boardLookVector = cframe.LookVector
-			local boardRightVector = cframe.RightVector
-
-			local character = Players.LocalPlayer.Character
-			if character then
-				local characterVector = character:GetPivot().Position - cframe.Position
-				local normalDistance = boardLookVector:Dot(characterVector)
-
-				local strafeDistance = boardRightVector:Dot(characterVector)
-				return (0 <= normalDistance and normalDistance <= 20) and math.abs(strafeDistance) <= size.X/2 + 5
-			end
-			return false
-		end
-			
-
-		task.spawn(function()
-			
-			while true do
-
-				-- Destroy VRInputs out of range of board or for dead boards
-
-				self.VRInputs = Sift.Dictionary.filter(self.VRInputs, function(vrInput, instance)
-					
-					local surfaceCanvas = self.SurfaceCanvases[instance]
-
-					if not surfaceCanvas or not inRange(self.Boards[instance]) then
-						vrInput:Destroy()
-
-						if surfaceCanvas then
-							surfaceCanvas:render()
-						end
-						return false
-					end
-					return true
-				end)
-
-				-- Add new VRInputs that are in range
-
-				for instance, surfaceCanvas in self.SurfaceCanvases do
-
-					if self.VRInputs[instance] then
-						continue
-					end
-
-					local isInRange = inRange(surfaceCanvas.Board)
-		
-					if isInRange then
-						self.VRInputs[instance] = VRInput.new(surfaceCanvas.Board, surfaceCanvas)
-					end
-				end
-	
-				task.wait(1)
-			end
-		end)
-		--]]
+		VRDrawingController.StartWithBinder(Client.BoardClientBinder)
 	end
 end
 

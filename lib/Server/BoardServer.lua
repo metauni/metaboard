@@ -56,8 +56,8 @@ function BoardServer.new(part: Part): BoardServer
 	-- When set to true, self.State should be set to a valid state
 	self.Loaded = self._maid:Add(ValueObject.new(false, "boolean"))
 
-	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceCFrameFromPart(part)))
-	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.getSurfaceSizeFromPart(part)))
+	self.SurfaceCFrame = self._maid:Add(ValueObject.fromObservable(BoardUtils.observeSurfaceCFrame(part)))
+	self.SurfaceSize = self._maid:Add(ValueObject.fromObservable(BoardUtils.observeSurfaceSize(part)))
 
 	self._persistId = part:FindFirstChild("PersistId")
 	if self._persistId then
@@ -112,7 +112,8 @@ function BoardServer:GetPart(): Part
 end
 
 function BoardServer:GetAspectRatio(): number
-	return BoardUtils.getAspectRatioFromPart(self._obj)
+	local surfaceSize = self.SurfaceSize.Value
+	return surfaceSize.X / surfaceSize.Y
 end
 
 function BoardServer:HandleEvent(eventName: string, authorId: string, ...)
