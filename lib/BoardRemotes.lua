@@ -64,6 +64,7 @@ function BoardRemotes.new(instance : Part): BoardRemotes
 	end
 
 	remotesFolder.Parent = instance
+	self._remotesFolder = remotesFolder
 	return self
 end
 
@@ -93,6 +94,8 @@ function BoardRemotes:Destroy()
 	for _, functionName in ipairs(remoteFunctionNames) do
 		self[functionName]:Destroy()
 	end
+
+	self._remotesFolder:Destroy()
 end
 
 return BoardRemotes
