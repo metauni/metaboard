@@ -87,7 +87,7 @@ function Client:Start()
 
 	task.spawn(function()
 		while true do
-			task.wait(2)
+			task.wait(0.3)
 			local boardAncestorValue = ReplicatedStorage:FindFirstChild("BoardAncestor")
 			local boardAncestor = boardAncestorValue and boardAncestorValue.Value or nil
 			
