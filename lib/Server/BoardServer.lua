@@ -111,6 +111,17 @@ function BoardServer:GetPart(): Part
 	return self._obj
 end
 
+function BoardServer:GetContainer(): Model | BasePart
+	if self._obj.Parent
+		and self._obj.Parent:IsA("Model")
+		and self._obj.Parent.PrimaryPart == self._obj
+	then
+		return self._obj.Parent
+	else
+		return self._obj
+	end
+end
+
 function BoardServer:GetAspectRatio(): number
 	local surfaceSize = self.SurfaceSize.Value
 	return surfaceSize.X / surfaceSize.Y
