@@ -14,6 +14,7 @@ local Remotes = root.Remotes
 local Config = require(root.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
+local t = require(script.Parent.Parent.t)
 local Maid = require(script.Parent.Util.Maid)
 local Persistence = require(root.Persistence)
 local Binder = require(root.Util.Binder)
@@ -70,6 +71,19 @@ function Server:Start()
 		if board and self.DataStore and not board:IsLoadPending() then
 			board:LoadFromDataStore(self.DataStore)
 		end
+	end)
+
+	Remotes.RequestVRChalk.OnServerEvent:Connect(function(player: Player)
+		local penToolTemplate = ReplicatedStorage:FindFirstChild("Chalk")
+		assert(t.instanceOf("Tool", {
+			Handle = t.instanceOf("MeshPart", {
+				Attachment = t.instanceOf("Attachment")
+			})
+		})(penToolTemplate))
+
+		local penTool: Tool = penToolTemplate:Clone()
+		penTool.CanBeDropped = false
+		penTool.Parent = player:WaitForChild("Backpack")
 	end)
 
 	self.BoardServerBinder:Start()

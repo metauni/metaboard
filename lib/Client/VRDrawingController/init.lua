@@ -16,6 +16,8 @@ local FreeHand = require(root.DrawingTask.FreeHand)
 local t = (require)(root.Parent.t)
 local Config = require(root.Config)
 
+local Remotes = script.Parent.Parent.Remotes
+
 local DEBUG = false
 
 local NEARBY_BOARD_RADIUS = 50
@@ -399,16 +401,8 @@ return {
 
 		if VRService.VREnabled then
 
-			local penToolTemplate = ReplicatedStorage:FindFirstChild("Chalk")
-			assert(t.instanceOf("Tool", {
-				Handle = t.instanceOf("MeshPart", {
-					Attachment = t.instanceOf("Attachment")
-				})
-			})(penToolTemplate))
-
-			local penTool: Tool = penToolTemplate:Clone()
-			penTool.CanBeDropped = false
-			penTool.Parent = Players.LocalPlayer:WaitForChild("Backpack")
+			Remotes.RequestVRChalk:FireServer()
+			local penTool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Chalk")
 			
 			ControllerMaid._watchPen = watchPen(penTool)
 

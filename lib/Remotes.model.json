@@ -4,6 +4,10 @@
 		{
 			"Name": "RequestBoardInit",
 			"ClassName": "RemoteEvent"
+		},
+		{
+			"Name": "RequestVRChalk",
+			"ClassName": "RemoteEvent"
 		}
 	]
 }
