@@ -402,6 +402,8 @@ return {
 		if VRService.VREnabled then
 
 			Remotes.RequestVRChalk:FireServer()
+            task.wait(3)
+
 			local penTool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Chalk")
 			
 			ControllerMaid._watchPen = watchPen(penTool)
