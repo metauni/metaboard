@@ -45,6 +45,8 @@ function BoardServer.new(part: Part): BoardServer
 
 	local self = setmetatable(BaseObject.new(part), BoardServer)
 
+	part.CollisionGroup = "Board"
+
 	-- Will be nil until Loaded.Value = true
 	self.State = nil
 	-- Fires at most once per-frame

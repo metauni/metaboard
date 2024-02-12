@@ -9,21 +9,23 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local VRService = game:GetService("VRService")
 
 -- Imports
 local root = script.Parent
+local Maid = require(ReplicatedStorage.Packages.metaboard.Util.Maid)
+local Blend = require(ReplicatedStorage.Util.Blend)
+local Promise = require(ReplicatedStorage.Util.Promise)
 local Config = require(root.Config)
 local BoardClient = require(script.BoardClient)
 local Feather = require(root.Parent.Feather)
 local BoardState = require(root.BoardState)
 local Binder = require(root.Util.Binder)
 local ValueObject = require(root.Util.ValueObject)
-local Sift = require(root.Parent.Sift)
 local SurfaceCanvas = require(script.SurfaceCanvas)
 local VRDrawingController = require(script.VRDrawingController)
 local DrawingUI = require(root.DrawingUI)
-local VRInput = require(script.VRInput)
 
 local Remotes = root.Remotes
 
@@ -52,30 +54,198 @@ Client.SurfaceCanvasBinder = Binder.new("SurfaceCanvas", SurfaceCanvas, Client)
 
 
 function Client:Init()
-	self.OpenedBoardPart = ValueObject.new(nil)
+	self._maid = Maid.new()
+	self.OpenedBoard = ValueObject.new(nil)
+	self.BoardSelectionMode = ValueObject.new(false)
+	self.HoveredBoard = ValueObject.new(nil)
 
 	self.BoardClientBinder:Init()
 	self.SurfaceCanvasBinder:Init()
 end
 
-function Client:OpenBoard(part: Part)
+function Client:OpenBoard(board: BoardClient.BoardClient)
+	local onClose = function()
+		self._maid._drawingUI = nil
+		task.wait()
+		self.OpenedBoard.Value = nil
+	end
+	self._maid._drawingUI = DrawingUI(board, "Gui", onClose)
+	self.OpenedBoard.Value = board
+end
 
-	local board = self.BoardClientBinder:Get(part)
-	if not board then
-		return
+function Client:CloseBoard()
+	self._maid._drawingUI = nil
+	self.OpenedBoard.Value = nil
+end
+
+-- For preventing boards opens while clicking on gui elements
+-- gameProcessedEvent isn't always reliable (e.g. semi-transparent gui elements)
+local function obscuredByGuiObject(screenPos: Vector2 | Vector3)
+	local objects = Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(screenPos.X, screenPos.Y)
+	for _, object in objects do
+		if object.Visible and object.Transparency ~= 1 then
+			return true
+		end
+	end
+	return false
+end
+
+function Client:GetHoveredBoard(screenPos: Vector2 | Vector3): BoardClient.BoardClient?
+
+	local unitRay = workspace.CurrentCamera:ScreenPointToRay(screenPos.X, screenPos.Y)
+
+	local boardRaycastParams = RaycastParams.new()
+	boardRaycastParams.FilterType = Enum.RaycastFilterType.Include
+	boardRaycastParams.FilterDescendantsInstances = CollectionService:GetTagged("BoardClient")
+	
+	local raycastResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, boardRaycastParams)
+	if not raycastResult then
+		return nil
 	end
 
-	DrawingUI(board, "Gui", function()
-		-- This function is called when the Drawing UI is closed
-		self.OpenedBoardPart.Value = nil
+	local board = self.BoardClientBinder:Get(raycastResult.Instance)
+	if not board then
+		return nil
+	end
+
+	if board:GetSurfaceCFrame().LookVector:Dot(workspace.CurrentCamera.CFrame.LookVector) >= 0 then
+		-- Board not facing camera
+		return nil
+	end
+
+	return board
+end
+
+-- Returns promise of selected board and maid
+function Client:PromiseBoardSelection()
+	local maid = Maid.new()
+	
+	self.BoardSelectionMode.Value = true
+
+	local promise = Promise.new(function(resolve)
+		if UserInputService.TouchEnabled then
+			maid:Add(UserInputService.TouchTapInWorld:Connect(function(position: Vector2, gameProcessedEvent: boolean)
+				if gameProcessedEvent or obscuredByGuiObject(position) then
+					return
+				end
+		
+				local board = self:GetHoveredBoard(position)
+				resolve(board) -- could be nil
+			end))
+		else
+			maid:Add(UserInputService.InputBegan:Connect(function(inputObject: InputObject, gameProcessedEvent: boolean)
+				if gameProcessedEvent or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 or obscuredByGuiObject(inputObject.Position) then
+					return
+				end
+		
+				local board = self:GetHoveredBoard(inputObject.Position, true)
+				resolve(board) -- could be nil
+			end))
+		end
 	end)
 
-	self.OpenedBoardPart.Value = part
+	promise:Finally(function()
+		Maid.cleanTask(maid)
+	end)
+
+	maid:Add(function()
+		if not Promise.IsFulfilled(promise) then
+			Promise.Reject(Promise)
+		end
+		task.defer(function()
+			self.BoardSelectionMode.Value = false
+		end)
+	end)
+
+	return promise, maid
 end
 
 function Client:Start()
 	self.BoardClientBinder:Start()
 	self.SurfaceCanvasBinder:Start()
+
+	self.BoardClientBinder:GetClassRemovingSignal():Connect(function(board)
+		if self.OpenedBoard.Value == board then
+			self:CloseBoard()
+		end
+	end)
+
+	if UserInputService.TouchEnabled then
+		UserInputService.TouchTapInWorld:Connect(function(position: Vector2, processedByUI: boolean)
+			if processedByUI or self.OpenedBoard.Value or self.BoardSelectionMode.Value or obscuredByGuiObject(position) then
+				return
+			end
+	
+			local board = self:GetHoveredBoard(position)
+			if board then
+				self:OpenBoard(board)
+			end
+		end)
+	else
+
+		UserInputService.InputChanged:Connect(function(inputObject: InputObject)
+			if inputObject.UserInputType ~= Enum.UserInputType.MouseMovement and inputObject.UserInputType ~= Enum.UserInputType.Touch then
+				return
+			end
+	
+			local board = self:GetHoveredBoard(inputObject.Position)
+			self.HoveredBoard.Value = board
+		end)
+
+		Blend.Single(Blend.Dynamic(self.HoveredBoard, function(board: BoardClient.BoardClient?)
+			if not board then
+				return nil
+			end
+	
+			return Blend.New "Highlight" {
+				Parent = board:GetPart(),
+				Archivable = false,
+				FillColor = Color3.new(1,1,1),
+				FillTransparency = 0.6,
+				OutlineTransparency = 1,
+				Name = "BoardHover"
+			}
+		end)):Subscribe()
+
+		local clickBeganBoard = nil
+
+		self.HoveredBoard.Changed:Connect(function(board)
+			if board == nil then
+				clickBeganBoard = nil
+			end
+		end)
+
+		UserInputService.InputBegan:Connect(function(inputObject: InputObject, gameProcessedEvent: boolean)
+			if gameProcessedEvent or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 then
+				return
+			end
+			if self.OpenedBoard.Value or self.BoardSelectionMode.Value or obscuredByGuiObject(inputObject.Position) then
+				return
+			end
+	
+			local board = self:GetHoveredBoard(inputObject.Position)
+			if board then
+				clickBeganBoard = board
+			end
+		end)
+
+		UserInputService.InputEnded:Connect(function(inputObject: InputObject, gameProcessedEvent: boolean)
+			if gameProcessedEvent or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 then
+				clickBeganBoard = nil
+				return
+			end
+			if self.OpenedBoard.Value or self.BoardSelectionMode.Value or obscuredByGuiObject(inputObject.Position) then
+				clickBeganBoard = nil
+				return
+			end
+	
+			local board = self:GetHoveredBoard(inputObject.Position)
+			if board and board == clickBeganBoard then
+				self:OpenBoard(board)
+			end
+			clickBeganBoard = nil
+		end)
+	end
 
 	self._surrenderedCanvasTrees = {}
 	self.SurfaceCanvasBinder:GetClassRemovingSignal():Connect(function(surfaceCanvas)

@@ -23,9 +23,14 @@ return function(board, boardViewMode, onClose)
 	local handle, dataUpdateConnection
 
 	local function destroy()
-		Roact.unmount(handle)
-		dataUpdateConnection:Disconnect()
-		onClose()
+		if handle then
+			Roact.unmount(handle)
+			handle = nil
+		end
+		if dataUpdateConnection then
+			dataUpdateConnection:Disconnect()
+			dataUpdateConnection = nil
+		end
 	end
 
 	local makeApp = function()
@@ -39,9 +44,7 @@ return function(board, boardViewMode, onClose)
 			Board = board,
 			AspectRatio = board.State.AspectRatio,
 
-			OnClose = function()
-				destroy()
-			end,
+			OnClose = onClose,
 
 			Figures = board.State.Figures,
 			DrawingTasks = board.State.DrawingTasks,

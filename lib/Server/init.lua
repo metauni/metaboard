@@ -6,6 +6,7 @@
 
 -- Services
 local CollectionService = game:GetService("CollectionService")
+local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
@@ -38,6 +39,8 @@ function Server:Init()
 end
 
 function Server:Start()
+
+	PhysicsService:RegisterCollisionGroup("Board")
 
 	local promise = self:promiseDataStore()
 		:Then(function(datastore: DataStore)

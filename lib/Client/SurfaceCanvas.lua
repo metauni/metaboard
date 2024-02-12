@@ -13,7 +13,6 @@ local ValueObject = require(root.Util.ValueObject)
 local Blend = require(root.Util.Blend)
 local Sift = require(root.Parent.Sift)
 local BoardUtils = require(root.BoardUtils)
-local BoardButton = require(script.Parent.BoardButton)
 local BoardState = require(script.Parent.Parent.BoardState)
 local Rx = require(root.Util.Rx)
 local Rxi = require(root.Util.Rxi)
@@ -68,21 +67,6 @@ function SurfaceCanvas.new(part: Part, service)
 			Feather.unmount(self.CanvasTree)
 		end
 	end)
-
-	self._maid:GiveTask(
-		BoardButton {
-			Active = Blend.Computed(service.OpenedBoardPart, self.Loading, function(openedBoardPart: Part, isLoading: boolean)
-				return not isLoading and openedBoardPart == nil
-			end),
-			SurfaceCFrame = self.SurfaceCFrame,
-			SurfaceSize = self.SurfaceSize,
-			OnClick = function()
-				service:OpenBoard(self._obj)
-			end,
-		}:Subscribe(function(button)
-			button.Parent = workspace
-		end)
-	)
 
 	self._maid:GiveTask(service.BoardClientBinder:Observe(self._obj):Subscribe(function(board)
 		if not board then
