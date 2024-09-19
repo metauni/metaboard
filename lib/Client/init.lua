@@ -82,15 +82,28 @@ end
 -- gameProcessedEvent isn't always reliable (e.g. semi-transparent gui elements)
 local function obscuredByGuiObject(screenPos: Vector2 | Vector3)
 	local objects = Players.LocalPlayer.PlayerGui:GetGuiObjectsAtPosition(screenPos.X, screenPos.Y)
+	
 	for _, object in objects do
-		if object.Visible and object.Transparency ~= 1 then
+		if not object.Visible then
+			continue
+		end
+		if object.BackgroundTransparency < 1 then
 			return true
+		end
+		if object:IsA("ImageButton") or object:IsA("ImageLabel") then
+			if object.ImageTransparency < 1 then
+				return true
+			end
 		end
 	end
 	return false
 end
 
 function Client:GetHoveredBoard(screenPos: Vector2 | Vector3): BoardClient.BoardClient?
+
+	if obscuredByGuiObject(screenPos) then
+		return nil
+	end
 
 	local unitRay = workspace.CurrentCamera:ScreenPointToRay(screenPos.X, screenPos.Y)
 
@@ -124,8 +137,11 @@ function Client:PromiseBoardSelection()
 
 	local promise = Promise.new(function(resolve)
 		if UserInputService.TouchEnabled then
-			maid:Add(UserInputService.TouchTapInWorld:Connect(function(position: Vector2, gameProcessedEvent: boolean)
-				if gameProcessedEvent or obscuredByGuiObject(position) then
+			maid:Add(UserInputService.TouchTapInWorld:Connect(function(position: Vector2, processedByUI: boolean)
+				local ignore = processedByUI
+					or self.OpenedBoard.Value
+					or self.BoardSelectionMode.Value
+				if ignore then
 					return
 				end
 		
@@ -133,8 +149,12 @@ function Client:PromiseBoardSelection()
 				resolve(board) -- could be nil
 			end))
 		else
-			maid:Add(UserInputService.InputBegan:Connect(function(inputObject: InputObject, gameProcessedEvent: boolean)
-				if gameProcessedEvent or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 or obscuredByGuiObject(inputObject.Position) then
+			maid:Add(UserInputService.InputBegan:Connect(function(inputObject: InputObject, processedByUI: boolean)
+				local ignore = processedByUI
+					or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
+					or self.OpenedBoard.Value
+					or self.BoardSelectionMode.Value
+				if ignore then
 					return
 				end
 		
@@ -150,7 +170,7 @@ function Client:PromiseBoardSelection()
 
 	maid:Add(function()
 		if not Promise.IsFulfilled(promise) then
-			Promise.Reject(Promise)
+			promise:Reject()
 		end
 		task.defer(function()
 			self.BoardSelectionMode.Value = false
@@ -172,7 +192,10 @@ function Client:Start()
 
 	if UserInputService.TouchEnabled then
 		UserInputService.TouchTapInWorld:Connect(function(position: Vector2, processedByUI: boolean)
-			if processedByUI or self.OpenedBoard.Value or self.BoardSelectionMode.Value or obscuredByGuiObject(position) then
+			local ignore = processedByUI
+				or self.OpenedBoard.Value
+				or self.BoardSelectionMode.Value
+			if ignore then
 				return
 			end
 	
@@ -184,10 +207,10 @@ function Client:Start()
 	else
 
 		UserInputService.InputChanged:Connect(function(inputObject: InputObject)
-			if inputObject.UserInputType ~= Enum.UserInputType.MouseMovement and inputObject.UserInputType ~= Enum.UserInputType.Touch then
+			if self.OpenedBoard.Value then
+				self.HoveredBoard.Value = nil
 				return
 			end
-	
 			local board = self:GetHoveredBoard(inputObject.Position)
 			self.HoveredBoard.Value = board
 		end)
@@ -216,10 +239,11 @@ function Client:Start()
 		end)
 
 		UserInputService.InputBegan:Connect(function(inputObject: InputObject, gameProcessedEvent: boolean)
-			if gameProcessedEvent or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1 then
-				return
-			end
-			if self.OpenedBoard.Value or self.BoardSelectionMode.Value or obscuredByGuiObject(inputObject.Position) then
+			local ignore = gameProcessedEvent
+				or inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
+				or self.OpenedBoard.Value
+				or self.BoardSelectionMode.Value
+			if ignore then
 				return
 			end
 	
@@ -241,6 +265,7 @@ function Client:Start()
 	
 			local board = self:GetHoveredBoard(inputObject.Position)
 			if board and board == clickBeganBoard then
+				self.HoveredBoard.Value = nil
 				self:OpenBoard(board)
 			end
 			clickBeganBoard = nil
