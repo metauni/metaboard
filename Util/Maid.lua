@@ -319,9 +319,6 @@ Maid.Destroy = Maid.DoCleaning
 		local maid = Maid.new()
 		local cleanup = maid:Wrap()
 		cleanup() --> maid is cleaned
-
-		local thread = Instance.
-		Maid.Wrap()
 	```
 ]]
 function Maid.Wrap(maidOrTask)
@@ -329,5 +326,7 @@ function Maid.Wrap(maidOrTask)
 		Maid.cleanTask(maidOrTask)
 	end
 end
+
+Maid.GetDestroy = Maid.Wrap
 
 return Maid

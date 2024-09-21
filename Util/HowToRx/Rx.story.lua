@@ -168,5 +168,3 @@ return function()
 	-- return example1()
 	-- return example2()
 end
-
--- test change 3

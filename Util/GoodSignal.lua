@@ -1,6 +1,3 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local Signal = require(ReplicatedStorage.Packages.Icon.Signal)
 --------------------------------------------------------------------------------
 --               Batched Yield-Safe Signal Implementation                     --
 -- This is a Signal class which has effectively identical behavior to a       --
@@ -66,15 +63,21 @@ end
 
 -- Connection class
 local Connection = {}
+Connection.ClassName = "Connection"
 Connection.__index = Connection
 
-function Connection.new(signal, fn)
+export type Connection = {
+	Disconnect: (self: any) -> (),
+	Destroy: (self: any) -> (),
+}
+
+function Connection.new(signal, fn): Connection
 	return setmetatable({
 		_connected = true,
 		_signal = signal,
 		_fn = fn,
 		_next = false,
-	}, Connection)
+	}, Connection) :: any
 end
 
 function Connection:Disconnect()
@@ -118,10 +121,19 @@ function Signal.isSignal(v)
 	return getmetatable(v) == Signal or getmetatable(v) and getmetatable(v).ClassName == Signal.ClassName
 end
 
-function Signal.new()
+export type Signal<T...> = {
+	Connect: (self: Signal<T...>, fn: (T...) -> ()) -> Connection,
+	Once: (self: Signal<T...>, fn: (T...) -> ()) -> Connection,
+	Wait: (self: Signal<T...>) -> T...,
+	Fire: (self: Signal<T...>, T...) -> (),
+	DisconnectAll: (self: Signal<T...>) -> (),
+	Destroy: (self: Signal<T...>) -> (),
+}
+
+function Signal.new<T...>(): Signal<T...>
 	return setmetatable({
 		_handlerListHead = false,
-	}, Signal)
+	}, Signal) :: any
 end
 
 function Signal:Connect(fn)
