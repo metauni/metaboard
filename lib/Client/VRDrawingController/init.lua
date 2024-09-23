@@ -6,6 +6,8 @@ local UserInputService = game:GetService("UserInputService")
 local VRService = game:GetService("VRService")
 
 local root = script.Parent.Parent
+local Stream = require(ReplicatedStorage.Util.Stream)
+local Client = require(script.Parent)
 local Maid = require(root.Util.Maid)
 local ValueObject = require(root.Util.ValueObject)
 local BoardClient = require(script.Parent.BoardClient)
@@ -23,8 +25,6 @@ local DEBUG = false
 local NEARBY_BOARD_RADIUS = 50
 local ACTIVE_PEN_DISTANCE = 0.06
 local RIGHT_RUMBLE_SUPPORTED = HapticService:IsVibrationSupported(Enum.UserInputType.Gamepad1) and HapticService:IsMotorSupported(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.RightHand)
-
-local ControllerMaid = Maid.new()
 
 type ToolState = { 
 	PenWidth: number,
@@ -290,36 +290,66 @@ local function watchPen(penTool: Tool): Maid.Task
 	return cleanup
 end
 
-local function observeNearestBoards(boardClientBinder)
-	return Rx.observable(function(sub)
+local function streamNearestBoards(interval: number): Stream.Stream<{BoardClient.BoardClient}>
+	return function(listener)
 		local cleanup = {}
+
 		local function update()
-			local boards = {}
 			local character = Players.LocalPlayer.Character
 			if not character or not character:FindFirstChild("HumanoidRootPart") then
-				sub:Fire({})
+				listener({})
 				return
 			end
-			for board in boardClientBinder:GetAllSet() do
+
+			local boards = {}
+			for _, board in Client.Boards.Map do
 				local boardPos = board:GetSurfaceCFrame().Position
 				if (boardPos - character:GetPivot().Position).Magnitude <= NEARBY_BOARD_RADIUS then
-					table.insert(boards, {board, boardPos})
+					table.insert(boards, board)
 				end
 			end
-			sub:Fire(boards)
+			listener(boards)
 		end
 
-		table.insert(cleanup, boardClientBinder:GetClassAddedSignal():Connect(update))
-		table.insert(cleanup, boardClientBinder:GetClassRemovedSignal():Connect(update))
+		table.insert(cleanup, Client.Boards:StreamPairs()(update))
 		table.insert(cleanup, task.spawn(function()
 			while true do
 				update()
-				task.wait(2)
+				task.wait(interval)
 			end
 		end))
 
 		return cleanup
-	end)
+	end
+end
+
+--[[
+	Emit the closest board every frame, from some fixed array of boards
+]]
+local function streamClosestBoardToPen(penTool, boards: {BoardClient.BoardClient}): Stream.Stream<BoardClient.BoardClient?>
+	return function(listener)
+		return RunService.RenderStepped:Connect(function()
+			local penTipCFrame = getPenTipCFrame(penTool)
+			if not penTipCFrame then
+				listener(nil)
+				return
+			end
+			
+			local closest, dist = nil, math.huge
+			for _, board in boards do
+				local boardPos = board:GetSurfaceCFrame().Position
+				if not board:GetPart():IsDescendantOf(workspace) then
+					continue
+				end
+				-- TODO: this is bad because it doesn't take into account SurfaceSize
+				local boardDist = (boardPos - penTipCFrame.Position).Magnitude
+				if boardDist < dist then
+					closest, dist = board, boardDist
+				end
+			end
+			listener(closest)
+		end)
+	end
 end
 
 local function debugGui(penTool)
@@ -397,7 +427,7 @@ end
 
 return {
 	
-	StartWithBinder = function(boardClientBinder)
+	Start = function()
 
 		if VRService.VREnabled then
 
@@ -406,44 +436,19 @@ return {
 
 			local penTool = Players.LocalPlayer:WaitForChild("Backpack"):WaitForChild("Chalk")
 			
-			ControllerMaid._watchPen = watchPen(penTool)
+			local _ = watchPen(penTool)
 
-			--[[
-				Every frame, find the closest board amongst the boards within NEARBY_BOARD_RADIUS
-				which is a set of boards updated every 2 seconds
-			]]
-			ControllerMaid._closest = observeNearestBoards(boardClientBinder):Pipe {
-				Rx.switchMap(function(boards)
-					return Rx.observable(function(sub)
-						return RunService.RenderStepped:Connect(function()
-							local penTipCFrame = getPenTipCFrame(penTool)
-							if not penTipCFrame then
-								sub:Fire(nil)
-								return
-							end
-							
-							local closest, dist = nil, math.huge
-							for _, item in boards do
-								local board, boardPos = item[1], item[2]
-								if not board:GetPart():IsDescendantOf(workspace) then
-									continue
-								end
-								-- TODO: this is bad because it doesn't take into account SurfaceSize
-								local boardDist = (boardPos - penTipCFrame.Position).Magnitude
-								if boardDist < dist then
-									closest, dist = board, boardDist
-								end
-							end
-							sub:Fire(closest)
-						end)
-					end)
+			_ = Stream.pipe1(
+				streamNearestBoards(2),
+				Stream.switchMap(function(boards)
+					return streamClosestBoardToPen(boards, penTool)
 				end)
-			}:Subscribe(function(closestBoard: BoardClient.BoardClient?)
+			)(function(closestBoard: BoardClient.BoardClient?)
 				ClosestBoard.Value = closestBoard
 			end)
 
 			if DEBUG and Players.LocalPlayer.UserId == 2293079954 then
-				ControllerMaid._debug = Blend.mount(Players.LocalPlayer.PlayerGui, {
+				_ = Blend.mount(Players.LocalPlayer.PlayerGui, {
 					debugGui(penTool)
 				})
 			end

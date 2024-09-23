@@ -68,7 +68,7 @@ function SurfaceCanvas.new(part: Part, service)
 		end
 	end)
 
-	self._maid:GiveTask(service.BoardClientBinder:Observe(self._obj):Subscribe(function(board)
+	self._maid:GiveTask(service.Boards:StreamKey(self._obj)(function(board)
 		if not board then
 			self._maid.board = nil
 			if self.CanvasTree then
