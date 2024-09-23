@@ -11,7 +11,12 @@ export type Map<K,V> = {
 	-- Updates self.Map[key], fires a change if it's different
 	Set: (self: Map<K,V>, key: K, value: V?) -> (),
 	Changed: Signal<K,V?>,
+	
 	StreamPairs: (self: Map<K,V>) -> Stream<K,V?>,
+	StreamKey: (self: Map<K,V>, key: K) -> Stream<V?>,
+	Wait: (self: Map<K,V>, key: K) -> V,
+	ListenTidyPairs: (self: Map<K,V>, tidyListender: (K,V) -> Stream.CleanupTask) -> Stream.CleanupTask,
+	Destroy: (self: Map<K,V>) -> (),
 }
 
 local Map = {}
@@ -33,6 +38,33 @@ end
 
 function Map.StreamPairs<K,V>(self: Map<K,V>): Stream<K,V?>
 	return (self :: any)._stream
+end
+
+function Map.StreamKey<K,V>(self: Map<K,V>, key: K): Stream<V?>
+	return function(listener)
+		--[[
+			This is probably suboptimal, but I think using this is an anti-pattern
+			anyway.
+		]]
+		return (self :: any)._stream(function(changedKey, value)
+			if changedKey == key then
+				listener(value)
+			end
+		end)
+	end
+end
+
+function Map.Wait<K,V>(self: Map<K,V>, key: K): V
+	if self.Map[key] ~= nil then
+		return self.Map[key]
+	end
+	
+	while true do
+		local changedKey, value = self.Changed:Wait()
+		if changedKey == key and value ~= nil then
+			return value
+		end
+	end
 end
 
 function Map.ListenTidyPairs<K,V>(self: Map<K,V>, tidyListender: (K,V) -> Stream.CleanupTask): Stream.CleanupTask
