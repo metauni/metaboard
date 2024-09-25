@@ -392,18 +392,16 @@ end
 
 function Client:Start()
 
-	CollectionService:GetInstanceRemovedSignal("BoardClient"):Connect(function(part: Instance)
-		local board = Client.Boards:Get(part)
-		if board then
-			Client.Boards:Set(part, nil)
-			board:Destroy()
-		end
-	end)
-
-	Stream.listenTidyEach(Stream.eachTagged("BoardClient"), function(part: Instance)
-		if Client.Boards:Get(part) ~= nil then
+	Stream.listenTidyPairs(Stream.eachTagged("BoardClient"), function(part: Instance, alive: boolean)
+		if not alive then
+			local board = Client.Boards:Get(part)
+			if board then
+				Client.Boards:Set(part, nil)
+				board:Destroy()
+			end
 			return
 		end
+		
 		local board = BoardClient.new(part)
 
 		-- Return this coroutine so it gets cancelled if board is untagged before
