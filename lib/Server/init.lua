@@ -5,38 +5,27 @@
 -- --]]
 
 -- Services
-local CollectionService = game:GetService("CollectionService")
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Imports
 local root = script.Parent
 local Remotes = root.Remotes
+local Map = require(ReplicatedStorage.Util.Map)
+local Stream = require(ReplicatedStorage.Util.Stream)
 local Config = require(root.Config)
 local DataStoreService = Config.Persistence.DataStoreService
 local BoardServer = require(script.BoardServer)
 local t = require(script.Parent.Parent.t)
-local Maid = require(script.Parent.Util.Maid)
 local Persistence = require(root.Persistence)
-local Binder = require(root.Util.Binder)
-local Rxi = require(root.Util.Rxi)
--- local GoodSignal = require(root.Parent.GoodSignal)
 local Promise = require(root.Util.Promise)
 local Sift = require(root.Parent.Sift)
-local Array, Set, Dictionary = Sift.Array, Sift.Set, Sift.Dictionary
+
+local ChangedSinceStore = {}
 
 local Server = {
-
-	_changedSinceStore = {},
+	Boards = Map({} :: {[BasePart]: BoardServer.BoardServer}),
 }
-Server.__index = Server
-
-function Server:Init()
-	self.BoardServerBinder = Binder.new("BoardServer", function(part: Part)
-		return self:_bindBoardServer(part)
-	end)
-	self.BoardServerBinder:Init()
-end
 
 function Server:Start()
 
@@ -62,18 +51,14 @@ function Server:Start()
 	end)
 
 	--[[
-		1. Clients request things tagged as "metaboard" when they are close to them
+		1. Clients fire remote event to request things tagged as "metaboard" when they are close to them
 			(and they don't have a local board setup yet)
-		2. Server binds board as "BoardServer" object and loads data from datastore
-		3. Once ready, Server tags board as "BoardClient"
+		2. Server tags valid metaboards as "BoardServer", and loads data from datastore
+		3. Once ready, server tags board as "BoardClient"
 		4. Client binds local board behaviour to this tag.
 	]]
 	Remotes.RequestBoardInit.OnServerEvent:Connect(function(_player: Player, part: Part)
-		local board = self.BoardServerBinder:Bind(part)
-		-- This will do nothing unless there's a datastore
-		if board and self.DataStore and not board:IsLoadPending() then
-			board:LoadFromDataStore(self.DataStore)
-		end
+		Server:MakeBoardServer(part)
 	end)
 
 	Remotes.RequestVRChalk.OnServerEvent:Connect(function(player: Player)
@@ -88,19 +73,30 @@ function Server:Start()
 		penTool.CanBeDropped = false
 		penTool.Parent = player:WaitForChild("Backpack")
 	end)
-
-	self.BoardServerBinder:Start()
 end
 
-function Server:_bindBoardServer(part: Part)
+function Server:MakeBoardServer(part: BasePart)
+	assert(t.instanceIsA("BasePart")(part))
+	if not part:HasTag("metaboard") then
+		error(`[metaboard] Remotes.RequestBoardInit for {part:GetFullName()} not tagged as metaboard`)
+	end
 
-	local board = BoardServer.new(part)
-	local persistId = board:GetPersistId()
-	
-	self._boardMaid = self._boardMaid or Maid.new()
+	local board = Server.Boards:Get(part)
+	if board then
+		return board
+	end
+
+	board = BoardServer.new(part)
+
 	local cleanup = {}
-	self._boardMaid[part] = cleanup
 
+	-- This will do nothing unless there's a datastore
+	if board and self.DataStore and not board:IsLoadPending() then
+		board:LoadFromDataStore(self.DataStore)
+	end
+
+	-- I think my refactor of the Rupe-Goldberg machine has collapsed
+	-- into what could just be "do this, yield, then do that" (see LoadFromDataStore above)
 	table.insert(cleanup, board.Loaded.Changed:Connect(function(isLoaded: boolean)
 		if isLoaded then
 			board:ConnectRemotes()
@@ -110,9 +106,10 @@ function Server:_bindBoardServer(part: Part)
 		end
 	end))
 
+	local persistId = board:GetPersistId()
 	if persistId then
 		table.insert(cleanup, board.StateChanged:Connect(function()
-			self._changedSinceStore[persistId] = board
+			ChangedSinceStore[persistId] = board
 		end))
 		table.insert(cleanup, board.BeforeClearSignal:Connect(function()
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
@@ -122,6 +119,7 @@ function Server:_bindBoardServer(part: Part)
 		end))
 	end
 
+	Server.Boards:SetTidy(part, board, cleanup)
 	return board
 end
 
@@ -157,24 +155,24 @@ end
 function Server:_startAutoSaver()
 	game:BindToClose(function()
 	
-		if next(self._changedSinceStore) then
+		if next(ChangedSinceStore) then
 			
 			print(
 				string.format(
 					"[metaboard] Storing %d boards on-close. SetIncrementAsync budget is %s.",
-					Dictionary.count(self._changedSinceStore),
+					Sift.Dictionary.count(ChangedSinceStore),
 					DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementAsync)
 				)
 			)
 		end
 	
-		for persistId, board in pairs(self._changedSinceStore) do
+		for persistId, board in ChangedSinceStore do
 	
 			local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 			Persistence.StoreNow(self.DataStore, boardKey, board.State)
 		end
 	
-		self._changedSinceStore = {}
+		ChangedSinceStore = {}
 	end)
 	
 	task.spawn(function()
@@ -182,27 +180,27 @@ function Server:_startAutoSaver()
 	
 			task.wait(Config.Persistence.AutoSaveInterval)
 	
-			if next(self._changedSinceStore) then
-				print(("[BoardService] Storing %d boards"):format(Dictionary.count(self._changedSinceStore)))
+			if next(ChangedSinceStore) then
+				print(("[BoardService] Storing %d boards"):format(Sift.Dictionary.count(ChangedSinceStore)))
 			end
 	
-			for persistId, board in pairs(self._changedSinceStore) do
+			for persistId, board in ChangedSinceStore do
 	
 				local boardKey = Config.Persistence.PersistIdToBoardKey(persistId)
 				task.spawn(Persistence.StoreWhenBudget, self.DataStore, boardKey, board.State)
 			end
 	
-			self._changedSinceStore = {}
+			ChangedSinceStore = {}
 		end
 	end)
 end
 
 function Server:GetBoard(instance: Part)
-	return self.BoardServerBinder:Get(instance)
+	return self.Boards:Get(instance)
 end
 
 function Server:WaitForBoard(instance: Part)
-	return self.BoardServerBinder:Promise(instance):Wait()
+	return self.Boards:Wait(instance)
 end
 
 return Server
