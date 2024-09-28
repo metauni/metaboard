@@ -90,12 +90,8 @@ function Client:GetHoveredBoard(screenPos: Vector2 | Vector3): BoardClient.Board
 	end
 
 	local unitRay = workspace.CurrentCamera:ScreenPointToRay(screenPos.X, screenPos.Y)
-
-	local boardRaycastParams = RaycastParams.new()
-	boardRaycastParams.FilterType = Enum.RaycastFilterType.Include
-	boardRaycastParams.FilterDescendantsInstances = CollectionService:GetTagged("BoardClient")
 	
-	local raycastResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 500, boardRaycastParams)
+	local raycastResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 500)
 	if not raycastResult then
 		return nil
 	end
