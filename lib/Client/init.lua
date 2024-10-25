@@ -44,9 +44,6 @@ local Client = {
 	HoveredBoard = Value(nil),
 }
 
-local CanvasLoadingQueue = {}
-local SurrenderedCanvasTrees = {}
-
 function Client:OpenBoard(board: BoardClient.BoardClient)
 	local onClose = function()
 		self._maid._drawingUI = nil
@@ -193,9 +190,10 @@ local function setupBoardClickAndHover()
 
 			return U.new "Highlight" {
 				Parent = board:GetPart(),
+				DepthMode = Enum.HighlightDepthMode.Occluded,
 				Archivable = false,
 				FillColor = Color3.new(1,1,1),
-				FillTransparency = 0.6,
+				FillTransparency = 0.85,
 				OutlineTransparency = 1,
 				Name = "BoardHover"
 			}
@@ -244,6 +242,8 @@ local function setupBoardClickAndHover()
 	end
 end
 
+local SurrenderedCanvasTrees = {}
+
 local function startBoardStreamingBehaviour()
 	
 	task.spawn(function()
@@ -271,7 +271,13 @@ local function startBoardStreamingBehaviour()
 
 				if streamIn then
 					if not board then
-						Remotes.RequestBoardInit:FireServer(part)
+						-- Had bugs where client clones a board for the boardviewport,
+						-- removing the tags before parenting it inside PlayerGui, but it still
+						-- shows up here as a tagged board. Was happening in Symbolic Wilds
+						-- but not metauni-dev
+						if part:IsDescendantOf(workspace) then
+							Remotes.RequestBoardInit:FireServer(part)
+						end
 					elseif not surfaceCanvas then
 						surfaceCanvas = SurfaceCanvas.new(part, Client)
 						Client.SurfaceCanvases:Set(part, surfaceCanvas)
@@ -288,54 +294,57 @@ local function startBoardStreamingBehaviour()
 	end)
 end
 
+local CanvasLoadingQueue = {}
+
+local function buildCanvasLoadingQueue()
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return
+	end
+	local characterPos = character:GetPivot().Position
+
+	-- Sort the loading canvases by distance and store them in CanvasLoadingQueue
+	do
+		local nearestSet = {}
+		CanvasLoadingQueue = {}
+
+		while true do
+			local minSoFar = math.huge
+			local nearestCanvas = nil
+			for _, surfaceCanvas in Client.SurfaceCanvases.Map do
+				if 
+					not surfaceCanvas:GetPart():IsDescendantOf(workspace)
+					or not surfaceCanvas.Loading.Value
+					or nearestSet[surfaceCanvas]
+				then
+					continue
+				end
+
+				local distance = (surfaceCanvas.SurfaceCFrame.Value.Position - characterPos).Magnitude
+				if distance < minSoFar then
+					nearestCanvas = surfaceCanvas
+					minSoFar = distance
+				end
+			end
+
+			if nearestCanvas then
+				table.insert(CanvasLoadingQueue, nearestCanvas)
+				nearestSet[nearestCanvas] = true
+			else
+				break
+			end
+		end
+	end
+end
+
 local function startSurfaceCanvasLoading()
 	-- Sort all the boards by proximity to the character every 0.5 seconds
 	-- TODO: Holy smokes batman is this not optimised. We need a voronoi diagram and/or a heap.
 	-- Must not assume that boards don't move around.
-	
+
 	task.spawn(function()
-		
 		while true do
-			
-			local character = Players.LocalPlayer.Character
-			if not character then
-				task.wait(0.5)
-				continue
-			end
-			local characterPos = character:GetPivot().Position
-
-			-- Sort the loading canvases by distance and store them in CanvasLoadingQueue
-			do
-				local nearestSet = {}
-
-				while true do
-					local minSoFar = math.huge
-					local nearestCanvas = nil
-					for _, surfaceCanvas in Client.SurfaceCanvases.Map do
-						if 
-							not surfaceCanvas:GetPart():IsDescendantOf(workspace)
-							or not surfaceCanvas.Loading.Value
-							or nearestSet[surfaceCanvas]
-						then
-							continue
-						end
-
-						local distance = (surfaceCanvas.SurfaceCFrame.Value.Position - characterPos).Magnitude
-						if distance < minSoFar then
-							nearestCanvas = surfaceCanvas
-							minSoFar = distance
-						end
-					end
-
-					if nearestCanvas then
-						table.insert(CanvasLoadingQueue, nearestCanvas)
-						nearestSet[nearestCanvas] = true
-					else
-						break
-					end
-				end
-			end
-
+			buildCanvasLoadingQueue()
 			task.wait(0.5)
 		end
 	end)
